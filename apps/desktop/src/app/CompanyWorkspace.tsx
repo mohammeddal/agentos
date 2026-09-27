@@ -397,7 +397,6 @@ export function CompanyWorkspace() {
       lifecycle: updateLifecycle,
     },
     view,
-    companyName: company.name,
     theme,
     navigate: (next: WorkspaceView) => {
       if (next === "activity") setActivityKey("");

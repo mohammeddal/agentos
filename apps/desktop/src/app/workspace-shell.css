@@ -27,26 +27,6 @@
   padding: 1px 9px 10px;
   gap: 9px;
 }
-.co-workspace-name {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  border: 0;
-  background: none;
-  min-height: 34px;
-  padding: 7px 9px;
-  text-align: left;
-  font-size: 12px;
-}
-.co-workspace-name span {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.co-workspace-name svg {
-  color: var(--co-muted);
-}
 .co-find-trigger {
   display: flex;
   align-items: center;
@@ -452,7 +432,6 @@
     padding: 0 0 24px;
   }
   .co-sidebar .co-alpha,
-  .co-workspace-name,
   .co-find-trigger span,
   .co-find-trigger kbd,
   .co-sidebar nav > button > span,
@@ -531,7 +510,6 @@
   .co-mobile-navigation .co-sidebar-status {
     display: none;
   }
-  .co-mobile-navigation .co-workspace-name,
   .co-mobile-navigation .co-find-trigger,
   .co-mobile-navigation nav > button > span,
   .co-mobile-navigation .co-help span,
@@ -575,7 +553,6 @@
   .co-mobile-navigation .co-alpha {
     display: none;
   }
-  .co-mobile-navigation .co-workspace-name,
   .co-mobile-navigation .co-find-trigger span,
   .co-mobile-navigation nav > button > span:not(.co-small-domain),
   .co-mobile-navigation .co-help span,

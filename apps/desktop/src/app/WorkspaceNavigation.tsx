@@ -24,7 +24,6 @@ const icons = {
 
 export function WorkspaceNavigation({
   view,
-  companyName,
   theme,
   navigate,
   find,
@@ -35,7 +34,6 @@ export function WorkspaceNavigation({
   directory,
 }: {
   view: WorkspaceView;
-  companyName: string;
   theme: "light" | "dark";
   navigate: (view: WorkspaceView) => void;
   find: () => void;
@@ -53,10 +51,6 @@ export function WorkspaceNavigation({
       <button className="co-brand" onClick={() => navigate("start")} aria-label="AgentOS home">
         <AudioLines size={25} />
         AgentOS<span className="co-alpha">alpha</span>
-      </button>
-      <button className="co-workspace-name" onClick={rename} title="Rename company">
-        <Building2 size={15} />
-        <span>{companyName}</span>
       </button>
       <button
         className="co-find-trigger"
@@ -130,6 +124,10 @@ export function WorkspaceNavigation({
             <Settings2 size={16} /> Settings & help
           </summary>
           <div onClick={(event) => event.currentTarget.parentElement?.removeAttribute("open")}>
+            <button className="co-help" onClick={rename}>
+              <Building2 size={16} />
+              <span>Rename company</span>
+            </button>
             <button className="co-help" onClick={() => navigate("engines")}>
               <Settings2 size={16} />
               <span>Engines & notifications</span>
