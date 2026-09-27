@@ -22,6 +22,7 @@ import { EngineSetup } from "../engines/LiveExecution";
 import { ModelPicker } from "../engines/ModelPicker";
 import { engineId } from "../engines/live-runtime";
 import { AttachmentEditor } from "../attachments/Attachments";
+import { HelpTip } from "../../shared/HelpTip";
 
 export function CompanyStart({
   company,
@@ -229,11 +230,7 @@ export function CompanyStart({
           <h1>
             {chat ? chat.messages[0]?.text || "Conversation" : "What would you like to work on?"}
           </h1>
-          <p>
-            {chat
-              ? "Continue here. Steps, approvals, and logs are in Activity."
-              : "Ask a question. Or turn an idea into a task for your team."}
-          </p>
+          {chat && <p>Continue here. Steps, approvals, and logs are in Activity.</p>}
         </div>
         {!live.native || live.engines.some((e) => !e.installed) ? (
           <details className="co-start-setup">
@@ -270,13 +267,19 @@ export function CompanyStart({
             submit();
           }}
         >
-          <label className="co-prompt-label" htmlFor="company-prompt">
-            {draft.makeTask
-              ? "Describe the task"
-              : chat
-                ? "Continue the conversation"
-                : "Your prompt"}
-          </label>
+          <div className="co-prompt-label-row">
+            <label className="co-prompt-label" htmlFor="company-prompt">
+              {draft.makeTask
+                ? "Describe the task"
+                : chat
+                  ? "Continue the conversation"
+                  : "Your prompt"}
+            </label>
+            <HelpTip label="About prompts and privacy" align="end">
+              History stays on this Mac. Sending shares this prompt and its attachments with the
+              selected provider.
+            </HelpTip>
+          </div>
           <AttachmentEditor
             value={draft.attachments || []}
             onChange={(attachments) => update({ attachments })}
@@ -371,7 +374,10 @@ export function CompanyStart({
                 <ShieldCheck size={13} />
                 Your approval required
               </span>
-              <small>Add more assignees, schedules, and handoffs after creating the task.</small>
+              <HelpTip label="About quick tasks" align="end">
+                Create the task first, then use its editor or Workflow map for more assignees,
+                schedules, and handoffs.
+              </HelpTip>
             </div>
           ) : (
             <div className="co-prompt-provider">
@@ -486,9 +492,6 @@ export function CompanyStart({
             {storageError}
           </p>
         )}
-        <p className="co-prompt-hint">
-          History stays on this Mac. Sending uses your selected provider and its account limits.
-        </p>
       </div>
     </section>
   );

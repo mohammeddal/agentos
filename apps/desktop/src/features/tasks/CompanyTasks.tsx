@@ -57,12 +57,10 @@ const templates = [
 export function CompanyTasks({
   company,
   query,
-  create,
   edit,
 }: {
   company: Company;
   query: string;
-  create: () => void;
   edit: (task: CompanyTask) => void;
 }) {
   const live = useLiveRuntime();
@@ -86,13 +84,7 @@ export function CompanyTasks({
         <span>
           <ClipboardList size={30} />
         </span>
-        <h2>One task. The right team.</h2>
-        <p>Bring several domains together, or choose exactly which agents should take it on.</p>
-        <button className="co-button co-button-primary" onClick={create}>
-          <Plus size={15} />
-          Create your first task
-        </button>
-        <small>Choose Codex or Claude Code through your assigned agents.</small>
+        <h2>No tasks yet.</h2>
       </section>
     );
   const matchesStatus = (task: CompanyTask, filter: RunFilter | "planned") => {

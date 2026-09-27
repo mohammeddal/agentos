@@ -28,6 +28,7 @@ import {
   type FolderStatus,
   type ProjectFolder,
 } from "./project-directories";
+import { HelpTip } from "../../shared/HelpTip";
 import "./company-projects.css";
 
 type Scope = { projectId?: string; domain?: string; agentId?: string; shared?: boolean };
@@ -36,7 +37,6 @@ export function CompanyProjects({
   query,
   selectedId,
   select,
-  create,
   edit,
   createTask,
   editTask,
@@ -46,7 +46,6 @@ export function CompanyProjects({
   query: string;
   selectedId: string;
   select: (id: string) => void;
-  create: () => void;
   edit: (project: CompanyProject) => void;
   createTask: (projectId: string, domain?: string, agentId?: string) => void;
   editTask: (task: CompanyTask) => void;
@@ -82,16 +81,7 @@ export function CompanyProjects({
         <span>
           <FolderOpen size={30} />
         </span>
-        <h2>A home for every project.</h2>
-        <p>
-          Create projects at company level. Bring domains and agents together, with one place to
-          find their tasks and folders.
-        </p>
-        <button className="co-button co-button-primary" onClick={create}>
-          <Plus size={15} />
-          Create your first project
-        </button>
-        <small>Teams can belong to more than one project.</small>
+        <h2>No projects yet.</h2>
       </section>
     );
   return (
@@ -99,9 +89,6 @@ export function CompanyProjects({
       <aside className="co-project-tree">
         <header>
           <span>PROJECT EXPLORER</span>
-          <button aria-label="Add project" onClick={create}>
-            <Plus size={16} />
-          </button>
         </header>
         <div className="co-project-company">
           <Folder size={14} />
@@ -366,7 +353,13 @@ function ProjectDetail({
         <div>
           <FolderOpen size={18} />
           <strong>Local directory</strong>
-          <span>{status ? (exists ? "On disk" : "Not created") : "Not verified"}</span>
+          <HelpTip label="About project folders">
+            Folders are created only when requested. Team changes can add folders; AgentOS never
+            moves or removes existing files. Tasks run from the project root.
+          </HelpTip>
+          <span className="co-project-disk-status">
+            {status ? (exists ? "On disk" : "Not created") : "Not verified"}
+          </span>
         </div>
         <code>{path || (error ? "Directory unavailable" : "Checking directory…")}</code>
         <div className="co-project-folder-actions">
@@ -415,11 +408,6 @@ function ProjectDetail({
             <RefreshCw size={14} />
           </button>
         </div>
-        <p>
-          Folders are created only when you ask. Team changes can add folders; old folders and files
-          are never moved or removed. Native project tasks execute in the project root; domain and
-          agent folders organize your files.
-        </p>
         {error && (
           <p className="co-form-error" role="alert">
             {error}
@@ -528,7 +516,6 @@ export function ProjectForm({
           });
       }}
     >
-      <p>A company-level project can bring several domains and individual specialists together.</p>
       <label>
         Project name
         <input

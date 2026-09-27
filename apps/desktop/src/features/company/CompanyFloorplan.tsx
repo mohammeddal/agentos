@@ -33,7 +33,6 @@ type Props = {
   company: Company;
   query: string;
   openOffice: (id: string) => void;
-  addOffice: () => void;
   addAgent: (id: string) => void;
   editAgent: (officeId: string, agent: CompanyAgent) => void;
   inspectAgent: (officeId: string, agent: CompanyAgent) => void;
@@ -43,7 +42,6 @@ export function CompanyFloorplan({
   company,
   query,
   openOffice,
-  addOffice,
   addAgent,
   editAgent,
   inspectAgent,
@@ -379,49 +377,7 @@ export function CompanyFloorplan({
                         OFFICE {String(index + 1).padStart(2, "0")}
                       </text>
                     </g>
-                  ) : (
-                    <g
-                      key="expansion"
-                      className="fp-expansion"
-                      role="button"
-                      tabIndex={0}
-                      aria-label="Build another office"
-                      onClick={addOffice}
-                      onKeyDown={(e) => enter(e, addOffice)}
-                    >
-                      <rect
-                        x={x + 8}
-                        y={y + 8}
-                        width="354"
-                        height={roomHeight - 16}
-                        rx="5"
-                        fill="var(--fp-empty)"
-                        stroke="var(--fp-door)"
-                        strokeDasharray="6 6"
-                      />
-                      <path
-                        d={`M${x + 166} ${y + roomHeight / 2 - 23}h38 M${x + 185} ${y + roomHeight / 2 - 42}v38`}
-                        stroke="var(--fp-door)"
-                        strokeWidth="2"
-                      />
-                      <text
-                        x={x + 185}
-                        y={y + roomHeight / 2 + 15}
-                        textAnchor="middle"
-                        className="fp-office-name"
-                      >
-                        Room for what's next.
-                      </text>
-                      <text
-                        x={x + 185}
-                        y={y + roomHeight / 2 + 37}
-                        textAnchor="middle"
-                        className="fp-office-meta"
-                      >
-                        Build another office →
-                      </text>
-                    </g>
-                  ),
+                  ) : null,
                 )}
                 <Plant x={460} y={115} />
                 <Plant x={460} y={height - 105} />

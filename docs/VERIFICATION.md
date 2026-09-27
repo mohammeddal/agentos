@@ -6,6 +6,13 @@ This records the earlier UX-only change. For the subsequent native runtime integ
 
 ## Native execution follow-up
 
+### Interface restraint follow-up
+
+- Consolidated creation so Tasks, Projects, Offices, Agents, and Domains each have one visible page-level action. The Company map has one **Create…** menu; the duplicate expansion-room action, empty-state CTAs, add cards, office-open footer buttons, and sidebar project-plus button were removed. The sidebar’s three-dot menu remains its single global creation path.
+- Replaced repeated page descriptions, local-storage/privacy copy, agent instruction/skill explanations, and project-folder guidance with one reusable `?` help control. It exposes the same content on hover, keyboard focus, and tap with a tooltip role. Decision-critical warnings, validation, approvals, connection state, and destructive consequences remain inline.
+- Isolated Chromium checks covered Start, the directory menu, Tasks, Projects, the Company map, Offices, Agents, and Domains. Desktop and 390 × 844 map layouts were visually inspected; the help tooltip was confirmed in the accessibility tree on mobile; browser console errors were zero. No native records or provider runs were changed.
+- 180 Vitest tests across 28 files passed. Typecheck, formatting, whitespace checks, the 127-file source audit, and final `.app`/`.dmg` packaging passed.
+
 ### Task workflow map follow-up
 
 - Saved tasks now open with a persistent **Overview / Workflow map** switch. Overview preserves the existing execution and activity interface; Workflow map opens the expanded spatial builder and shows its saved block count when returning to Overview.

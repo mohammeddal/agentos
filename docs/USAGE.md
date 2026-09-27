@@ -22,7 +22,7 @@ Use **Attach files**, drop files onto the prompt area, or paste an image from th
 ## Sidebar directory
 
 - **Projects** expand to show their chats and tasks. Company-wide work appears under **Chats & tasks**. Use the directory search or Find anything to locate work.
-- The directory’s **three-dot menu** creates a project, chat, or task and opens **Archived items** or **Removed items**. A project’s menu creates work already scoped to that project. Chat/task menus offer new work of the same type, archive, and removal.
+- The directory’s **three-dot menu** is the single creation point in the sidebar: create a project, chat, or task, or open **Archived items** and **Removed items**. A project’s menu creates work already scoped to that project. Chat/task menus offer new work of the same type, archive, and removal.
 - **Archive** hides a record from active lists. Archiving a project hides its children without changing their individual state. Restore from Archived items; independently archived children remain archived.
 - **Remove** is recoverable, not permanent deletion. Confirm inside the app, then restore from Removed items if needed. Project files, conversation content, task definitions, and Activity run history are retained.
 - Active runs must be stopped or completed before archive/removal. Affected schedules—including schedules with linked task dependencies—are paused. Restoring never automatically re-enables them.
@@ -30,9 +30,11 @@ Use **Attach files**, drop files onto the prompt area, or paste an image from th
 
 The remaining planning-surface notes below predate native execution; consult [Live execution](LIVE-EXECUTION.md) for the current runtime matrix.
 
-**Company → Office map** opens the floor plan: a top-down floor plan generated from the saved offices and agents. Select a desk or roster entry to inspect an agent, switch to **Offices**, zoom the map, or create an office from the expansion area. Rooms grow to accommodate their team. **Preview activity** shows sample working/idle states; turn it off to see the actual disconnected state. Preview changes stay separate from the saved company and do not execute tasks.
+**Company → Office map** opens the floor plan: a top-down floor plan generated from the saved offices and agents. Select a desk or roster entry to inspect an agent, switch to **Offices**, or zoom the map. Rooms grow to accommodate their team. **Preview activity** shows sample working/idle states; turn it off to see the actual disconnected state. Preview changes stay separate from the saved company and do not execute tasks.
 
-The page header offers one relevant primary action. Use **Create…** for New task, project, office, domain, or agent. Company → Agents offers New agent; Company → Domains offers New domain. Custom domains appear in the Domains directory and office domain selectors. A domain can contain several offices; each agent belongs to an office. Custom domains are stored alongside the company, and existing saved workspaces remain compatible.
+Creation stays in one predictable place. Tasks, Projects, Offices, Agents, and Domains each expose one page-level **New…** action. The Office map uses one **Create…** menu for an office, domain, or agent. Cards keep only contextual actions, such as adding an agent to a particular office or creating an office inside a particular domain. Custom domains appear in the Domains directory and office domain selectors. A domain can contain several offices; each agent belongs to an office. Custom domains are stored alongside the company, and existing saved workspaces remain compatible.
+
+Small **?** controls reveal secondary guidance on hover, keyboard focus, or tap. Page purpose, local-storage/privacy notes, agent skill behavior, and project-folder rules live there instead of being repeated on every screen. Execution state, validation, approvals, destructive consequences, connection limits, and storage failures remain visible because they can change a decision.
 
 When creating or configuring an agent, **Custom agent prompt** records that specialist's working method, standards, tone, and boundaries. **Existing skills** searches the read-only local inventory for the selected Codex or Claude Code engine. Select up to 24 discovered, currently available skills; cached or disabled records remain visible but cannot be selected. Changing the agent's engine clears provider-specific skill choices instead of silently carrying incompatible references forward. The prompt is limited to 6,000 characters.
 

@@ -7,7 +7,6 @@ import {
   FolderOpen,
   MessageSquare,
   MoreHorizontal,
-  Plus,
 } from "lucide-react";
 import type { Company } from "../features/company/company-model";
 import {
@@ -249,9 +248,6 @@ export function WorkspaceDirectory({
         <>
           <div className="co-dir-section-title">
             <span>Projects</span>
-            <button aria-label="New project" onClick={() => createEntry("project")}>
-              <Plus size={13} />
-            </button>
           </div>
           {projects.map((project) => {
             const open = !collapsed.includes(project.id) || !!query;
@@ -307,9 +303,7 @@ export function WorkspaceDirectory({
             );
           })}
           {!projects.length && (
-            <p className="co-dir-note">
-              {query ? "No matching projects." : "Create a project to group your work."}
-            </p>
+            <p className="co-dir-note">{query ? "No matching projects." : "No projects."}</p>
           )}
           <div className="co-dir-section-title">
             <span>Chats & tasks</span>
@@ -320,9 +314,7 @@ export function WorkspaceDirectory({
           </div>
           {entries.slice(0, limit).map(row)}
           {!entries.length && (
-            <p className="co-dir-note">
-              {query ? "No matching items." : "Your company-wide work appears here."}
-            </p>
+            <p className="co-dir-note">{query ? "No matching items." : "No chats or tasks."}</p>
           )}
           {entries.length > limit && (
             <button className="co-dir-back" onClick={() => setLimit(limit + 20)}>

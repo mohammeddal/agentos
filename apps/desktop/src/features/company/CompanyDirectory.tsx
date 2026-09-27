@@ -36,7 +36,6 @@ export function DomainDirectory({
   company,
   domains,
   addOffice,
-  addDomain,
   openProject,
   removeDomain,
 }: {
@@ -44,7 +43,6 @@ export function DomainDirectory({
   company: Company;
   domains: string[];
   addOffice: (domain: string) => void;
-  addDomain: () => void;
   removeDomain: (domain: string) => void;
 }) {
   return (
@@ -90,13 +88,6 @@ export function DomainDirectory({
           </article>
         );
       })}
-      <button className="co-new-office" onClick={addDomain}>
-        <span className="co-new-office-symbol">
-          <Plus size={22} />
-        </span>
-        <h3>Add your own domain</h3>
-        <p>Any area of work your company needs.</p>
-      </button>
     </div>
   );
 }
@@ -174,9 +165,6 @@ export function OfficeCard({
       <footer>
         <button onClick={onAdd}>
           <Plus size={14} /> Add agent
-        </button>
-        <button onClick={onOpen}>
-          Open office <ArrowRight size={14} />
         </button>
       </footer>
     </article>

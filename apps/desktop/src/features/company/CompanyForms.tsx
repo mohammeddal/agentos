@@ -8,6 +8,7 @@ import {
   type Office,
 } from "./company-model";
 import { discoverEngine, type Capability, type Engine } from "../engines/engine-inventory";
+import { HelpTip } from "../../shared/HelpTip";
 export function DomainForm({ domains, save }: { domains: string[]; save: (name: string) => void }) {
   const [name, setName] = useState("");
   const duplicate = domains.some((d) => d.toLowerCase() === name.trim().toLowerCase());
@@ -19,10 +20,6 @@ export function DomainForm({ domains, save }: { domains: string[]; save: (name: 
         if (name.trim() && !duplicate) save(name.trim());
       }}
     >
-      <p>
-        A domain is an area of expertise, such as Design, Sales, or Legal. You can create several
-        offices within it.
-      </p>
       <label>
         Domain name
         <input
@@ -41,9 +38,6 @@ export function DomainForm({ domains, save }: { domains: string[]; save: (name: 
           This domain already exists. Choose a different name.
         </p>
       )}
-      <div className="co-form-note">
-        Your domain will be available immediately when you create or edit an office.
-      </div>
       <button className="co-button co-button-primary" disabled={!name.trim() || duplicate}>
         Create domain
         <ArrowRight size={15} />
@@ -81,7 +75,6 @@ export function OfficeForm({
   };
   return (
     <form className="co-form" onSubmit={submit}>
-      <p>Give one area of your work a dedicated home.</p>
       <label>
         Office name
         <input
@@ -100,7 +93,6 @@ export function OfficeForm({
             <option key={d}>{d}</option>
           ))}
         </select>
-        <small>Helps suggest the right specialists for this office.</small>
       </label>
       <fieldset>
         <legend>Office color</legend>
@@ -119,11 +111,11 @@ export function OfficeForm({
           ))}
         </div>
       </fieldset>
-      <div className="co-form-note">
-        {existing
-          ? `${existing.agents.length} agents will stay in this office.`
-          : "Start with an empty office. Add your agents when you're ready."}
-      </div>
+      {existing && (
+        <div className="co-form-note">
+          {existing.agents.length} agents will stay in this office.
+        </div>
+      )}
       <button className="co-button co-button-primary" type="submit" disabled={!name.trim()}>
         {existing ? "Save office" : "Create office"}
         <ArrowRight size={15} />
@@ -248,7 +240,6 @@ export function AgentForm({
           });
       }}
     >
-      <p>Define a specialist and the work they will own.</p>
       <label>
         Office
         <select value={office} onChange={(e) => setOffice(e.target.value)}>
@@ -326,10 +317,11 @@ export function AgentForm({
       </label>
       <section className="co-agent-instructions" aria-labelledby="agent-instructions-title">
         <div className="co-agent-form-heading">
-          <span>
-            <strong id="agent-instructions-title">Instructions & skills</strong>
-            <small>Applied whenever this agent performs or reviews a task.</small>
-          </span>
+          <strong id="agent-instructions-title">Instructions & skills</strong>
+          <HelpTip label="About agent instructions" align="end">
+            These instructions and selected skills are requested whenever this agent performs or
+            reviews a task.
+          </HelpTip>
         </div>
         <label>
           Custom agent prompt <span className="co-optional">optional</span>
@@ -344,13 +336,14 @@ export function AgentForm({
         </label>
         <div className="co-skill-picker">
           <div className="co-skill-picker-heading">
-            <span>
+            <div className="co-heading-with-help">
               <strong>Existing skills</strong>
-              <small>
-                Discovered from {inventoryEngine === "claude" ? "Claude Code" : "Codex"} on this
-                Mac.
-              </small>
-            </span>
+              <HelpTip label="About existing skills">
+                Skills are discovered from {inventoryEngine === "claude" ? "Claude Code" : "Codex"}
+                on this Mac. Selection requests them at runtime; AgentOS does not install, copy, or
+                enable them.
+              </HelpTip>
+            </div>
             {inventoryEngine && (
               <button
                 className="co-button"
@@ -430,16 +423,8 @@ export function AgentForm({
             <p>Choose Codex or Claude Code to discover its local skills.</p>
           )}
           {skillNotice && <p role="status">{skillNotice}</p>}
-          <p className="co-skill-disclaimer">
-            Selection requests these skills at runtime; availability is verified by the chosen
-            engine. AgentOS does not install, copy, or enable them.
-          </p>
         </div>
       </section>
-      <div className="co-form-note">
-        Tasks use this engine through its installed CLI and existing sign-in. Check setup in Library
-        → Engine capabilities.
-      </div>
       <button
         className="co-button co-button-primary"
         type="submit"
@@ -473,7 +458,6 @@ export function RenameForm({
         if (name.trim()) save(name.trim());
       }}
     >
-      <p>A home for your work, whatever you call it.</p>
       <label>
         Company name
         <input

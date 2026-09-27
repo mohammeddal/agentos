@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
-  ArrowRight,
   Bot,
   Building2,
   ChevronRight,
@@ -32,6 +31,7 @@ import {
 } from "../features/company/company-structure";
 import { AgentForm, DomainForm, OfficeForm, RenameForm } from "../features/company/CompanyForms";
 import { CompanyDialog } from "../shared/CompanyDialog";
+import { HelpTip } from "../shared/HelpTip";
 import { CompanyTasks, TaskForm } from "../features/tasks/CompanyTasks";
 import { CompanyActivity } from "../features/activity/CompanyActivity";
 import { CompanyMemory } from "../features/memory/CompanyMemory";
@@ -389,7 +389,7 @@ export function CompanyWorkspace() {
           ? { type: "task" as const, label: "New task" }
           : view === "domains"
             ? { type: "domain" as const, label: "New domain" }
-            : group === "map"
+            : view === "offices"
               ? { type: "office" as const, label: "New office" }
               : null;
   const searchLabel =
@@ -431,7 +431,9 @@ export function CompanyWorkspace() {
             </span>
           </div>
           <div className="co-top-actions">
-            <span className="co-preview-label">Local workspace</span>
+            <HelpTip label="About local storage" align="end">
+              Company data and history stay on this Mac. Provider requests use the selected engine.
+            </HelpTip>
             <button
               aria-label="Find anything"
               title="Find anything · Cmd/Ctrl K"
@@ -467,14 +469,19 @@ export function CompanyWorkspace() {
                     All offices
                   </button>
                 )}
-                <h1>{office?.name || viewLabels[view]}</h1>
-                <p>
-                  {office
-                    ? `${office.domain} · ${office.agents.length} agents`
-                    : descriptions[view]}
-                </p>
+                <div className="co-page-title-line">
+                  <h1>{office?.name || viewLabels[view]}</h1>
+                  {!office && descriptions[view] && (
+                    <HelpTip label={`About ${viewLabels[view]}`}>{descriptions[view]}</HelpTip>
+                  )}
+                </div>
+                {office && (
+                  <p>
+                    {office.domain} · {office.agents.length} agents
+                  </p>
+                )}
               </div>
-              {primary && (
+              {(primary || view === "map") && (
                 <div className="co-create-actions">
                   {primary && (
                     <button
@@ -485,7 +492,7 @@ export function CompanyWorkspace() {
                       {primary.label}
                     </button>
                   )}
-                  {group === "map" && (
+                  {view === "map" && (
                     <details
                       className="co-create-menu"
                       ref={createMenu}
@@ -602,7 +609,6 @@ export function CompanyWorkspace() {
               query={query}
               selectedId={selectedProject}
               select={setSelectedProject}
-              create={() => setDialog({ type: "project" })}
               edit={(project) => setDialog({ type: "project", project })}
               createTask={(projectId, domain, agentId) =>
                 setDialog({ type: "task", projectId, domain, agentId })
@@ -634,7 +640,6 @@ export function CompanyWorkspace() {
             <CompanyTasks
               company={company}
               query={query}
-              create={() => setDialog({ type: "task" })}
               edit={(task) => setDialog({ type: "inspect-task", taskId: task.id })}
             />
           ) : !office && view === "domains" ? (
@@ -643,7 +648,6 @@ export function CompanyWorkspace() {
               company={company}
               domains={domains.filter((d) => d.toLowerCase().includes(query.toLowerCase()))}
               addOffice={(domain) => setDialog({ type: "office", domain })}
-              addDomain={() => setDialog({ type: "domain" })}
               removeDomain={(id) =>
                 setDialog({ type: "delete-structure", target: { kind: "domain", id } })
               }
@@ -653,7 +657,6 @@ export function CompanyWorkspace() {
               company={company}
               query={query}
               openOffice={navigate}
-              addOffice={() => setDialog({ type: "office" })}
               addAgent={(officeId) => setDialog({ type: "agent", officeId })}
               inspectAgent={(officeId, agent) =>
                 setDialog({ type: "inspect-agent", officeId, agent })
@@ -686,28 +689,9 @@ export function CompanyWorkspace() {
                   </footer>
                 </button>
               ))}
-              <button
-                className="co-add-agent-card"
-                onClick={() =>
-                  setDialog(
-                    office || company.offices[0]
-                      ? { type: "agent", officeId: (office || company.offices[0])!.id }
-                      : { type: "office" },
-                  )
-                }
-              >
-                <span>
-                  <Plus size={20} />
-                </span>
-                <strong>
-                  {office?.agents.length === 0
-                    ? "Your first teammate starts here"
-                    : "Make room for another specialist"}
-                </strong>
-                <p>
-                  {office ? `Add an agent to ${office.name}` : "Choose an office and add an agent"}
-                </p>
-              </button>
+              {!query && !filteredAgents.length && (
+                <p className="co-search-empty">No agents yet.</p>
+              )}
               {query && !filteredAgents.length && (
                 <p className="co-search-empty">No agents match “{query}”.</p>
               )}
@@ -724,33 +708,19 @@ export function CompanyWorkspace() {
                   onEdit={() => setDialog({ type: "edit-office", office: o })}
                 />
               ))}
-              <button className="co-new-office" onClick={() => setDialog({ type: "office" })}>
-                <span className="co-new-office-symbol">
-                  <Plus size={25} />
-                </span>
-                <h3>What's your next office?</h3>
-                <p>
-                  Marketing, research, finance…
-                  <br />
-                  Build the team you need.
-                </p>
-                <span className="co-new-office-link">
-                  Create an office <ArrowRight size={14} />
-                </span>
-              </button>
+              {!query && !filteredOffices.length && (
+                <p className="co-search-empty">No offices yet.</p>
+              )}
               {query && !filteredOffices.length && (
                 <p className="co-search-empty">No offices match “{query}”.</p>
               )}
             </div>
           )}
-          <footer className="co-page-foot">
-            <span>
-              {storageError
-                ? "Storage unavailable — session only. Keep this window open."
-                : "Saved on this device"}
-            </span>
-            <span>Codex & Claude Code · Native execution</span>
-          </footer>
+          {storageError && (
+            <footer className="co-page-foot" role="alert">
+              <span>Storage unavailable — session only. Keep this window open.</span>
+            </footer>
+          )}
         </main>
       </div>
       {dialog && (

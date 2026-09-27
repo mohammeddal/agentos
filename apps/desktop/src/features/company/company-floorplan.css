@@ -247,7 +247,6 @@
 }
 .fp-room-title,
 .fp-workstation,
-.fp-expansion,
 .fp-add-room {
   cursor: pointer;
   outline: none;
@@ -298,11 +297,6 @@
 }
 .fp-workstation.working .fp-status-ring {
   animation: fp-status-pulse 3s ease-in-out infinite;
-}
-.fp-expansion:hover > rect,
-.fp-expansion:focus-visible > rect {
-  stroke: var(--fp-label);
-  stroke-width: 2;
 }
 .fp-add-room:hover text,
 .fp-add-room:focus-visible text {

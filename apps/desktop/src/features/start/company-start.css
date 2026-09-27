@@ -85,6 +85,15 @@
   font-size: 11px;
   color: var(--co-secondary);
 }
+.co-prompt-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.co-prompt-label-row .co-prompt-label {
+  margin: 0;
+}
 .co-prompt-box textarea {
   display: block;
   width: 100%;

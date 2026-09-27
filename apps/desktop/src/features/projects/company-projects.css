@@ -171,7 +171,7 @@
   font-size: 12px;
   font-weight: 550;
 }
-.co-project-disk > div:first-child > span {
+.co-project-disk-status {
   margin-left: auto;
   color: var(--co-secondary);
   font-size: 10px;
