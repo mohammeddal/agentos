@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, Check, Play, ShieldCheck, Square, X } from "lucide-react";
-import type { Company, CompanyTask } from "../company/company-model";
+import { Check, Play, ShieldCheck, Square, X } from "lucide-react";
+import type { Company } from "../company/company-model";
 import {
   cancelRehearsal,
   createRehearsal,
@@ -16,8 +16,6 @@ import {
 import "./company-activity.css";
 import { RunInspector } from "./RunInspector";
 import { LiveHistory } from "../engines/LiveExecution";
-import { useLiveRuntime } from "../engines/live-runtime";
-import { latestRun, runLabel } from "../engines/run-presentation";
 
 const STORAGE = "agentos:rehearsals:v1";
 function loadRuns(): RehearsalRun[] {
@@ -32,8 +30,6 @@ function loadRuns(): RehearsalRun[] {
 export function CompanyActivity({
   company,
   query,
-  edit,
-  inspectAgent,
   runKey = "",
   clearRunKey,
 }: {
@@ -41,11 +37,8 @@ export function CompanyActivity({
   clearRunKey?: () => void;
   company: Company;
   query: string;
-  edit: (task: CompanyTask) => void;
-  inspectAgent: (id: string) => void;
 }) {
   const [mode, setMode] = useState<"live" | "rehearsal">("live");
-  const live = useLiveRuntime();
   const [runs, setRuns] = useState(loadRuns);
   const [storageError, setStorageError] = useState(false);
   const [taskId, setTaskId] = useState(company.tasks?.[0]?.id || "");
@@ -68,7 +61,6 @@ export function CompanyActivity({
       setStorageError(true);
     }
   }, [runs]);
-  const agents = company.offices.flatMap((o) => o.agents.map((a) => ({ ...a, office: o.name })));
   const pending = runs.flatMap((run) =>
     run.actions
       .filter((a) => a.status === "awaiting_approval")
@@ -111,69 +103,7 @@ export function CompanyActivity({
         </button>
       </nav>
       {mode === "live" ? (
-        <>
-          <LiveHistory summaryView query={query} {...(runKey ? { runKey } : {})} />
-          <details className="co-team-disclosure">
-            <summary>
-              Team & task controls{" "}
-              <span>
-                {agents.length} agents · {company.tasks?.length || 0} tasks
-              </span>
-            </summary>
-            <div className="co-live-columns">
-              <section>
-                <h3>Team status</h3>
-                {agents
-                  .filter((a) => matches(`${a.name} ${a.office}`))
-                  .map((a) => (
-                    <button
-                      className="co-live-row"
-                      key={a.id}
-                      onClick={() => inspectAgent(a.id)}
-                      aria-label={`Inspect ${a.name}`}
-                    >
-                      <Bot size={17} />
-                      <span>
-                        <strong>{a.name}</strong>
-                        <small>{a.office}</small>
-                      </span>
-                      <em>Logs & output →</em>
-                    </button>
-                  ))}
-                {!agents.length && <p>Add agents to see your team here.</p>}
-              </section>
-              <section>
-                <h3>Task restrictions</h3>
-                {(company.tasks || [])
-                  .filter((t) => matches(t.title))
-                  .map((task) => (
-                    <button className="co-live-row" key={task.id} onClick={() => edit(task)}>
-                      <ShieldCheck size={17} />
-                      <span>
-                        <strong>{task.title}</strong>
-                        <small>
-                          {task.approval?.kind === "human"
-                            ? "Your approval before start"
-                            : task.approval?.kind === "agent"
-                              ? "Reviewer agent before start"
-                              : "No start approval gate"}{" "}
-                          ·{" "}
-                          {task.handoffs?.filter(
-                            (s) =>
-                              (s.approval?.kind && s.approval.kind !== "none") ||
-                              s.condition.kind === "approval",
-                          ).length || 0}{" "}
-                          gated handoffs
-                        </small>
-                      </span>
-                      <em>{runLabel(latestRun(live.runs, `task:${task.id}`))}</em>
-                    </button>
-                  ))}
-                {!company.tasks?.length && <p>Create a task to configure approval rules.</p>}
-              </section>
-            </div>
-          </details>
-        </>
+        <LiveHistory summaryView query={query} {...(runKey ? { runKey } : {})} />
       ) : (
         <>
           <div className="co-runtime-notice">

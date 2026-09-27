@@ -139,22 +139,6 @@
   padding: 26px 0;
   color: var(--co-secondary);
 }
-.co-team-disclosure {
-  border-top: 1px solid var(--co-border);
-  padding-top: 16px;
-}
-.co-team-disclosure > summary {
-  cursor: pointer;
-  font-size: 13px;
-}
-.co-team-disclosure > summary span {
-  color: var(--co-muted);
-  font-size: 12px;
-  margin-left: 8px;
-}
-.co-team-disclosure[open] > summary {
-  margin-bottom: 20px;
-}
 .co-activity-modes label {
   display: flex;
   gap: 10px;

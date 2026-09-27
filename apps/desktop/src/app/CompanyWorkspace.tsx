@@ -661,12 +661,6 @@ export function CompanyWorkspace() {
               clearRunKey={() => setActivityKey("")}
               company={company}
               query={query}
-              edit={(task) => setDialog({ type: "inspect-task", taskId: task.id })}
-              inspectAgent={(agentId) => {
-                const owner = company.offices.find((o) => o.agents.some((a) => a.id === agentId));
-                const agent = owner?.agents.find((a) => a.id === agentId);
-                if (owner && agent) setDialog({ type: "inspect-agent", officeId: owner.id, agent });
-              }}
             />
           ) : !office && view === "tasks" ? (
             <CompanyTasks
