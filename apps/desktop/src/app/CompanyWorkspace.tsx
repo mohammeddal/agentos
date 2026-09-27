@@ -394,15 +394,13 @@ export function CompanyWorkspace() {
   const primary =
     office || view === "agents"
       ? { type: "agent" as const, label: "New agent" }
-      : view === "projects"
-        ? { type: "project" as const, label: "New project" }
-        : view === "tasks"
-          ? { type: "task" as const, label: "New task" }
-          : view === "domains"
-            ? { type: "domain" as const, label: "New domain" }
-            : view === "offices"
-              ? { type: "office" as const, label: "New office" }
-              : null;
+      : view === "tasks"
+        ? { type: "task" as const, label: "New task" }
+        : view === "domains"
+          ? { type: "domain" as const, label: "New domain" }
+          : view === "offices"
+            ? { type: "office" as const, label: "New office" }
+            : null;
   const searchLabel =
     office || view === "agents"
       ? "Search agents"
@@ -438,7 +436,9 @@ export function CompanyWorkspace() {
             <span>
               {route.chatId
                 ? "Chat"
-                : office?.name || destinations.find((d) => d.view === group)?.label}
+                : office?.name ||
+                  destinations.find((d) => d.view === group)?.label ||
+                  viewLabels[view]}
             </span>
           </div>
           <div className="co-top-actions">
@@ -479,7 +479,7 @@ export function CompanyWorkspace() {
               This office is no longer available. Choose an office below.
             </p>
           )}
-          {(office || view !== "start") && (
+          {(office || (view !== "start" && view !== "projects")) && (
             <section className="co-page-heading">
               <div>
                 {office && (
@@ -562,7 +562,7 @@ export function CompanyWorkspace() {
               ))}
             </nav>
           )}
-          {(office || view !== "start") && (
+          {(office || (view !== "start" && view !== "projects")) && (
             <div className="co-section-toolbar">
               {(office || ["tasks", "projects"].includes(view) || group === "map") && (
                 <div className="co-section-title">
@@ -625,7 +625,6 @@ export function CompanyWorkspace() {
           ) : !office && view === "projects" ? (
             <CompanyProjects
               company={company}
-              query={query}
               selectedId={selectedProject}
               select={setSelectedProject}
               edit={(project) => setDialog({ type: "project", project })}

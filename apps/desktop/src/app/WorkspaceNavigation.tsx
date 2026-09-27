@@ -5,7 +5,6 @@ import {
   Building2,
   CircleHelp,
   ClipboardList,
-  FolderOpen,
   MessageSquare,
   Moon,
   Search,
@@ -18,7 +17,6 @@ import { WorkspaceDirectory, type DirectoryProps } from "./WorkspaceDirectory";
 const icons = {
   start: MessageSquare,
   tasks: ClipboardList,
-  projects: FolderOpen,
   map: Building2,
   activity: Activity,
   memory: BookOpen,
@@ -98,7 +96,7 @@ export function WorkspaceNavigation({
           );
         })}
       </nav>
-      {primaryView(view) !== "start" && <WorkspaceDirectory {...directory} />}
+      <WorkspaceDirectory {...directory} />
       <div className="co-sidebar-bottom">
         {(pending > 0 || active > 0 || !live.native) && (
           <button

@@ -16,6 +16,11 @@
 .co-directory header {
   font-weight: 600;
 }
+.co-dir-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
 .co-dir-section-title {
   margin-top: 16px;
 }
@@ -76,6 +81,7 @@
   opacity: 0.8;
 }
 .co-dir-more,
+.co-dir-new-project,
 .co-dir-chevron,
 .co-dir-section-title > button {
   display: flex;
@@ -84,7 +90,8 @@
   justify-content: center;
   border-radius: 5px;
 }
-.co-dir-more:hover {
+.co-dir-more:hover,
+.co-dir-new-project:hover {
   background: var(--co-hover);
 }
 .co-dir-actions {
@@ -136,14 +143,28 @@
   line-height: 1.6;
   padding: 0 7px;
 }
-.co-directory .co-dir-back,
-.co-dir-empty {
+.co-directory .co-dir-back {
   display: flex;
   gap: 6px;
   align-items: center;
   text-align: left;
   font-size: 10px;
   padding: 9px 7px;
+}
+.co-dir-empty-actions {
+  display: flex;
+  gap: 2px;
+  padding: 2px 1px 5px;
+}
+.co-dir-empty-actions button {
+  padding: 5px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  color: var(--co-muted);
+}
+.co-dir-empty-actions button:hover {
+  background: var(--co-hover);
+  color: var(--co-text);
 }
 .co-directory button:focus-visible {
   outline: 2px solid var(--co-accent);

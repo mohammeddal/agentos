@@ -9,8 +9,9 @@ import {
   type WorkspaceView,
 } from "./navigation";
 describe("workspace navigation", () => {
-  it("keeps six stable primary destinations", () => {
-    expect(destinations).toHaveLength(6);
+  it("keeps five stable primary destinations and treats projects as sidebar directories", () => {
+    expect(destinations).toHaveLength(5);
+    expect(destinations.map((destination) => destination.view)).not.toContain("projects");
     expect(primaryView("agents")).toBe("map");
     expect(primaryView("engines")).toBe("memory");
   });
@@ -47,6 +48,7 @@ describe("workspace navigation", () => {
       ),
     ).toBe(true);
     expect(findWorkspace(starterCompany, "MCP")[0]?.route?.view).toBe("engines");
+    expect(findWorkspace(starterCompany, "project details")[0]?.route?.view).toBe("projects");
     expect(findWorkspace(starterCompany, "no-such-item")).toEqual([]);
   });
   it("returns tasks, projects, offices and domains with stable identifiers", () => {

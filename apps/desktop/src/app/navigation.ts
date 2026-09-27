@@ -21,7 +21,6 @@ export type WorkspaceRoute = {
 export const destinations = [
   { view: "start", label: "Start", description: "Write a prompt or continue a chat" },
   { view: "tasks", label: "Tasks", description: "Plans, workflows, and task details" },
-  { view: "projects", label: "Projects", description: "Project teams, tasks, and directories" },
   { view: "map", label: "Company", description: "Offices, agents, and domains" },
   { view: "activity", label: "Activity", description: "Status, approvals, and rehearsals" },
   { view: "memory", label: "Library", description: "Memory and local capabilities" },
@@ -106,12 +105,16 @@ export function findWorkspace(company: Company, text: string): FindResult[] {
       detail: d.description,
       route: { view: d.view },
     })),
-    ...(["agents", "domains", "offices", "engines"] as const).map((view) => ({
+    ...(["projects", "agents", "domains", "offices", "engines"] as const).map((view) => ({
       id: `page:${view}`,
       kind: "page" as const,
       title: viewLabels[view],
       detail:
-        view === "engines" ? "Library · MCPs, skills, agents, connectors" : "Company directory",
+        view === "engines"
+          ? "Library · MCPs, skills, agents, connectors"
+          : view === "projects"
+            ? "Project details and directories"
+            : "Company directory",
       route: { view },
     })),
   ];

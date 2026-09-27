@@ -7,6 +7,7 @@ import {
   FolderOpen,
   MessageSquare,
   MoreHorizontal,
+  Plus,
 } from "lucide-react";
 import type { Company } from "../features/company/company-model";
 import {
@@ -132,14 +133,20 @@ export function WorkspaceDirectory({
   const [limit, setLimit] = useState(20);
   const active = directoryEntries(activeCompany(company));
   const all = directoryEntries(company);
+  const newest = (a: DirectoryEntry, b: DirectoryEntry) =>
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   const matches = (e: DirectoryEntry) => e.title.toLowerCase().includes(query.toLowerCase());
-  const projects = active.filter(
-    (e) =>
-      e.kind === "project" &&
-      (matches(e) || active.some((c) => c.projectId === e.id && matches(c))),
-  );
-  const entries = active.filter((e) => e.kind !== "project" && !e.projectId && matches(e));
-  const hidden = all.filter((e) => e.lifecycle === mode && matches(e));
+  const projects = active
+    .filter(
+      (e) =>
+        e.kind === "project" &&
+        (matches(e) || active.some((c) => c.projectId === e.id && matches(c))),
+    )
+    .sort(newest);
+  const entries = active
+    .filter((e) => e.kind !== "project" && !e.projectId && matches(e))
+    .sort(newest);
+  const hidden = all.filter((e) => e.lifecycle === mode && matches(e)).sort(newest);
   function switchMode(next: Lifecycle) {
     setMode(next);
     setLimit(20);
@@ -203,23 +210,33 @@ export function WorkspaceDirectory({
   return (
     <section className="co-directory" aria-label="Projects, chats and tasks">
       <header>
-        <span>
-          {mode === "active" ? "Workspace directory" : mode === "archived" ? "Archived" : "Removed"}
-        </span>
-        <Actions label="Directory">
-          <button onClick={() => createEntry("project")}>New project</button>
-          <button onClick={() => createEntry("chat")}>New chat</button>
-          <button onClick={() => createEntry("task")}>New task</button>
-          <hr />
-          <button onClick={() => switchMode("active")}>Active items</button>
-          <button onClick={() => switchMode("archived")}>Archived items</button>
-          <button onClick={() => switchMode("removed")}>Removed items</button>
-        </Actions>
+        <span>{mode === "active" ? "Projects" : mode === "archived" ? "Archived" : "Removed"}</span>
+        <div className="co-dir-header-actions">
+          {mode === "active" && (
+            <button
+              className="co-dir-new-project"
+              aria-label="New project"
+              title="New project"
+              onClick={() => createEntry("project")}
+            >
+              <Plus size={14} />
+            </button>
+          )}
+          <Actions label="Directory">
+            <button onClick={() => createEntry("project")}>New project</button>
+            <button onClick={() => createEntry("chat")}>New chat</button>
+            <button onClick={() => createEntry("task")}>New task</button>
+            <hr />
+            <button onClick={() => switchMode("active")}>Active items</button>
+            <button onClick={() => switchMode("archived")}>Archived items</button>
+            <button onClick={() => switchMode("removed")}>Removed items</button>
+          </Actions>
+        </div>
       </header>
       <input
         className="co-dir-search"
         aria-label="Filter directory"
-        placeholder="Find a chat, task, project…"
+        placeholder="Filter projects, chats, tasks…"
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -246,14 +263,11 @@ export function WorkspaceDirectory({
         </>
       ) : (
         <>
-          <div className="co-dir-section-title">
-            <span>Projects</span>
-          </div>
           {projects.map((project) => {
             const open = !collapsed.includes(project.id) || !!query;
-            const children = active.filter(
-              (e) => e.projectId === project.id && (matches(e) || matches(project)),
-            );
+            const children = active
+              .filter((e) => e.projectId === project.id && (matches(e) || matches(project)))
+              .sort(newest);
             return (
               <div className="co-dir-project" key={project.id}>
                 <div className="co-dir-row">
@@ -285,12 +299,10 @@ export function WorkspaceDirectory({
                   <div className="co-dir-children">
                     {children.slice(0, limit).map(row)}
                     {!children.length && (
-                      <button
-                        className="co-dir-empty"
-                        onClick={() => createEntry("chat", project.id)}
-                      >
-                        + Start a chat
-                      </button>
+                      <div className="co-dir-empty-actions">
+                        <button onClick={() => createEntry("chat", project.id)}>+ Chat</button>
+                        <button onClick={() => createEntry("task", project.id)}>+ Task</button>
+                      </div>
                     )}
                     {children.length > limit && (
                       <button className="co-dir-back" onClick={() => setLimit(limit + 20)}>
@@ -303,7 +315,11 @@ export function WorkspaceDirectory({
             );
           })}
           {!projects.length && (
-            <p className="co-dir-note">{query ? "No matching projects." : "No projects."}</p>
+            <p className="co-dir-note">
+              {query
+                ? "No matching projects."
+                : "Create a project to group related chats and tasks."}
+            </p>
           )}
           <div className="co-dir-section-title">
             <span>Chats & tasks</span>

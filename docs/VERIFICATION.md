@@ -6,6 +6,15 @@ This records the earlier UX-only change. For the subsequent native runtime integ
 
 ## Native execution follow-up
 
+### Persistent project directory follow-up
+
+- Reduced the primary navigation to five destinations by removing the duplicate Projects button. The desktop sidebar and compact Workspace drawer now keep Projects, project-scoped chats/tasks, unassigned chats/tasks, and Archived available on every page, including Start.
+- Added a direct Projects **+**, retained creation and lifecycle actions under **…**, and exposed **+ Chat** / **+ Task** inside empty project branches. Creating work from a project preselects that project and the saved item appears inside the same expanded branch.
+- Removed the second all-project explorer from project detail. Selecting a project now opens only its own Shared, domain, and agent workspace tree plus its project details.
+- Isolated Chromium checks created a temporary project and project-scoped task, verified automatic project selection and nesting, and checked the persistent hierarchy at 1200 × 800 and in the 390 × 844 mobile drawer. The records existed only in the isolated browser session; no native company records or provider runs were changed.
+- A fresh final Chromium session reported zero console warnings or errors. All 187 Vitest tests across 29 files passed, along with typecheck, formatting, whitespace checks, the 131-file source audit, and the production web build.
+- Final `.app` and `.dmg` packaging passed. The previous `/Applications/AgentOS.app` bundle was removed, the locally signed final package was installed, its executable matched the signed package byte-for-byte, and the reopened native accessibility tree confirmed the five destinations plus the persistent Projects/chat/task directory on Start. Saved application data remained outside the replaced bundle.
+
 ### Library hierarchy follow-up
 
 - Reframed Library → Engine capabilities as the shorter **Capabilities** surface. The inventory, engine switcher, search, type filters, scope filter, and record inspection remain primary; connection checks, optional workspace scanning, notifications, privacy notes, limitations, and raw source paths now live in one explicit **Settings** panel.

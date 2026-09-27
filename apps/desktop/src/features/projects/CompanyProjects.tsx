@@ -34,7 +34,6 @@ import "./company-projects.css";
 type Scope = { projectId?: string; domain?: string; agentId?: string; shared?: boolean };
 export function CompanyProjects({
   company,
-  query,
   selectedId,
   select,
   edit,
@@ -43,7 +42,6 @@ export function CompanyProjects({
   inspectAgent,
 }: {
   company: Company;
-  query: string;
   selectedId: string;
   select: (id: string) => void;
   edit: (project: CompanyProject) => void;
@@ -53,19 +51,10 @@ export function CompanyProjects({
 }) {
   const [scope, setScope] = useState<Scope>({});
   const projects = company.projects || [];
-  const filtered = projects.filter((p) =>
-    [
-      p.name,
-      p.brief,
-      ...projectDomainNames(company, p),
-      ...projectDirectoryTeam(company, p).flatMap((a) => [a.name, a.office.name]),
-      ...(company.tasks || []).filter((t) => t.projectId === p.id).map((t) => t.title),
-    ]
-      .join(" ")
-      .toLowerCase()
-      .includes(query.toLowerCase()),
-  );
-  const project = filtered.find((p) => p.id === selectedId) || filtered[0];
+  const project = projects.find((p) => p.id === selectedId) || projects[0];
+  useEffect(() => {
+    if (!selectedId && project) select(project.id);
+  }, [project?.id, selectedId]);
   // Searching may choose a different visible project; never carry another project's scope over.
   const scopeAvailable =
     project &&
@@ -75,7 +64,7 @@ export function CompanyProjects({
         (a) => a.id === scope.agentId && a.office.domain === scope.domain,
       ));
   const activeScope = project?.id === scope.projectId && scopeAvailable ? scope : {};
-  if (!projects.length)
+  if (!project)
     return (
       <section className="co-tasks-empty">
         <span>
@@ -88,102 +77,72 @@ export function CompanyProjects({
     <section className="co-project-explorer" aria-label="Company project explorer">
       <aside className="co-project-tree">
         <header>
-          <span>PROJECT EXPLORER</span>
+          <span>PROJECT WORKSPACE</span>
         </header>
-        <div className="co-project-company">
-          <Folder size={14} />
-          {company.name}
-        </div>
-        {filtered.map((p) => (
-          <div key={p.id} className="co-project-branch">
-            <button
-              className="co-project-node"
-              aria-pressed={p.id === project?.id && !activeScope.domain && !activeScope.shared}
-              onClick={() => {
-                select(p.id);
-                setScope({});
-              }}
-            >
-              <FolderOpen size={15} />
-              <strong>{p.name}</strong>
-              <span>{(company.tasks || []).filter((t) => t.projectId === p.id).length}</span>
-            </button>
-            {p.id === project?.id && (
-              <div className="co-project-children">
+        <button
+          className="co-project-node"
+          aria-pressed={!activeScope.domain && !activeScope.shared}
+          onClick={() => setScope({})}
+        >
+          <FolderOpen size={15} />
+          <strong>{project.name}</strong>
+          <span>
+            {(company.tasks || []).filter((task) => task.projectId === project.id).length}
+          </span>
+        </button>
+        <div className="co-project-children">
+          <button
+            className="co-project-node"
+            aria-pressed={!!activeScope.shared}
+            onClick={() => setScope({ shared: true, projectId: project.id })}
+          >
+            <Folder size={14} />
+            Shared
+          </button>
+          {projectDomainNames(company, project).map((domain) => (
+            <details key={domain} open>
+              <summary>
+                <ChevronRight size={12} />
+                <Layers3 size={14} />
+                <span>{domain}</span>
+              </summary>
+              <div>
                 <button
                   className="co-project-node"
-                  aria-pressed={!!activeScope.shared}
-                  onClick={() => {
-                    select(p.id);
-                    setScope({ shared: true, projectId: p.id });
-                  }}
+                  aria-pressed={activeScope.domain === domain && !activeScope.agentId}
+                  onClick={() => setScope({ domain, projectId: project.id })}
                 >
-                  <Folder size={14} />
-                  Shared
+                  <Folder size={13} />
+                  Domain workspace
                 </button>
-                {projectDomainNames(company, p).map((domain) => (
-                  <details key={domain} open>
-                    <summary>
-                      <ChevronRight size={12} />
-                      <Layers3 size={14} />
-                      <span>{domain}</span>
-                    </summary>
-                    <div>
-                      <button
-                        className="co-project-node"
-                        aria-pressed={activeScope.domain === domain && !activeScope.agentId}
-                        onClick={() => {
-                          select(p.id);
-                          setScope({ domain, projectId: p.id });
-                        }}
-                      >
-                        <Folder size={13} />
-                        Domain workspace
-                      </button>
-                      {projectDirectoryTeam(company, p)
-                        .filter((a) => a.office.domain === domain)
-                        .map((a) => (
-                          <button
-                            key={a.id}
-                            className="co-project-node"
-                            aria-pressed={activeScope.agentId === a.id}
-                            onClick={() => {
-                              select(p.id);
-                              setScope({ domain, agentId: a.id, projectId: p.id });
-                            }}
-                          >
-                            <Bot size={13} />
-                            <span>{a.name}</span>
-                          </button>
-                        ))}
-                    </div>
-                  </details>
-                ))}
+                {projectDirectoryTeam(company, project)
+                  .filter((agent) => agent.office.domain === domain)
+                  .map((agent) => (
+                    <button
+                      key={agent.id}
+                      className="co-project-node"
+                      aria-pressed={activeScope.agentId === agent.id}
+                      onClick={() => setScope({ domain, agentId: agent.id, projectId: project.id })}
+                    >
+                      <Bot size={13} />
+                      <span>{agent.name}</span>
+                    </button>
+                  ))}
               </div>
-            )}
-          </div>
-        ))}
-        {!filtered.length && (
-          <p className="co-project-tree-empty">No matching projects or teams.</p>
-        )}
-      </aside>
-      {project ? (
-        <ProjectDetail
-          key={project.id}
-          company={company}
-          project={project}
-          scope={activeScope}
-          edit={() => edit(project)}
-          createTask={() => createTask(project.id, activeScope.domain, activeScope.agentId)}
-          editTask={editTask}
-          inspectAgent={inspectAgent}
-        />
-      ) : (
-        <div className="co-project-detail">
-          <h3>No matching projects.</h3>
-          <p>Search by project, domain, agent, office, or task name.</p>
+            </details>
+          ))}
         </div>
-      )}
+      </aside>
+      <ProjectDetail
+        key={project.id}
+        company={company}
+        project={project}
+        scope={activeScope}
+        edit={() => edit(project)}
+        createTask={() => createTask(project.id, activeScope.domain, activeScope.agentId)}
+        editTask={editTask}
+        inspectAgent={inspectAgent}
+      />
     </section>
   );
 }

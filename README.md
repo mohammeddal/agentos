@@ -14,7 +14,7 @@ pnpm dev
 Open [the local app](http://127.0.0.1:4173). Requires Node.js 22+ and pnpm 9.15.2. The development server binds to loopback only.
 
 - **Start** — write a prompt or continue a saved chat.
-- **Tasks / Projects** — plan work and keep it organized.
+- **Tasks** — plan and inspect work; the persistent sidebar nests chats and tasks inside project directories.
 - **Company** — offices, agents, domains, and the office map.
 - **Activity** — live runs, approvals, output, and separately labeled rehearsals.
 - **Library** — memory and local capabilities.
