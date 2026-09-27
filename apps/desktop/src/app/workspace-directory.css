@@ -1,5 +1,5 @@
 .co-directory {
-  margin-top: 22px;
+  margin-top: 14px;
   min-width: 0;
   padding-bottom: 10px;
 }
@@ -23,10 +23,10 @@
   width: 100%;
   min-width: 0;
   border: 1px solid var(--co-border);
-  background: transparent;
-  border-radius: 6px;
+  background: var(--co-card);
+  border-radius: 7px;
   color: var(--co-text);
-  padding: 8px;
+  padding: 7px 8px;
   font-size: 11px;
   margin: 6px 0;
 }
@@ -47,12 +47,13 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 8px 6px;
+  min-height: 31px;
+  padding: 6px;
   text-align: left;
   min-width: 0;
   flex: 1;
   font-size: 11px;
-  border-radius: 6px;
+  border-radius: 7px;
 }
 .co-dir-item span {
   overflow: hidden;
@@ -100,7 +101,7 @@
   padding: 5px;
   background: var(--co-card);
   border: 1px solid var(--co-border);
-  border-radius: 8px;
+  border-radius: 10px;
   box-shadow: var(--co-shadow);
   max-height: min(360px, calc(100dvh - 16px));
   overflow-y: auto;

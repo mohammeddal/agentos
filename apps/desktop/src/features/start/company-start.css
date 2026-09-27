@@ -7,7 +7,7 @@
   overflow: hidden;
 }
 .co-start {
-  height: calc(100dvh - 65px);
+  height: calc(100dvh - 56px);
   min-height: 420px;
 }
 .co-start-main {

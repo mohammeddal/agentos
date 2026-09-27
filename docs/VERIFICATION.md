@@ -6,6 +6,14 @@ This records the earlier UX-only change. For the subsequent native runtime integ
 
 ## Native execution follow-up
 
+### Codex-inspired shell follow-up
+
+- Reworked the shared light and dark palettes around neutral graphite system colors, reduced sidebar and toolbar density, tightened page hierarchy, card radii, dialogs, and directory rows, and corrected short pages so they consistently begin below the toolbar instead of vertically centering.
+- Preserved office hues, agent state, approval/warning colors, and the floor-plan palette as semantic AgentOS signals. The company map remains the distinctive visual surface inside the quieter shared shell.
+- Isolated Chromium checks covered the clean Start surface, Company map, and Activity in desktop light/dark appearances plus Start at 390 × 844. The project/task directory remains absent from Start and present on operational pages; no saved work or provider run was created.
+- Visual artifacts: `codex-shell-start-light.png`, `codex-shell-map-light.png`, `codex-shell-activity-dark.png`, and `codex-shell-mobile.png` under ignored `output/playwright/`.
+- Browser console errors were zero. All 180 Vitest tests across 28 files, typecheck, formatting, whitespace checks, the 127-file source audit, and final `.app`/`.dmg` packaging passed.
+
 ### Clean Start composer follow-up
 
 - Rebuilt Start as a chat-first surface: a quiet centered invitation, an auto-growing composer anchored to the bottom, an attachment control, compact engine/settings disclosure, and one send arrow. Enter sends; Shift+Enter inserts a newline.

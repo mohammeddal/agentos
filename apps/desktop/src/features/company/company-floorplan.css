@@ -53,7 +53,7 @@
   --fp-empty: #e9ece17a;
   --fp-lounge: #acb9a2;
   border: 1px solid var(--co-border);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--co-card);
   overflow: hidden;
 }
