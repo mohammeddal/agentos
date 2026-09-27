@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
 import {
-  ArrowLeft,
   Bot,
+  Building2,
   Layers3,
   Plug,
   FileText,
+  GitBranch,
   Sparkles,
   ShieldCheck,
   SlidersHorizontal,
@@ -45,6 +46,7 @@ import "./task-canvas.css";
 
 const icons = {
   task: ClipboardList,
+  office: Building2,
   agent: Bot,
   domain: Layers3,
   mcp: Plug,
@@ -56,6 +58,7 @@ const icons = {
   prompt: MessageSquare,
 };
 const descriptions = {
+  office: "One office team",
   agent: "A specialist",
   domain: "An entire team",
   mcp: "Tools & servers",
@@ -228,10 +231,15 @@ export function TaskCanvas({
   return (
     <section className="tc" aria-label="Visual task builder">
       <div className="tc-toolbar">
-        <button className="co-button" onClick={back}>
-          <ArrowLeft size={13} />
-          Task details
-        </button>
+        <nav className="co-task-view-switch" aria-label="Task view">
+          <button type="button" aria-pressed="false" onClick={back}>
+            Overview
+          </button>
+          <button type="button" aria-pressed="true">
+            <GitBranch size={13} />
+            Workflow map
+          </button>
+        </nav>
         <span className="tc-draft">Blueprint · {graph.nodes.length} blocks</span>
         <div className="tc-tools">
           <button className="co-button" onClick={fit}>
@@ -286,7 +294,7 @@ export function TaskCanvas({
           </p>
           {(
             [
-              { label: "Work", kinds: ["agent", "domain", "prompt"] },
+              { label: "Work", kinds: ["office", "domain", "agent", "prompt"] },
               { label: "Resources", kinds: ["context", "mcp", "skill", "connector"] },
               { label: "Control", kinds: ["approval", "restriction"] },
             ] as { label: string; kinds: Exclude<BlockKind, "task">[] }[]
@@ -635,35 +643,56 @@ export function TaskCanvas({
                   onChange={(e) => update(node.id, { title: e.target.value })}
                 />
               </label>
-              {(node.kind === "agent" || node.kind === "domain") && (
+              {["office", "agent", "domain"].includes(node.kind) && (
                 <label>
-                  {node.kind === "agent" ? "Assigned agent" : "Assigned domain"}
+                  {node.kind === "office"
+                    ? "Assigned office"
+                    : node.kind === "agent"
+                      ? "Assigned agent"
+                      : "Assigned domain"}
                   <select
                     value={node.reference}
                     onChange={(e) =>
                       update(node.id, {
                         reference: e.target.value,
                         title:
-                          node.kind === "agent"
-                            ? agents.find((a) => a.id === e.target.value)?.name || node.title
-                            : e.target.value || node.title,
+                          node.kind === "office"
+                            ? company.offices.find((office) => office.id === e.target.value)
+                                ?.name || node.title
+                            : node.kind === "agent"
+                              ? agents.find((a) => a.id === e.target.value)?.name || node.title
+                              : e.target.value || node.title,
                       })
                     }
                   >
                     <option value="">Choose {node.kind}</option>
                     {node.reference &&
-                      !(node.kind === "agent"
-                        ? agents.some((a) => a.id === node.reference)
-                        : companyDomains(company).includes(node.reference)) && (
+                      !(node.kind === "office"
+                        ? company.offices.some((office) => office.id === node.reference)
+                        : node.kind === "agent"
+                          ? agents.some((a) => a.id === node.reference)
+                          : companyDomains(company).includes(node.reference)) && (
                         <option value={node.reference}>Unavailable: {node.reference}</option>
                       )}
-                    {node.kind === "agent"
-                      ? agents.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.name} · {a.engine}
-                          </option>
+                    {node.kind === "office"
+                      ? companyDomains(company).map((domain) => (
+                          <optgroup label={domain} key={domain}>
+                            {company.offices
+                              .filter((office) => office.domain === domain)
+                              .map((office) => (
+                                <option key={office.id} value={office.id}>
+                                  {office.name} · {office.agents.length} agents
+                                </option>
+                              ))}
+                          </optgroup>
                         ))
-                      : companyDomains(company).map((d) => <option key={d}>{d}</option>)}
+                      : node.kind === "agent"
+                        ? agents.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name} · {a.engine}
+                            </option>
+                          ))
+                        : companyDomains(company).map((d) => <option key={d}>{d}</option>)}
                   </select>
                 </label>
               )}

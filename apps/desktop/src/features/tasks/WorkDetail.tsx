@@ -93,6 +93,18 @@ export function WorkDetail({
       className={`co-work-detail ${chat ? "co-work-chat" : ""}`}
       aria-label={task ? "Task details" : "Chat details"}
     >
+      {canvas && (
+        <nav className="co-task-view-switch" aria-label="Task view">
+          <button type="button" aria-pressed="true">
+            Overview
+          </button>
+          <button type="button" aria-pressed="false" onClick={canvas}>
+            <GitBranch size={13} />
+            Workflow map
+            {task?.canvas && <span>{task.canvas.nodes.length}</span>}
+          </button>
+        </nav>
+      )}
       <header className="co-work-header">
         <div>
           <span className="co-section-kicker">TASK WORKSPACE</span>
@@ -103,12 +115,6 @@ export function WorkDetail({
             <span>{lastLive ? lastLive.engine : "Ready for execution review"}</span>
           </p>
         </div>
-        {canvas && (
-          <button className="co-button co-button-primary" onClick={canvas}>
-            <GitBranch size={14} />
-            Visual builder{task?.canvas ? ` (${task.canvas.nodes.length})` : ""}
-          </button>
-        )}
         {edit && (
           <button className="co-button" onClick={edit}>
             <Pencil size={13} />

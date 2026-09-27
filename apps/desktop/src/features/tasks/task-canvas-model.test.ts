@@ -90,6 +90,25 @@ describe("visual task blueprints", () => {
     expect(canvasWarnings(starterCompany, g).join(" ")).toContain("choose an available agent");
     expect(canvasWarnings(starterCompany, g).join(" ")).toContain("not connected");
   });
+  it("validates office references and offices without agents", () => {
+    const available = {
+      ...initialTaskCanvas(task),
+      nodes: [
+        ...initialTaskCanvas(task).nodes,
+        { ...newCanvasNode("office", 350, 100, "office"), reference: "data" },
+      ],
+    };
+    const empty = {
+      ...available,
+      nodes: available.nodes.map((node) =>
+        node.id === "office" ? { ...node, reference: "marketing" } : node,
+      ),
+    };
+    expect(canvasWarnings(starterCompany, available).join(" ")).not.toContain(
+      "choose an available office",
+    );
+    expect(canvasWarnings(starterCompany, empty).join(" ")).toContain("has no agents");
+  });
   it("round trips the canvas through company task validation", () => {
     const saved = JSON.parse(JSON.stringify({ ...task, canvas: sample() }));
     expect(isCompanyTask(saved)).toBe(true);

@@ -318,6 +318,29 @@ describe("native execution plans", () => {
     expect(steps[0]?.prompt).toContain("Budget is 50");
     expect(steps[0]?.prompt).toContain("Use exact figures");
   });
+  it("compiles a visual office block into that office's agents", () => {
+    const root = { ...newCanvasNode("task", 0, 0, "root"), prompt: "Investigate together" };
+    const office = {
+      ...newCanvasNode("office", 300, 0, "office"),
+      reference: "engineering",
+      prompt: "Return one verified recommendation",
+    };
+    const steps = compileTask(
+      starterCompany,
+      task({
+        canvas: {
+          version: 1,
+          nodes: [root, office],
+          edges: [{ id: "1", from: "root", to: "office", kind: "flow", condition: "success" }],
+        },
+      }),
+    );
+    expect(steps.map((step) => step.agentId)).toEqual(["developer", "reviewer"]);
+    expect(steps[1]?.after).toEqual([steps[0]!.id]);
+    expect(steps.every((step) => step.prompt.includes("Return one verified recommendation"))).toBe(
+      true,
+    );
+  });
   it("uses the canvas root custom prompt even without other blocks", () => {
     const root = { ...newCanvasNode("task", 0, 0, "root"), prompt: "Changed instructions" };
     const steps = compileTask(

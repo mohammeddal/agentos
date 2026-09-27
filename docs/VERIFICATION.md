@@ -6,6 +6,13 @@ This records the earlier UX-only change. For the subsequent native runtime integ
 
 ## Native execution follow-up
 
+### Task workflow map follow-up
+
+- Saved tasks now open with a persistent **Overview / Workflow map** switch. Overview preserves the existing execution and activity interface; Workflow map opens the expanded spatial builder and shows its saved block count when returning to Overview.
+- Added an executable Office block alongside Domain and Agent. The picker groups real offices by domain, displays team size, rejects unavailable or empty offices, supports per-block prompts and model overrides, and compiles the selected office into its current agents in sequence.
+- Isolated Chromium verification created a task, opened the map from its Overview, added the real Engineering office, added a custom prompt, connected Task → Office, returned to Overview, reloaded, and confirmed the two-block map and connection persisted. The map was visually inspected at 390 × 844 and browser console errors were zero. No native company records or provider runs were changed by this browser-only QA.
+- 180 Vitest tests across 28 files passed, including Office validation and Office-to-agent runtime compilation. Typecheck, formatting, whitespace checks, source audit (126 reachable files, no broken imports), and final app/DMG packaging passed.
+
 ### Agent prompts and skills follow-up
 
 - Added optional per-agent instructions and selection of up to 24 available Codex or Claude Code skills from the existing read-only capability inventory. Cached/disabled records are visible but not selectable, changing provider clears incompatible choices with an explicit notice, and saved choices are visible from Agent Activity.

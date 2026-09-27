@@ -2,6 +2,45 @@
   padding: 24px;
   min-width: 0;
 }
+.co-task-view-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  margin: 0 0 22px;
+  border: 1px solid var(--co-border);
+  border-radius: 8px;
+  background: var(--co-soft);
+}
+.co-task-view-switch button {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--co-secondary);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.co-task-view-switch button[aria-pressed="true"] {
+  background: var(--co-card);
+  color: var(--co-text);
+  box-shadow: 0 1px 3px #0000000d;
+}
+.co-task-view-switch button > span {
+  min-width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--co-hover);
+  color: var(--co-secondary);
+  font-size: 9px;
+}
 .co-work-chat {
   border: 1px solid var(--co-border);
   border-radius: 9px;

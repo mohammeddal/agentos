@@ -269,7 +269,9 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
       .map((n) => `${n.title} (reference context):\n${n.prompt}`)
       .join("\n\n");
   const rootPrompt = [root.prompt || task.brief, attachments(root.id)].filter(Boolean).join("\n\n");
-  const workers = graph.nodes.filter((n) => ["agent", "domain", "prompt"].includes(n.kind));
+  const workers = graph.nodes.filter((n) =>
+    ["office", "agent", "domain", "prompt"].includes(n.kind),
+  );
   if (!workers.length) {
     if (graph.nodes.some((n) => n.kind === "approval"))
       throw new Error("Connect the approval checkpoint to an agent or domain.");
@@ -336,11 +338,13 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
       continue;
     }
     const team =
-      node.kind === "agent"
-        ? allAgents.filter((a) => a.id === node.reference)
-        : node.kind === "domain"
-          ? taskParticipants(company, { kind: "domains", targets: [node.reference] })
-          : baseTeam.slice(0, 1);
+      node.kind === "office"
+        ? company.offices.find((office) => office.id === node.reference)?.agents || []
+        : node.kind === "agent"
+          ? allAgents.filter((a) => a.id === node.reference)
+          : node.kind === "domain"
+            ? taskParticipants(company, { kind: "domains", targets: [node.reference] })
+            : baseTeam.slice(0, 1);
     if (!team.length) throw new Error(`Choose an available agent for ${node.title}.`);
     const reviewerIds = [...new Set(gates.filter((g) => g.kind === "agent").map((g) => g.agentId))];
     if (reviewerIds.length > 1)

@@ -773,7 +773,7 @@ export function CompanyWorkspace() {
                   : dialog.type === "navigation"
                     ? "Workspace"
                     : dialog.type === "canvas"
-                      ? `${inspectedTask?.title || "Task"} · Visual builder`
+                      ? `${inspectedTask?.title || "Task"} · Workflow map`
                       : dialog.type === "inspect-task"
                         ? inspectedTask?.title || "Task unavailable"
                         : dialog.type === "project"

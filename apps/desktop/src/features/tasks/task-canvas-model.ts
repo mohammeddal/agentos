@@ -2,6 +2,7 @@ import { companyDomains, type Company, type CompanyTask } from "../company/compa
 
 export const blockNames = {
   task: "Task",
+  office: "Office",
   agent: "Agent",
   domain: "Domain",
   mcp: "MCP",
@@ -222,6 +223,11 @@ export function canvasWarnings(company: Company, graph: TaskCanvasGraph): string
       warnings.push(`${n.title}: not connected to the task flow.`);
     if (n.kind === "agent" && !agents.some((a) => a.id === n.reference))
       warnings.push(`${n.title}: choose an available agent.`);
+    if (n.kind === "office") {
+      const office = company.offices.find((candidate) => candidate.id === n.reference);
+      if (!office) warnings.push(`${n.title}: choose an available office.`);
+      else if (!office.agents.length) warnings.push(`${n.title}: this office has no agents.`);
+    }
     if (n.kind === "domain" && !companyDomains(company).includes(n.reference))
       warnings.push(`${n.title}: choose an available domain.`);
     if (["mcp", "skill", "connector"].includes(n.kind) && !n.reference)
