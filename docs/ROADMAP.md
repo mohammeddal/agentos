@@ -1,5 +1,7 @@
 # Roadmap
 
+> Reference scope: earlier StaffForge core/prototype design. For the current AgentOS company UI and implemented boundaries, start with the [development guide](DEVELOPMENT.md) and [usage guide](USAGE.md).
+
 ## Phase 0 — architecture and contracts
 
 - Product, architecture, event, plugin, and security contracts.

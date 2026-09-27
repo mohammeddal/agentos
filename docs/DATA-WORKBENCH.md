@@ -1,12 +1,12 @@
 # Data workbench
 
-The default screen is an asset-level workbench, not a live observability service.
+This retained `?data` experience is an asset-level workbench, not the default AgentOS screen or a live observability service.
 Its job is to gather the dependency and test context a data engineer otherwise
 has to copy into an agent conversation manually.
 
 ## Try it locally
 
-Run `npm run dev`, then open http://127.0.0.1:4173/.
+Run `pnpm dev`, then open [DataGuild](http://127.0.0.1:4173/?data).
 
 1. Explore the explicitly labeled commerce example. Select `fct_revenue` and inspect its test evidence and downstream dependencies.
 2. Click **Investigate with context**, **Plan a change**, **Review model**, or **Build something new**. Review or export the generated Markdown brief. Example data cannot launch a real contextual run.

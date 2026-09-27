@@ -1,1 +1,3 @@
-fn main() { staffforge_lib::run(); }
+fn main() {
+    staffforge_lib::run();
+}

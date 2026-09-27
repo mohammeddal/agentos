@@ -7,7 +7,7 @@ import { resolve, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
-import type { AgentProfile, AgentVisualState, LiveRun, MemoryRecord, Mission, MissionTask, RoleId, RoutePreview, RunPhase, SkillProfile, StudioState } from "../src/studio-types";
+import type { AgentProfile, AgentVisualState, LiveRun, MemoryRecord, Mission, MissionTask, RoleId, RoutePreview, RunPhase, SkillProfile, StudioState } from "../src/shared/studio-types";
 import { fallbackMemoryCandidates, memoryEnvelopeInstruction, memoryFiles, mergeMemoryRecords, parseMemoryEnvelope, relevantMemories, type MemoryCandidate } from "./memory";
 
 type Wire = Record<string, any>;

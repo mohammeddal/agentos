@@ -5,8 +5,8 @@ import {
   parseCatalog,
   related,
   testsFor,
-} from "../src/data/catalog";
-import { exampleCatalog } from "../src/data/example";
+} from "../src/legacy/data/catalog";
+import { exampleCatalog } from "../src/legacy/data/example";
 
 const manifest = () => ({
   metadata: {

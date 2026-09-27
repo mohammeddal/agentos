@@ -1,5 +1,7 @@
 # Architecture
 
+> Reference scope: earlier StaffForge core/prototype design. For the current AgentOS company UI and implemented boundaries, start with the [development guide](DEVELOPMENT.md) and [usage guide](USAGE.md).
+
 ## Recommendation
 
 StaffForge uses a ports-and-adapters architecture with an event-sourced execution model.

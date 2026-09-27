@@ -1,5 +1,7 @@
 # StaffForge Event Protocol
 
+> Reference scope: earlier StaffForge core/prototype design. For the current AgentOS company UI and implemented boundaries, start with the [development guide](DEVELOPMENT.md) and [usage guide](USAGE.md).
+
 The protocol is the stable boundary between execution providers and StaffForge consumers. It is append-only, versioned, serializable, and independent of Codex.
 
 ## Envelope

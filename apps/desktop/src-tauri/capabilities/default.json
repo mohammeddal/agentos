@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "Local AgentOS window; native notification permission is requested by the user.",
+  "windows": ["main"],
+  "permissions": ["core:default", "notification:default"]
+}

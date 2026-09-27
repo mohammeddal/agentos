@@ -4,8 +4,15 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@9.15.2",
-  "workspaces": ["apps/*", "packages/*", "plugins/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "plugins/*"
+  ],
   "scripts": {
+    "audit:source": "node scripts/audit-source.mjs",
+    "format": "prettier --write apps/desktop/src/app apps/desktop/src/features apps/desktop/src/shared scripts docs README.md",
+    "format:check": "prettier --check apps/desktop/src/app apps/desktop/src/features apps/desktop/src/shared scripts docs README.md",
     "dev": "pnpm --filter @staffforge/desktop dev",
     "dev:desktop": "pnpm --filter @staffforge/desktop tauri:dev",
     "build": "pnpm -r --if-present build",
@@ -17,6 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
+    "prettier": "3.6.2",
     "tsx": "^4.19.3",
     "typescript": "^5.8.3",
     "vitest": "^3.1.3"

@@ -1,0 +1,73 @@
+.co-model-picker {
+  min-width: 0;
+  padding: 8px 0;
+}
+.co-model-fields {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.co-model-fields label {
+  display: flex;
+  flex: 1 1 180px;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--co-muted);
+}
+.co-model-fields select {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--co-border);
+  border-radius: 8px;
+  background: var(--co-card);
+  color: var(--co-text);
+  font: inherit;
+  font-size: 12px;
+}
+.co-model-fields select:focus-visible {
+  outline: 2px solid var(--co-accent);
+  outline-offset: 2px;
+}
+.co-model-picker > small {
+  display: block;
+  margin-top: 7px;
+  color: var(--co-muted);
+  line-height: 1.5;
+  font-size: 11px;
+}
+.co-task-models {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid var(--co-border);
+  border-radius: 10px;
+}
+.co-task-models summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.co-task-models p {
+  color: var(--co-muted);
+  font-size: 12px;
+}
+.co-step-model {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--co-border);
+}
+.co-step-model header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.co-step-model strong {
+  font-size: 12px;
+}
+.co-step-model label {
+  font-size: 12px;
+}

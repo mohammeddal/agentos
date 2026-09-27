@@ -1,5 +1,7 @@
 # StaffForge Product Definition
 
+> Reference scope: earlier StaffForge core/prototype design. For the current AgentOS company UI and implemented boundaries, start with the [development guide](DEVELOPMENT.md) and [usage guide](USAGE.md).
+
 StaffForge is a local-first AI engineering operating system that turns a user's existing Codex installation into a visible, governed engineering team. Codex remains the execution runtime; StaffForge owns orchestration, specialization, policy, approvals, memory, observability, and presentation.
 
 ## Product promise

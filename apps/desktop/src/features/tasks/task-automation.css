@@ -1,0 +1,363 @@
+.co-task-editor-nav {
+  display: flex;
+  gap: 5px;
+  border-bottom: 1px solid var(--co-border);
+  padding-bottom: 12px;
+  position: sticky;
+  top: 0;
+  background: var(--co-card);
+  z-index: 2;
+  padding-top: 12px;
+}
+.co-task-editor-nav button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 6px;
+  padding: 9px 13px;
+  background: transparent;
+  color: var(--co-muted);
+  font-size: 12px;
+}
+.co-task-editor-nav button[aria-pressed="true"] {
+  background: var(--co-soft);
+  color: var(--co-text);
+}
+.co-task-editor-nav em {
+  font-style: normal;
+  font-size: 9px;
+  color: var(--co-accent);
+}
+.co-task-panel {
+  display: grid;
+  gap: 18px;
+}
+.co-task-panel[hidden] {
+  display: none;
+}
+.co-automation-panel {
+  display: grid;
+  gap: 18px;
+}
+.co-automation-intro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 3px;
+}
+.co-automation-intro > svg {
+  color: var(--co-accent);
+  flex-shrink: 0;
+}
+.co-automation-intro > div {
+  flex: 1;
+}
+.co-automation-intro h3 {
+  font-size: 16px;
+  font-weight: 550;
+  margin: 0 0 6px;
+  letter-spacing: -0.3px;
+}
+.co-automation-intro p,
+.co-automation-hint {
+  font-size: 11px;
+  color: var(--co-muted);
+  line-height: 1.7;
+  margin: 0;
+}
+.co-cron-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.co-cron-presets button {
+  border: 1px solid var(--co-border);
+  color: var(--co-secondary);
+  background: var(--co-card);
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 8px 10px;
+}
+.co-cron-presets button[aria-pressed="true"] {
+  color: var(--co-accent);
+  border-color: var(--co-accent);
+}
+.co-cron-key {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 7px;
+  background: var(--co-soft);
+  border-radius: 7px;
+  padding: 12px;
+}
+.co-cron-key span {
+  display: grid;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--co-muted);
+}
+.co-cron-key b {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--co-secondary);
+  font-weight: 500;
+}
+.co-cron-preview {
+  border: 1px solid var(--co-border);
+  border-radius: 10px;
+  padding: 16px;
+}
+.co-cron-preview > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+.co-cron-preview > div span {
+  font-size: 10px;
+  color: var(--co-muted);
+}
+.co-cron-preview ol {
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  padding: 15px 0 0;
+  margin: 0;
+}
+.co-cron-preview li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--co-secondary);
+}
+.co-task-automation-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  font-size: 10px;
+  color: var(--co-secondary);
+  border-top: 1px solid var(--co-border);
+  padding-top: 10px;
+}
+.co-task-automation-summary code {
+  font-size: 10px;
+  background: var(--co-soft);
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.co-task-automation-summary em {
+  font-style: normal;
+  color: var(--co-muted);
+}
+.co-workflow-builder {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  border: 1px solid var(--co-border);
+  border-radius: 10px;
+  overflow: hidden;
+  min-height: 390px;
+}
+.co-workflow-canvas {
+  background-color: var(--co-bg);
+  background-image: radial-gradient(var(--co-border) 1px, transparent 1px);
+  background-size: 15px 15px;
+  padding: 20px 15px;
+  border-right: 1px solid var(--co-border);
+  max-height: 650px;
+  overflow-y: auto;
+}
+.co-flow-node {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 12px;
+  border: 1px solid var(--co-border);
+  border-radius: 9px;
+  background: var(--co-card);
+  color: var(--co-text);
+  text-align: left;
+}
+.co-flow-node.selected {
+  border-color: var(--co-accent);
+  box-shadow: 0 0 0 1px var(--co-accent);
+}
+.co-flow-node-icon {
+  display: grid;
+  place-items: center;
+  background: var(--co-soft);
+  color: var(--co-accent);
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  flex-shrink: 0;
+}
+.co-flow-node > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.co-flow-node small {
+  color: var(--co-muted);
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+.co-flow-node strong {
+  font-size: 12px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.co-flow-node em {
+  font-size: 10px;
+  font-style: normal;
+}
+.route-ready {
+  color: var(--co-accent);
+}
+.route-waiting {
+  color: var(--co-text);
+}
+.route-skipped {
+  color: var(--co-muted);
+}
+.co-flow-edge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--co-muted);
+  padding: 12px 0 12px 12px;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.co-flow-edge svg {
+  flex-shrink: 0;
+}
+.co-flow-add {
+  margin-top: 18px;
+  padding: 12px;
+  border: 1px dashed var(--co-border);
+  border-radius: 8px;
+  background: var(--co-card);
+  display: grid;
+  gap: 10px;
+}
+.co-flow-add > span {
+  color: var(--co-muted);
+  font-size: 10px;
+}
+.co-flow-add > div {
+  display: flex;
+  gap: 8px;
+}
+.co-flow-add button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--co-border);
+  background: var(--co-soft);
+  color: var(--co-text);
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+}
+.co-flow-add > small {
+  font-size: 10px;
+  color: var(--co-muted);
+}
+.co-flow-inspector {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.co-flow-inspector-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.co-flow-inspector-heading button {
+  background: transparent;
+  border: 0;
+  color: var(--co-muted);
+  padding: 5px;
+}
+.co-flow-inspector .co-form-pair {
+  grid-template-columns: 1fr 1fr;
+}
+.co-flow-start h3 {
+  font-size: 17px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+.co-flow-start p {
+  color: var(--co-muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.co-condition-fields {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 7px;
+  background: var(--co-soft);
+}
+.co-flow-sample {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--co-border);
+  padding-top: 16px;
+}
+.co-flow-sample > strong {
+  font-size: 11px;
+}
+.co-task-form .co-sample-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.co-task-form .co-sample-check input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--co-accent);
+}
+.co-task-save-errors {
+  font-size: 11px;
+  color: var(--co-muted);
+}
+.co-task-save-errors button {
+  background: transparent;
+  border: 0;
+  text-decoration: underline;
+  color: var(--co-accent);
+  padding: 0;
+}
+@media (max-width: 650px) {
+  .co-workflow-builder {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .co-workflow-canvas {
+    max-height: 340px;
+    border-right: 0;
+    border-bottom: 1px solid var(--co-border);
+  }
+  .co-automation-intro {
+    flex-wrap: wrap;
+  }
+  .co-task-editor-nav {
+    gap: 0;
+  }
+  .co-task-editor-nav button {
+    padding: 9px;
+    font-size: 11px;
+  }
+  .co-task-editor-nav em {
+    display: none;
+  }
+}

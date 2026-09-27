@@ -1,5 +1,7 @@
 # Security Model
 
+> Reference scope: earlier StaffForge core/prototype design. For the current AgentOS company UI and implemented boundaries, start with the [development guide](DEVELOPMENT.md) and [usage guide](USAGE.md).
+
 ## Trust boundaries
 
 - Codex owns its authentication and configured MCP credentials.
@@ -11,14 +13,14 @@
 
 Every tool request is evaluated before provider resolution:
 
-| Risk | Default |
-| --- | --- |
-| `SAFE_READ` | execute |
-| `DRAFT` | execute |
-| `LOCAL_WRITE` | request approval |
-| `EXTERNAL_WRITE` | request approval |
-| `PRODUCTION_WRITE` | strong approval |
-| `DESTRUCTIVE` | strong approval, exact target required |
+| Risk               | Default                                |
+| ------------------ | -------------------------------------- |
+| `SAFE_READ`        | execute                                |
+| `DRAFT`            | execute                                |
+| `LOCAL_WRITE`      | request approval                       |
+| `EXTERNAL_WRITE`   | request approval                       |
+| `PRODUCTION_WRITE` | strong approval                        |
+| `DESTRUCTIVE`      | strong approval, exact target required |
 
 Policy considers action risk, requested capability, agent allow-list, plugin grants, workspace policy, environment, and target specificity. Provider execution requires a signed short-lived decision token so callers cannot skip evaluation.
 

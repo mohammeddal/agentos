@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ActivityItem, LiveRun, MemoryKind, MemoryRecord } from "../src/studio-types";
+import type { ActivityItem, LiveRun, MemoryKind, MemoryRecord } from "../src/shared/studio-types";
 
 export interface MemoryCandidate { kind: MemoryKind; title: string; value: string; confidence: number }
 export interface MemorySource {

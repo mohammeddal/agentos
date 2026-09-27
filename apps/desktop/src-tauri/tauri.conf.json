@@ -10,7 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "title": "AgentOS", "width": 1440, "height": 920, "minWidth": 980, "minHeight": 680, "decorations": true }],
+    "windows": [{ "title": "AgentOS", "width": 1440, "height": 920, "minWidth": 980, "minHeight": 680, "decorations": true, "dragDropEnabled": false }],
     "security": { "csp": null }
   },
   "bundle": {

@@ -1,0 +1,124 @@
+.co-live-setup,
+.co-live-run,
+.co-task-execution {
+  padding: 20px;
+  margin: 16px 0;
+  border: 1px solid var(--co-border);
+  border-radius: 12px;
+  background: var(--co-card);
+}
+.co-live-setup header,
+.co-live-run header,
+.co-task-execution > header,
+.co-live-history > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.co-live-setup p,
+.co-task-execution p {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 6px 0;
+  color: var(--co-muted);
+}
+.co-live-setup small,
+.co-live-run small {
+  display: block;
+  font-size: 11px;
+  color: var(--co-muted);
+  line-height: 1.7;
+}
+.co-live-engine {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 14px 0;
+  border-top: 1px solid var(--co-border);
+}
+.co-live-engine small,
+.co-live-engine details {
+  grid-column: 1/-1;
+  overflow-wrap: anywhere;
+}
+.co-live-answer {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.75;
+  font-size: 14px;
+  padding: 20px 0;
+}
+.co-live-status {
+  font-size: 11px;
+  text-transform: capitalize;
+  white-space: nowrap;
+  padding: 5px 8px;
+  border: 1px solid var(--co-border);
+  border-radius: 6px;
+}
+.co-live-status.awaiting_approval {
+  color: #a36a19;
+  background: #ca932019;
+}
+.co-live-status.running {
+  color: #5c9479;
+}
+.co-live-status.failed {
+  color: #bd5d52;
+}
+.co-live-run pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  max-height: 300px;
+  overflow: auto;
+  line-height: 1.6;
+}
+.co-live-run summary {
+  cursor: pointer;
+  font-size: 12px;
+  padding: 8px 0;
+  color: var(--co-muted);
+}
+.co-live-run ol {
+  padding-left: 20px;
+}
+.co-live-run li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--co-border);
+}
+.co-live-approval {
+  border: 1px solid #b28a45;
+  border-radius: 8px;
+  padding: 14px;
+  margin: 12px 0;
+}
+.co-live-approval button + button {
+  margin-left: 8px;
+}
+.co-live-history h3 {
+  font-size: 14px;
+}
+.co-live-history select {
+  background: var(--co-card);
+  color: inherit;
+  border: 1px solid var(--co-border);
+  border-radius: 6px;
+  padding: 6px;
+}
+@media (max-width: 650px) {
+  .co-live-run header,
+  .co-live-setup header,
+  .co-task-execution > header {
+    flex-wrap: wrap;
+  }
+  .co-live-setup,
+  .co-live-run,
+  .co-task-execution {
+    padding: 12px;
+  }
+  .co-live-engine {
+    grid-template-columns: 1fr;
+  }
+}

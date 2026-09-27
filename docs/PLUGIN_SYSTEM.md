@@ -1,5 +1,7 @@
 # Plugin System
 
+> Reference scope: earlier StaffForge core/prototype design. For the current AgentOS company UI and implemented boundaries, start with the [development guide](DEVELOPMENT.md) and [usage guide](USAGE.md).
+
 Plugins are versioned contribution bundles loaded through a narrow host contract. The core registry owns definitions; a plugin cannot mutate core state directly.
 
 ## Manifest

@@ -1,0 +1,261 @@
+import { useState } from "react";
+import { Download, FileText, List, ShieldCheck, Terminal } from "lucide-react";
+import { filterLogs, inspectRun, involvesAgent, outputText, runExport } from "./run-inspection";
+import { runStatus, statusLabels, type RehearsalRun } from "./task-rehearsal";
+import "./run-inspector.css";
+
+export function RunInspector({
+  run,
+  agentId,
+  initialActionId,
+}: {
+  run: RehearsalRun;
+  agentId?: string;
+  initialActionId?: string | undefined;
+}) {
+  const [tab, setTab] = useState<"overview" | "logs" | "output" | "approvals">("logs");
+  const [actionId, setActionId] = useState(initialActionId || "");
+  const [query, setQuery] = useState(""),
+    [level, setLevel] = useState("all"),
+    [notice, setNotice] = useState("");
+  const available = run.actions.filter((a) => !agentId || involvesAgent(a, agentId));
+  const selectedId = available.some((a) => a.id === actionId) ? actionId : "";
+  const { actions, events } = inspectRun(run, agentId, selectedId || undefined);
+  const logs = filterLogs(events, query, level);
+  const gates = actions.flatMap((action) => action.gates.map((gate) => ({ action, gate })));
+  const payload = runExport(run, agentId, selectedId || undefined);
+  const tabs = [
+    { id: "overview", label: "Overview", Icon: List },
+    { id: "logs", label: "Logs", Icon: Terminal },
+    { id: "output", label: "Output", Icon: FileText },
+    { id: "approvals", label: "Approvals", Icon: ShieldCheck },
+  ] as const;
+  return (
+    <section className="co-run-inspector" aria-label="Run inspector">
+      <header className="co-inspect-heading">
+        <div>
+          <small>REHEARSAL RECORD · NOT LIVE EXECUTION</small>
+          <h3>{run.title}</h3>
+          <code>{run.id}</code>
+        </div>
+        <span className={`co-action-status state-${runStatus(run)}`}>
+          {statusLabels[runStatus(run)]} · simulated
+        </span>
+      </header>
+      <div className="co-inspect-controls">
+        <label>
+          Action
+          <select
+            aria-label="Inspect action"
+            value={selectedId}
+            onChange={(e) => {
+              setActionId(e.target.value);
+              setNotice("");
+            }}
+          >
+            <option value="">
+              {agentId ? "All actions involving this agent" : "All actions in this run"}
+            </option>
+            {available.map((a) => (
+              <option value={a.id} key={a.id}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className="co-button"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(payload);
+              setNotice("Copied the selected rehearsal scope as JSON.");
+            } catch {
+              setNotice("Clipboard unavailable. Use Download JSON instead.");
+            }
+          }}
+        >
+          Copy JSON
+        </button>
+        <button
+          className="co-button"
+          onClick={() => {
+            const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `agentos-rehearsal-${run.id.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80)}.json`;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            setNotice(
+              "Exported the selected rehearsal scope. Review outputs for sensitive data before sharing.",
+            );
+          }}
+        >
+          <Download size={13} />
+          Download JSON
+        </button>
+      </div>
+      {notice && (
+        <p className="co-inspect-hint" role="status">
+          {notice}
+        </p>
+      )}
+      <nav className="co-inspect-tabs" aria-label="Run detail view">
+        {tabs.map(({ id, label, Icon }) => (
+          <button key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>
+            <Icon size={14} />
+            {label}
+          </button>
+        ))}
+      </nav>
+      {tab === "overview" && (
+        <div className="co-inspect-overview">
+          <dl>
+            <dt>Created</dt>
+            <dd>{new Date(run.createdAt).toLocaleString()}</dd>
+            <dt>Task ID</dt>
+            <dd>{run.taskId}</dd>
+            <dt>Source</dt>
+            <dd>Saved local rehearsal · frozen plan snapshot</dd>
+            <dt>Coverage</dt>
+            <dd>
+              {actions.length} of {run.actions.length} actions
+              {agentId ? " · performer or reviewer role" : ""}
+            </dd>
+          </dl>
+          {actions.map((a) => (
+            <article key={a.id}>
+              <header>
+                <strong>{a.label}</strong>
+                <span className={`co-action-status state-${a.status}`}>
+                  {statusLabels[a.status]}
+                </span>
+              </header>
+              <p>{a.description}</p>
+              <small>Performers at run creation: {a.performers.join(", ") || "Not recorded"}</small>
+              <small>
+                After:{" "}
+                {a.after
+                  ? run.actions.find((parent) => parent.id === a.after)?.label || a.after
+                  : "Run start"}
+              </small>
+              {!a.performerIds && <small>Legacy record: performer IDs were not captured.</small>}
+            </article>
+          ))}
+        </div>
+      )}
+      {tab === "logs" && (
+        <>
+          <div className="co-inspect-log-filters">
+            <input
+              aria-label="Search run logs"
+              placeholder="Find in logs…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <select aria-label="Log level" value={level} onChange={(e) => setLevel(e.target.value)}>
+              <option value="all">All events</option>
+              <option value="info">Info</option>
+              <option value="approval">Approvals</option>
+              <option value="error">Errors</option>
+            </select>
+            <span>{logs.length} events</span>
+          </div>
+          <div
+            className="co-log-console"
+            role="region"
+            aria-label="Recorded log events"
+            tabIndex={0}
+          >
+            {logs.length ? (
+              logs.map((event, i) => (
+                <div
+                  className={`co-log-line level-${event.level || "info"}`}
+                  key={`${event.at}:${i}`}
+                >
+                  <time dateTime={event.at}>{new Date(event.at).toLocaleTimeString()}</time>
+                  <em>{event.level || "info"}</em>
+                  <span>
+                    {event.text}
+                    {!event.actionId && (
+                      <small>
+                        {event.level ? "Run-wide event" : "Legacy event · action not recorded"}
+                      </small>
+                    )}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p>No recorded events match this filter.</p>
+            )}
+          </div>
+          <p className="co-inspect-hint">
+            Recorded state changes and decisions—not terminal stdout/stderr or model reasoning. New
+            records include action IDs; older unattributed events appear only in the full run view.
+            Refresh the agent history to read changes from another view.
+          </p>
+        </>
+      )}
+      {tab === "output" && (
+        <div className="co-inspect-output">
+          {actions.map((a) => (
+            <article key={a.id}>
+              <header>
+                <strong>{a.label}</strong>
+                <span className={`co-action-status state-${a.status}`}>
+                  {statusLabels[a.status]}
+                </span>
+              </header>
+              {a.result ? (
+                <>
+                  <small>User-supplied sample output · {a.result.outcome}</small>
+                  <pre tabIndex={0} aria-label={`Output for ${a.label}`}>
+                    {outputText(a.result.output)}
+                  </pre>
+                </>
+              ) : (
+                <p>
+                  {["skipped", "canceled", "rejected"].includes(a.status)
+                    ? "This action did not complete. No output was recorded."
+                    : "No output recorded yet. Running or queued does not imply a result exists."}
+                </p>
+              )}
+            </article>
+          ))}
+          <p className="co-inspect-hint">
+            Sample output is preserved as entered. Failure output is retained too. No real files or
+            artifacts are produced by rehearsals.
+          </p>
+        </div>
+      )}
+      {tab === "approvals" && (
+        <div className="co-inspect-approvals">
+          {gates.map(({ action, gate }) => (
+            <article key={`${action.id}:${gate.id}`}>
+              <header>
+                <strong>{action.label}</strong>
+                <span className="co-action-status">
+                  {gate.decision === "pending" && action.status !== "awaiting_approval"
+                    ? `${statusLabels[action.status]} · gate not active`
+                    : gate.decision}
+                </span>
+              </header>
+              <p>
+                {gate.reviewerName} ·{" "}
+                {gate.reviewer.kind === "agent"
+                  ? "Simulated agent reviewer"
+                  : "Human rehearsal review"}
+              </p>
+              <p>{gate.note || "No decision note recorded."}</p>
+              {gate.decidedAt && <time>{new Date(gate.decidedAt).toLocaleString()}</time>}
+            </article>
+          ))}
+          {!gates.length && <p>No approval gates were configured for these actions.</p>}
+          <p className="co-inspect-hint">
+            Read-only history. Make pending rehearsal decisions from Activity & approvals. These
+            decisions grant no permission for real execution.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}

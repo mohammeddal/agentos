@@ -1,8 +1,0 @@
-import { ShieldCheck } from "lucide-react";
-import type { Company } from "./company-model";
-import { approvalError, type ApprovalRule } from "./task-approvals";
-
-export function ApprovalPicker({ company, rule, change, executorIds, label = "Approval required" }: { company: Company; rule: ApprovalRule; change: (rule: ApprovalRule) => void; executorIds: string[]; label?: string }) {
-  const error = approvalError(company, rule, executorIds);
-  return <section className="co-approval-picker"><label><span><ShieldCheck size={14} />{label}</span><select value={rule.kind} onChange={e => change(e.target.value === "agent" ? { kind: "agent", agentId: "" } : { kind: e.target.value as "none" | "human" })}><option value="none">No additional approval</option><option value="human">My approval</option><option value="agent">Reviewer agent approval</option></select></label>{rule.kind === "agent" && <label>Reviewer agent<select value={rule.agentId} onChange={e => change({ kind: "agent", agentId: e.target.value })}><option value="">Choose a reviewer…</option>{company.offices.flatMap(o => o.agents.map(a => <option key={a.id} value={a.id} disabled={executorIds.includes(a.id)}>{a.name} · {o.name}{executorIds.includes(a.id) ? " (performer)" : ""}</option>))}</select></label>}<p>{rule.kind === "none" ? "Other applicable task or handoff gates still apply. This does not override tool-level permissions." : "Pause before this action starts. Approval applies only to that action in that run. Rejection blocks its downstream handoffs."}</p>{error && <p className="co-form-error" role="alert">{error}</p>}</section>;
-}

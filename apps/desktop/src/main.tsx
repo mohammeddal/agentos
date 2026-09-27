@@ -4,12 +4,12 @@ import { createRoot } from "react-dom/client";
 async function start() {
   const params = new URLSearchParams(window.location.search);
   const View = params.has("studio")
-    ? (await import("./Studio")).Studio
+    ? (await import("./legacy/studio/Studio")).Studio
     : params.has("data")
-      ? (await import("./DataWorkspace")).DataWorkspace
+      ? (await import("./legacy/data/DataWorkspace")).DataWorkspace
       : params.has("workbench")
-        ? (await import("./AgentWorkbench")).AgentWorkbench
-        : (await import("./CompanyWorkspace")).CompanyWorkspace;
+        ? (await import("./legacy/workbench/AgentWorkbench")).AgentWorkbench
+        : (await import("./app/CompanyWorkspace")).CompanyWorkspace;
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <View />

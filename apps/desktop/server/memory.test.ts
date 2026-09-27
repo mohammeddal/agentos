@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fallbackMemoryCandidates, memoryFiles, mergeMemoryRecords, parseMemoryEnvelope, relevantMemories } from "./memory";
-import type { MemoryRecord } from "../src/studio-types";
+import type { MemoryRecord } from "../src/shared/studio-types";
 
 describe("StaffForge project memory", () => {
   it("removes and validates the hidden memory envelope", () => {

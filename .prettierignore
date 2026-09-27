@@ -1,0 +1,11 @@
+node_modules/
+**/dist/
+**/dist-types/
+**/target/
+**/gen/
+.agentos/
+.staffforge/
+.playwright-cli/
+output/
+pnpm-lock.yaml
+**/Cargo.lock

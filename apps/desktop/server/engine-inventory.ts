@@ -4,7 +4,7 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 import { parse as toml } from "smol-toml";
 import { parse as yaml } from "yaml";
 import type { Plugin } from "vite";
-import type { Capability, CapabilityKind, Engine, Inventory } from "../src/engine-inventory";
+import type { Capability, CapabilityKind, Engine, Inventory } from "../src/features/engines/engine-inventory";
 
 const record = (v: unknown): Record<string, any> => v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, any> : {};
 // Only display metadata. Never return commands, arguments, URLs, headers, env, or credential values.

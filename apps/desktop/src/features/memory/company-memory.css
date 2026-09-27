@@ -1,0 +1,230 @@
+.co-memory {
+  display: grid;
+  gap: 20px;
+}
+.co-memory-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.co-memory-header > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+.co-memory-header svg {
+  color: var(--co-accent);
+  flex-shrink: 0;
+}
+.co-memory-header span {
+  display: grid;
+  gap: 6px;
+}
+.co-memory-header strong {
+  font-size: 15px;
+  font-weight: 550;
+}
+.co-memory-header small {
+  font-size: 11px;
+  color: var(--co-muted);
+}
+.co-memory-header [aria-checked="true"] {
+  background: var(--co-soft);
+  border-color: var(--co-accent);
+}
+.co-memory-storage {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--co-soft);
+  border: 1px solid var(--co-border);
+  border-radius: 10px;
+  padding: 17px;
+}
+.co-memory-storage > div {
+  display: grid;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.co-memory-storage svg {
+  flex-shrink: 0;
+  color: var(--co-accent);
+}
+.co-memory-storage strong {
+  font-size: 12px;
+}
+.co-memory-storage code {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+  color: var(--co-secondary);
+}
+.co-memory-storage small {
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--co-muted);
+}
+.co-memory label {
+  display: grid;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 550;
+}
+.co-memory input,
+.co-memory select,
+.co-memory textarea {
+  font: inherit;
+  background: var(--co-card);
+  color: var(--co-text);
+  border: 1px solid var(--co-border);
+  border-radius: 6px;
+  padding: 10px;
+  width: 100%;
+  min-width: 0;
+}
+.co-memory textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+.co-memory-tools {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-end;
+}
+.co-memory-tools label {
+  width: 200px;
+}
+.co-memory-layout {
+  display: grid;
+  gap: 20px;
+}
+.co-memory-layout.editing {
+  grid-template-columns: minmax(0, 1fr) minmax(330px, 1fr);
+  align-items: start;
+}
+.co-memory-records {
+  display: grid;
+  gap: 12px;
+}
+.co-memory-record {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 21px;
+  background: var(--co-card);
+  color: var(--co-text);
+  border: 1px solid var(--co-border);
+  border-radius: 10px;
+}
+.co-memory-record.selected {
+  border-color: var(--co-accent);
+}
+.co-memory-record > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 10px;
+  color: var(--co-muted);
+}
+.co-memory-record em {
+  color: var(--co-accent);
+  font-style: normal;
+}
+.co-memory-record h3 {
+  font-size: 15px;
+  font-weight: 550;
+  margin: 13px 0 8px;
+  overflow-wrap: anywhere;
+}
+.co-memory-record p {
+  font-size: 12px;
+  color: var(--co-secondary);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.co-memory-record footer {
+  font-size: 10px;
+  color: var(--co-muted);
+  margin-top: 15px;
+}
+.co-memory-editor {
+  display: grid;
+  gap: 15px;
+  border: 1px solid var(--co-border);
+  padding: 21px;
+  border-radius: 10px;
+  background: var(--co-card);
+}
+.co-memory-editor header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+.co-memory-editor footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.co-memory-notice {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--co-accent);
+}
+.co-memory-warning {
+  padding: 14px;
+  background: var(--co-soft);
+  border: 1px solid var(--co-border);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.co-memory-file-toggle {
+  border: 0;
+  background: transparent;
+  color: var(--co-accent);
+  text-align: left;
+  padding: 5px 0;
+  font-size: 11px;
+  width: fit-content;
+}
+.co-memory-markdown {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: auto;
+  max-height: 400px;
+  font-size: 11px;
+  padding: 20px;
+  background: var(--co-soft);
+  border: 1px solid var(--co-border);
+  border-radius: 8px;
+}
+@media (max-width: 1000px) {
+  .co-memory-layout.editing {
+    grid-template-columns: 1fr;
+  }
+  .co-memory-editor {
+    grid-row: 1;
+  }
+}
+@media (max-width: 580px) {
+  .co-memory-storage {
+    flex-wrap: wrap;
+  }
+  .co-memory-storage > .co-button {
+    margin-left: 28px;
+  }
+  .co-memory-header > div {
+    flex-basis: 100%;
+  }
+  .co-memory .co-form-pair {
+    grid-template-columns: 1fr;
+  }
+}
