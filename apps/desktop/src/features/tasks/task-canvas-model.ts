@@ -28,6 +28,10 @@ export type CanvasNode = {
   readOnly: boolean;
   network: boolean;
   maxSteps: number;
+  /** Task attachment IDs selected for this context block. Optional for older saved canvases. */
+  attachmentIds?: string[];
+  /** Discovery state captured when a local capability was selected. */
+  capabilityStatus?: "" | "found" | "configured" | "disabled" | "cached";
 };
 export type CanvasEdge = {
   id: string;
@@ -67,6 +71,8 @@ export function newCanvasNode(
     readOnly: true,
     network: false,
     maxSteps: 20,
+    attachmentIds: [],
+    capabilityStatus: "",
   };
 }
 export function initialTaskCanvas(task: CompanyTask): TaskCanvasGraph {
@@ -80,7 +86,12 @@ export function initialTaskCanvas(task: CompanyTask): TaskCanvasGraph {
     }
   );
 }
-export function connectionError(graph: TaskCanvasGraph, from: string, to: string): string | null {
+export function connectionError(
+  graph: TaskCanvasGraph,
+  from: string,
+  to: string,
+  allowLegacyApprovalAttachment = false,
+): string | null {
   const source = graph.nodes.find((n) => n.id === from),
     target = graph.nodes.find((n) => n.id === to);
   if (!source || !target) return "Choose two available blocks.";
@@ -89,7 +100,13 @@ export function connectionError(graph: TaskCanvasGraph, from: string, to: string
   if (graph.edges.some((e) => e.from === from && e.to === to))
     return "These blocks are already connected.";
   if (attachmentKinds.includes(target.kind))
-    return "Connect resources and restrictions out to a task, agent, domain, approval, or prompt—not into another resource.";
+    return "Connect resources and restrictions out to a task, agent, domain, or prompt—not into another resource.";
+  if (
+    target.kind === "approval" &&
+    attachmentKinds.includes(source.kind) &&
+    !allowLegacyApprovalAttachment
+  )
+    return "Attach resources to the work step before or after an approval, not to the approval itself.";
   if (target.kind === "task" && !attachmentKinds.includes(source.kind))
     return "The task is the flow entry. Only resources or restrictions can attach to it.";
   const seen = new Set<string>();
@@ -168,6 +185,13 @@ export function isTaskCanvas(value: unknown): value is TaskCanvasGraph {
         n.y <= canvasSize.height - canvasSize.nodeHeight &&
         typeof n.readOnly === "boolean" &&
         typeof n.network === "boolean" &&
+        (n.attachmentIds === undefined ||
+          (Array.isArray(n.attachmentIds) &&
+            n.attachmentIds.length <= 8 &&
+            new Set(n.attachmentIds).size === n.attachmentIds.length &&
+            n.attachmentIds.every((id) => typeof id === "string" && !!id))) &&
+        (n.capabilityStatus === undefined ||
+          ["", "found", "configured", "disabled", "cached"].includes(n.capabilityStatus)) &&
         Number.isInteger(n.maxSteps) &&
         n.maxSteps >= 1 &&
         n.maxSteps <= 1000,
@@ -187,7 +211,7 @@ export function isTaskCanvas(value: unknown): value is TaskCanvasGraph {
       typeof edge.id !== "string" ||
       !edge.id ||
       !["success", "failure", "always", "approved"].includes(edge.condition) ||
-      connectionError(checked, edge.from, edge.to)
+      connectionError(checked, edge.from, edge.to, true)
     )
       return false;
     const attachment = attachmentKinds.includes(graph.nodes.find((n) => n.id === edge.from)!.kind);
@@ -230,9 +254,21 @@ export function canvasWarnings(company: Company, graph: TaskCanvasGraph): string
     }
     if (n.kind === "domain" && !companyDomains(company).includes(n.reference))
       warnings.push(`${n.title}: choose an available domain.`);
-    if (["mcp", "skill", "connector"].includes(n.kind) && !n.reference)
-      warnings.push(`${n.title}: select a discovered capability or enter a reference.`);
-    if (["context", "prompt"].includes(n.kind) && !n.prompt.trim())
+    if (["mcp", "skill", "connector"].includes(n.kind)) {
+      if (!n.reference) warnings.push(`${n.title}: select a discovered capability.`);
+      else if (!n.source || !n.engine || !n.capabilityStatus)
+        warnings.push(`${n.title}: replace the manual reference with a discovered capability.`);
+      else if (n.capabilityStatus === "disabled")
+        warnings.push(`${n.title}: choose a capability that is not disabled.`);
+    }
+    if (
+      n.kind === "context" &&
+      !n.prompt.trim() &&
+      !n.source.trim() &&
+      !(n.attachmentIds || []).length
+    )
+      warnings.push(`${n.title}: add source notes or choose a task file.`);
+    if (n.kind === "prompt" && !n.prompt.trim())
       warnings.push(`${n.title}: add context or a custom prompt.`);
     if (n.kind === "approval" && n.reviewer !== "human" && !agents.some((a) => a.id === n.reviewer))
       warnings.push(`${n.title}: reviewer is unavailable.`);
@@ -241,6 +277,13 @@ export function canvasWarnings(company: Company, graph: TaskCanvasGraph): string
       !graph.edges.some((e) => e.from === n.id && e.condition === "approved")
     )
       warnings.push(`${n.title}: connect an outgoing flow with the Approved condition.`);
+  }
+  for (const edge of graph.edges) {
+    if (
+      edge.kind === "attachment" &&
+      graph.nodes.find((node) => node.id === edge.to)?.kind === "approval"
+    )
+      warnings.push("Move resources from an approval block to the work step they should affect.");
   }
   return warnings;
 }

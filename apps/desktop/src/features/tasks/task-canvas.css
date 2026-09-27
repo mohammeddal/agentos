@@ -336,6 +336,79 @@
   padding: 14px 10px;
   margin: 0 0 18px;
 }
+.tc-step-inputs {
+  border: 1px solid var(--co-border);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 0 0 18px;
+  background: var(--co-soft);
+}
+.tc-step-inputs > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 11px;
+}
+.tc-step-inputs > div:first-child span {
+  color: var(--co-muted);
+  font-size: 9px;
+}
+.tc-quick-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 9px;
+}
+.tc-quick-add button,
+.tc-attached-resource {
+  border: 1px solid var(--co-border);
+  border-radius: 6px;
+  background: var(--co-card);
+  color: var(--co-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+.tc-quick-add button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 7px;
+  font-size: 9px;
+}
+.tc-quick-add button:hover,
+.tc-attached-resource:hover {
+  border-color: var(--co-accent);
+  color: var(--co-text);
+}
+.tc-attached-resource {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 8px;
+  margin: 5px 0;
+  text-align: left;
+  font-size: 9px;
+}
+.tc-attached-resource strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 550;
+}
+.tc-context-files legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.tc-context-files .tc-check span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .tc-inspector legend {
   font-size: 10px;
   padding: 0 4px;

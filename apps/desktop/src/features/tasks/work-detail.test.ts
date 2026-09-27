@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { starterCompany, type CompanyChat, type CompanyTask } from "../company/company-model";
 import { chatSteps, plannedSteps, relatedRehearsals } from "./work-detail";
 import { createRehearsal } from "../activity/task-rehearsal";
+import { newCanvasNode } from "./task-canvas-model";
 const task: CompanyTask = {
   id: "task-1",
   title: "Investigate",
@@ -82,6 +83,40 @@ describe("work inspection", () => {
     expect(step.approval).toContain("PR Reviewer");
     expect(step.approval).toContain("source output must also be approved");
     expect(step.description).toBe(linked.brief);
+  });
+  it("shows the compiled visual plan and visible configuration failures", () => {
+    const root = newCanvasNode("task", 0, 0, "root");
+    const agent = {
+      ...newCanvasNode("agent", 300, 0, "agent"),
+      reference: "data-engineer",
+      prompt: "Verify evidence",
+    };
+    const canvasTask: CompanyTask = {
+      ...task,
+      handoffs: [],
+      canvas: {
+        version: 1,
+        nodes: [root, agent],
+        edges: [{ id: "flow", from: "root", to: "agent", kind: "flow", condition: "success" }],
+      },
+    };
+    expect(plannedSteps(starterCompany, canvasTask)[0]).toMatchObject({
+      title: "Data Engineer",
+      condition: "On success",
+      after: "Task start",
+      description: "Verify evidence",
+    });
+    expect(
+      plannedSteps(starterCompany, {
+        ...canvasTask,
+        canvas: {
+          ...canvasTask.canvas!,
+          nodes: canvasTask.canvas!.nodes.map((node) =>
+            node.id === "agent" ? { ...node, reference: "missing" } : node,
+          ),
+        },
+      })[0]?.condition,
+    ).toBe("Workflow needs configuration");
   });
   it("uses recorded prompt text and time, never generated thinking", () => {
     const chat: CompanyChat = {

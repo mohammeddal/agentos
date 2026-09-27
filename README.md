@@ -2,7 +2,7 @@
 
 A local-first, installable macOS workspace for organizing projects, domains, offices, agents, and task plans.
 
-**Current status:** the installed Mac app runs chats and tasks through local Codex and Claude Code CLIs, using their existing sign-ins. It records real replies, progress, approvals, failures, and cancellations. Opt-in schedules require the app to stay open. Some advanced canvas resource/policy blocks remain non-executable and block a run rather than being ignored. The browser remains a planning preview. See the [live execution guide](docs/LIVE-EXECUTION.md) for exact support and safety boundaries.
+**Current status:** the installed Mac app runs chats and tasks through local Codex and Claude Code CLIs, using their existing sign-ins. It records real replies, progress, approvals, failures, and cancellations. Opt-in schedules require the app to stay open. Visual workflows execute agent/domain/office steps, scoped context and files, conditions, and approval checkpoints. Discovered matching provider capabilities can be required by a step; unverified, disabled, incompatible, or unenforceable policy blocks fail closed. The browser remains a planning preview. See the [live execution guide](docs/LIVE-EXECUTION.md) for exact support and safety boundaries.
 
 ## Start here
 

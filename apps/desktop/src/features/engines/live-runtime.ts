@@ -250,9 +250,15 @@ function rule(step: LiveStep, approval: ApprovalRule | undefined, company: Compa
 /** Fail closed: no advanced constraint may silently degrade into a prompt suggestion. */
 function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
   const graph = task.canvas!;
-  const unsupported = graph.nodes.find((n) =>
-    ["mcp", "skill", "connector", "restriction"].includes(n.kind),
+  const taskFileIds = new Set((task.attachments || []).map((attachment) => attachment.id));
+  const missingFile = graph.nodes.find((node) =>
+    (node.attachmentIds || []).some((id) => !taskFileIds.has(id)),
   );
+  if (missingFile)
+    throw new Error(
+      `“${missingFile.title}” references a file that is no longer attached to this task. Choose its files again.`,
+    );
+  const unsupported = graph.nodes.find((n) => n.kind === "restriction");
   if (unsupported)
     throw new Error(
       `“${unsupported.title}” is a blueprint-only ${unsupported.kind} block. Live execution is blocked: this block's configuration cannot yet be enforced. Provider-configured tools remain available to ordinary tasks.`,
@@ -262,17 +268,57 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
   const root = graph.nodes.find((n) => n.kind === "task")!;
   const allAgents = company.offices.flatMap((o) => o.agents);
   const baseTeam = taskParticipants(company, task.assignment);
-  const attachments = (id: string) =>
+  const attachedNodes = (id: string) =>
     graph.edges
       .filter((e) => e.kind === "attachment" && e.to === id)
-      .map((e) => graph.nodes.find((n) => n.id === e.from)!)
-      .map((n) => `${n.title} (reference context):\n${n.prompt}`)
+      .map((e) => graph.nodes.find((n) => n.id === e.from)!);
+  const scopedFiles = (id: string) =>
+    attachedNodes(id).flatMap((n) => (n.kind === "context" ? n.attachmentIds || [] : []));
+  const resources = (id: string, engine: string) =>
+    attachedNodes(id)
+      .map((n) => {
+        if (n.kind === "context") {
+          const body = [n.source.trim() ? `Source: ${n.source.trim()}` : "", n.prompt.trim()]
+            .filter(Boolean)
+            .join("\n");
+          return body ? `${n.title} (reference context):\n${body}` : "";
+        }
+        if (!["mcp", "skill", "connector"].includes(n.kind)) return "";
+        if (!n.source || !n.engine || !n.capabilityStatus)
+          throw new Error(
+            `“${n.title}” is an unverified ${n.kind} reference. Select it from local discovery before running.`,
+          );
+        if (n.capabilityStatus === "disabled")
+          throw new Error(`“${n.title}” is disabled in the discovered ${n.engine} configuration.`);
+        if (n.engine !== engine)
+          throw new Error(
+            `“${n.title}” belongs to ${n.engine}, but this step runs on ${engine}. Attach it to a matching agent step.`,
+          );
+        return `Required ${n.kind.toUpperCase()} capability: ${n.title} (${n.reference}). Use this configured capability for this step. If it is unavailable or unauthenticated in the live provider session, stop and report capability_unavailable; do not pretend it was used.`;
+      })
+      .filter(Boolean)
       .join("\n\n");
-  const rootPrompt = [root.prompt || task.brief, attachments(root.id)].filter(Boolean).join("\n\n");
+  const rootContext = attachedNodes(root.id)
+    .filter((n) => n.kind === "context" && (n.prompt.trim() || n.source.trim()))
+    .map((n) =>
+      [
+        `${n.title} (reference context):`,
+        n.source.trim() ? `Source: ${n.source.trim()}` : "",
+        n.prompt.trim(),
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    )
+    .join("\n\n");
+  const rootPrompt = [root.prompt || task.brief, rootContext].filter(Boolean).join("\n\n");
   const workers = graph.nodes.filter((n) =>
     ["office", "agent", "domain", "prompt"].includes(n.kind),
   );
   if (!workers.length) {
+    if (graph.nodes.some((n) => ["mcp", "skill", "connector"].includes(n.kind)))
+      throw new Error(
+        "Add an agent, office, domain, or prompt step before assigning a capability.",
+      );
     if (graph.nodes.some((n) => n.kind === "approval"))
       throw new Error("Connect the approval checkpoint to an agent or domain.");
     const { canvas: _canvas, ...base } = task;
@@ -353,10 +399,18 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
       const step = agentStep(
         agent,
         `canvas-${node.id}-${agent.id}`,
-        [rootPrompt, node.prompt, attachments(node.id)].filter(Boolean).join("\n\n"),
+        [
+          rootPrompt,
+          node.prompt,
+          resources(root.id, engineId(agent.engine)),
+          resources(node.id, engineId(agent.engine)),
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
         i ? [result.at(-1)!.id] : after,
         i ? "success" : condition,
       );
+      step.attachments = [...new Set([...scopedFiles(root.id), ...scopedFiles(node.id)])];
       if (reviewerIds[0]) rule(step, { kind: "agent", agentId: reviewerIds[0] }, company);
       step.approval = gates.some((g) => g.kind === "human");
       result.push(step);
@@ -367,6 +421,7 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
   return result;
 }
 export function compileTask(company: Company, task: CompanyTask, path: string[] = []): LiveStep[] {
+  const hasScopedCanvasFiles = task.canvas?.nodes.some((node) => (node.attachmentIds || []).length);
   const apply = (step: LiveStep): LiveStep => {
     const override = task.stepModels?.[step.id];
     const choice =
@@ -375,13 +430,21 @@ export function compileTask(company: Company, task: CompanyTask, path: string[] 
         : step.id.startsWith("link-")
           ? undefined
           : task.modelDefaults?.[step.engine];
+    const attachments = hasScopedCanvasFiles
+      ? [...new Set(step.attachments || [])]
+      : [...new Set([...(task.attachments || []).map((a) => a.id), ...(step.attachments || [])])];
     return {
       ...step,
-      attachments: [
-        ...new Set([...(task.attachments || []).map((a) => a.id), ...(step.attachments || [])]),
-      ],
+      attachments,
       ...(choice ? { model: choice.model, effort: choice.effort } : {}),
-      ...(step.reviewer ? { reviewer: apply(step.reviewer) } : {}),
+      ...(step.reviewer
+        ? {
+            reviewer: apply({
+              ...step.reviewer,
+              attachments: [...new Set([...attachments, ...(step.reviewer.attachments || [])])],
+            }),
+          }
+        : {}),
     };
   };
   return compileTaskPlan(company, task, path).map(apply);

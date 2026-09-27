@@ -318,6 +318,91 @@ describe("native execution plans", () => {
     expect(steps[0]?.prompt).toContain("Budget is 50");
     expect(steps[0]?.prompt).toContain("Use exact figures");
   });
+  it("scopes selected task files to one visual step", () => {
+    const attachment = {
+      id: "00000000-0000-0000-0000-000000000001",
+      name: "evidence.txt",
+      size: 12,
+      kind: "text" as const,
+      mime: "text/plain",
+    };
+    const root = newCanvasNode("task", 0, 0, "root");
+    const first = {
+      ...newCanvasNode("agent", 300, 0, "first"),
+      reference: "data-engineer",
+    };
+    const second = {
+      ...newCanvasNode("agent", 600, 0, "second"),
+      reference: "investigator",
+    };
+    const context = {
+      ...newCanvasNode("context", 300, 250, "context"),
+      attachmentIds: [attachment.id],
+    };
+    const steps = compileTask(
+      starterCompany,
+      task({
+        attachments: [attachment],
+        approval: { kind: "agent", agentId: "reviewer" },
+        canvas: {
+          version: 1,
+          nodes: [root, first, second, context],
+          edges: [
+            { id: "1", from: "root", to: "first", kind: "flow", condition: "success" },
+            { id: "2", from: "first", to: "second", kind: "flow", condition: "success" },
+            { id: "3", from: "context", to: "first", kind: "attachment", condition: "always" },
+          ],
+        },
+      }),
+    );
+    expect(steps[0]?.attachments).toEqual([attachment.id]);
+    expect(steps[0]?.reviewer?.attachments).toEqual([attachment.id]);
+    expect(steps[1]?.attachments).toEqual([]);
+  });
+  it("requires a discovered capability on its matching provider step", () => {
+    const root = newCanvasNode("task", 0, 0, "root");
+    const agent = {
+      ...newCanvasNode("agent", 300, 0, "agent"),
+      reference: "data-engineer",
+    };
+    const mcp = {
+      ...newCanvasNode("mcp", 300, 250, "mcp"),
+      title: "warehouse",
+      reference: "warehouse",
+      source: "/config.toml",
+      engine: "codex",
+      capabilityStatus: "configured" as const,
+    };
+    const canvas = {
+      version: 1 as const,
+      nodes: [root, agent, mcp],
+      edges: [
+        {
+          id: "1",
+          from: "root",
+          to: "agent",
+          kind: "flow" as const,
+          condition: "success" as const,
+        },
+        {
+          id: "2",
+          from: "mcp",
+          to: "agent",
+          kind: "attachment" as const,
+          condition: "always" as const,
+        },
+      ],
+    };
+    expect(compileTask(starterCompany, task({ canvas }))[0]?.prompt).toContain(
+      "Required MCP capability: warehouse",
+    );
+    expect(() =>
+      compileTask(
+        starterCompany,
+        task({ canvas: { ...canvas, nodes: [root, agent, { ...mcp, engine: "claude" }] } }),
+      ),
+    ).toThrow(/belongs to claude/);
+  });
   it("compiles a visual office block into that office's agents", () => {
     const root = { ...newCanvasNode("task", 0, 0, "root"), prompt: "Investigate together" };
     const office = {

@@ -17,6 +17,32 @@
   outline: 2px solid var(--co-accent);
   outline-offset: 2px;
 }
+.co-task-form .tc {
+  margin-inline: -28px;
+}
+.co-workflow-migration {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px;
+  border: 1px solid var(--co-border);
+  border-radius: 10px;
+  background: var(--co-soft);
+}
+.co-workflow-migration strong {
+  font-size: 12px;
+}
+.co-workflow-migration p {
+  margin: 5px 0 0;
+  max-width: 560px;
+  color: var(--co-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.co-workflow-migration .co-button {
+  flex-shrink: 0;
+}
 .co-field-optional {
   color: var(--co-muted);
   font-size: 11px;
@@ -311,6 +337,13 @@
   flex-shrink: 0;
 }
 @media (max-width: 580px) {
+  .co-task-form .tc {
+    margin-inline: -22px;
+  }
+  .co-workflow-migration {
+    align-items: stretch;
+    flex-direction: column;
+  }
   .co-assignment-modes {
     grid-template-columns: 1fr;
   }

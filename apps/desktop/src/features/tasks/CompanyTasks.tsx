@@ -25,9 +25,12 @@ import { ModelPicker } from "../engines/ModelPicker";
 import { AttachmentEditor } from "../attachments/Attachments";
 import { latestRun, matchesRunFilter, runLabel, type RunFilter } from "../engines/run-presentation";
 import type { ModelChoice } from "../engines/model-choice";
+import type { StepModelChoice } from "../engines/model-choice";
 import { ApprovalPicker } from "./ApprovalPicker";
 import { approvalError, type ApprovalRule } from "./task-approvals";
 import { ScheduleEditor, WorkflowEditor } from "./TaskAutomation";
+import { TaskCanvas } from "./TaskCanvas";
+import { initialTaskCanvas, type TaskCanvasGraph } from "./task-canvas-model";
 import {
   schedulePreview,
   workflowError,
@@ -211,6 +214,8 @@ export function TaskForm({
   initialProjectId,
   initialAgentId,
   save,
+  storageError,
+  onVisualChange,
 }: {
   company: Company;
   existing: CompanyTask | undefined;
@@ -218,12 +223,18 @@ export function TaskForm({
   initialProjectId?: string | undefined;
   initialAgentId?: string | undefined;
   save: (task: CompanyTask) => void;
+  storageError: boolean;
+  onVisualChange?: (visual: boolean) => void;
 }) {
   const [taskId] = useState(() => existing?.id || crypto.randomUUID());
+  const [createdAt] = useState(() => existing?.createdAt || new Date().toISOString());
   const [attachments, setAttachments] = useState(existing?.attachments || []);
   const [attaching, setAttaching] = useState(false);
   const [modelDefaults, setModelDefaults] = useState<Record<string, ModelChoice>>(
     existing?.modelDefaults || {},
+  );
+  const [stepModels, setStepModels] = useState<Record<string, StepModelChoice>>(
+    existing?.stepModels || {},
   );
   const [projectId, setProjectId] = useState(existing?.projectId || initialProjectId || "");
   const [panel, setPanel] = useState<"task" | "schedule" | "workflow">("task");
@@ -232,6 +243,7 @@ export function TaskForm({
   );
   const [schedule, setSchedule] = useState<TaskSchedule>(existing?.schedule || { kind: "manual" });
   const [handoffs, setHandoffs] = useState<HandoffStep[]>(existing?.handoffs || []);
+  const [canvas, setCanvas] = useState<TaskCanvasGraph | undefined>(existing?.canvas);
   const [previewTime, setPreviewTime] = useState(() => new Date());
   useEffect(() => {
     const timer = window.setInterval(() => setPreviewTime(new Date()), 60_000);
@@ -241,7 +253,7 @@ export function TaskForm({
     () => schedulePreview(schedule, previewTime),
     [schedule, previewTime],
   );
-  const handoffError = workflowError(company, taskId, handoffs);
+  const handoffError = canvas ? null : workflowError(company, taskId, handoffs);
   const [title, setTitle] = useState(existing?.title || "");
   const [brief, setBrief] = useState(existing?.brief || "");
   const [kind, setKind] = useState<TaskAssignment["kind"]>(
@@ -297,6 +309,62 @@ export function TaskForm({
     if (kind === "domains") setSelectedDomains(update);
     else setSelectedAgents(update);
   }
+  function changeTitle(next: string) {
+    setCanvas((current) =>
+      current
+        ? {
+            ...current,
+            nodes: current.nodes.map((node) =>
+              node.kind === "task" && [title, "Task", "Untitled task"].includes(node.title)
+                ? { ...node, title: next || "Untitled task" }
+                : node,
+            ),
+          }
+        : current,
+    );
+    setTitle(next);
+  }
+  function changeBrief(next: string) {
+    setCanvas((current) =>
+      current
+        ? {
+            ...current,
+            nodes: current.nodes.map((node) =>
+              node.kind === "task" && node.prompt === brief ? { ...node, prompt: next } : node,
+            ),
+          }
+        : current,
+    );
+    setBrief(next);
+  }
+  const canvasRoot = canvas?.nodes.find((node) => node.kind === "task");
+  const canvasMeaningful =
+    !!canvas &&
+    (canvas.nodes.length > 1 ||
+      canvas.edges.length > 0 ||
+      canvasRoot?.title !== (title.trim() || "Untitled task") ||
+      canvasRoot?.prompt !== brief.trim());
+  const draftTask: CompanyTask = {
+    id: taskId,
+    title: title.trim() || "Untitled task",
+    brief: brief.trim(),
+    assignment,
+    status: "planned",
+    createdAt,
+    attachments,
+    modelDefaults,
+    stepModels,
+    ...(projectId ? { projectId } : {}),
+    schedule,
+    handoffs: canvas ? [] : handoffs,
+    approval,
+    ...(canvas ? { canvas } : {}),
+  };
+  function selectPanel(next: "task" | "schedule" | "workflow") {
+    if (next === "workflow" && !canvas && !handoffs.length) setCanvas(initialTaskCanvas(draftTask));
+    setPanel(next);
+    onVisualChange?.(next === "workflow" && (!handoffs.length || !!canvas));
+  }
   return (
     <form
       className="co-form co-task-form"
@@ -310,18 +378,18 @@ export function TaskForm({
           save({
             id: taskId,
             attachments,
-            ...(existing?.canvas ? { canvas: existing.canvas } : {}),
+            ...(canvasMeaningful && canvas ? { canvas } : {}),
             modelDefaults,
-            ...(existing?.stepModels ? { stepModels: existing.stepModels } : {}),
+            stepModels,
             ...(projectId ? { projectId } : {}),
             schedule,
-            handoffs,
+            handoffs: canvas ? [] : handoffs,
             approval,
             title: title.trim(),
             brief: brief.trim(),
             assignment,
             status: "planned",
-            createdAt: existing?.createdAt || new Date().toISOString(),
+            createdAt,
           });
       }}
     >
@@ -330,7 +398,7 @@ export function TaskForm({
           type="button"
           aria-label="Task and team"
           aria-pressed={panel === "task"}
-          onClick={() => setPanel("task")}
+          onClick={() => selectPanel("task")}
         >
           <ClipboardList size={14} />
           Task & team
@@ -339,19 +407,22 @@ export function TaskForm({
           type="button"
           aria-label="Schedule"
           aria-pressed={panel === "schedule"}
-          onClick={() => setPanel("schedule")}
+          onClick={() => selectPanel("schedule")}
         >
           <CalendarClock size={14} />
           Schedule{schedule.kind === "cron" && <em>CRON</em>}
         </button>
         <button
           type="button"
-          aria-label="Workflow"
+          aria-label="Workflow map"
           aria-pressed={panel === "workflow"}
-          onClick={() => setPanel("workflow")}
+          onClick={() => selectPanel("workflow")}
         >
           <GitBranch size={14} />
-          Workflow{handoffs.length > 0 && <em>{handoffs.length}</em>}
+          Workflow map
+          {(canvas?.nodes.length || handoffs.length) > 0 && (
+            <em>{canvas?.nodes.length || handoffs.length}</em>
+          )}
         </button>
       </nav>
       <div className="co-task-panel" hidden={panel !== "task"}>
@@ -368,8 +439,8 @@ export function TaskForm({
               onChange={(event) => {
                 const template = templates[Number(event.target.value)];
                 if (event.target.value && template) {
-                  setTitle(template.title);
-                  setBrief(template.brief);
+                  changeTitle(template.title);
+                  changeBrief(template.brief);
                 }
               }}
             >
@@ -389,7 +460,7 @@ export function TaskForm({
             maxLength={120}
             placeholder="What would you like your team to accomplish?"
             value={title}
-            onChange={(event) => setTitle(event.target.value)}
+            onChange={(event) => changeTitle(event.target.value)}
           />
         </label>
         <label>
@@ -419,7 +490,7 @@ export function TaskForm({
             maxLength={3000}
             placeholder="Describe the outcome, context, and what done looks like…"
             value={brief}
-            onChange={(event) => setBrief(event.target.value)}
+            onChange={(event) => changeBrief(event.target.value)}
           />
         </label>
         <AttachmentEditor value={attachments} onChange={setAttachments} onBusy={setAttaching}>
@@ -571,31 +642,69 @@ export function TaskForm({
         <ScheduleEditor schedule={schedule} change={setSchedule} preview={scheduleResult} />
       </div>
       <div className="co-task-panel" hidden={panel !== "workflow"}>
-        <WorkflowEditor
-          company={company}
-          taskId={taskId}
-          title={title}
-          steps={handoffs}
-          change={setHandoffs}
-          error={handoffError}
-        />
+        {panel === "workflow" &&
+          (canvas ? (
+            <TaskCanvas
+              embedded
+              company={company}
+              task={{ ...draftTask, canvas }}
+              save={setCanvas}
+              back={() => selectPanel("task")}
+              storageError={storageError}
+              saveModels={(next) => {
+                setModelDefaults(next.modelDefaults || {});
+                setStepModels(next.stepModels || {});
+              }}
+            />
+          ) : (
+            <>
+              <section className="co-workflow-migration">
+                <div>
+                  <strong>Existing step workflow</strong>
+                  <p>
+                    Keep editing these {handoffs.length} handoffs, or replace the unsaved draft with
+                    the visual canvas for per-step context and capabilities.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="co-button"
+                  onClick={() => {
+                    setHandoffs([]);
+                    setCanvas(initialTaskCanvas({ ...draftTask, handoffs: [] }));
+                    onVisualChange?.(true);
+                  }}
+                >
+                  <GitBranch size={13} /> Use visual canvas
+                </button>
+              </section>
+              <WorkflowEditor
+                company={company}
+                taskId={taskId}
+                title={title}
+                steps={handoffs}
+                change={setHandoffs}
+                error={handoffError}
+              />
+            </>
+          ))}
       </div>
       {!canSave && (
         <div className="co-task-save-errors">
           {!assignmentValid ? (
-            <button type="button" onClick={() => setPanel("task")}>
+            <button type="button" onClick={() => selectPanel("task")}>
               Add a task name and valid team to save.
             </button>
           ) : gateError ? (
-            <button type="button" onClick={() => setPanel("task")}>
+            <button type="button" onClick={() => selectPanel("task")}>
               {gateError}
             </button>
           ) : scheduleResult.error ? (
-            <button type="button" onClick={() => setPanel("schedule")}>
+            <button type="button" onClick={() => selectPanel("schedule")}>
               Fix the schedule to save.
             </button>
           ) : (
-            <button type="button" onClick={() => setPanel("workflow")}>
+            <button type="button" onClick={() => selectPanel("workflow")}>
               Complete the workflow to save: {handoffError}
             </button>
           )}
@@ -604,7 +713,7 @@ export function TaskForm({
       <div className="co-task-submit">
         <p>
           Saved locally as <strong>Planned</strong>.<br />
-          Schedules and handoffs are drafts, not active runs.
+          Schedules and workflows run only after you enable or start them.
         </p>
         <button
           type="submit"

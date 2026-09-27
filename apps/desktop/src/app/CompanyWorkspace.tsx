@@ -82,6 +82,7 @@ type DialogState =
       domain?: string | undefined;
       projectId?: string | undefined;
       agentId?: string | undefined;
+      visual?: boolean;
     }
   | { type: "office"; domain?: string }
   | { type: "domain" }
@@ -744,7 +745,7 @@ export function CompanyWorkspace() {
       </div>
       {dialog && (
         <CompanyDialog
-          expanded={dialog.type === "canvas"}
+          expanded={dialog.type === "canvas" || (dialog.type === "task" && !!dialog.visual)}
           wide={
             dialog.type === "inspect-task" ||
             dialog.type === "project" ||
@@ -965,6 +966,8 @@ export function CompanyWorkspace() {
               initialDomain={dialog.domain}
               initialProjectId={dialog.projectId}
               initialAgentId={dialog.agentId}
+              storageError={storageError}
+              onVisualChange={(visual) => setDialog({ ...dialog, visual })}
               save={(task) => {
                 setCompany((c) => ({
                   ...c,

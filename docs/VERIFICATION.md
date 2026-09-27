@@ -43,6 +43,14 @@ This records the earlier UX-only change. For the subsequent native runtime integ
 - Isolated Chromium verification created a task, opened the map from its Overview, added the real Engineering office, added a custom prompt, connected Task → Office, returned to Overview, reloaded, and confirmed the two-block map and connection persisted. The map was visually inspected at 390 × 844 and browser console errors were zero. No native company records or provider runs were changed by this browser-only QA.
 - 180 Vitest tests across 28 files passed, including Office validation and Office-to-agent runtime compilation. Typecheck, formatting, whitespace checks, source audit (126 reachable files, no broken imports), and final app/DMG packaging passed.
 
+### First-class task workflow follow-up
+
+- **Workflow map** is now a peer of **Task & team** and **Schedule** in new and existing task editors. A user can build the map before creating the task; the expanded canvas no longer requires save → reopen → task details. New tasks use one visual workflow system, while older handoff tasks retain their editor and expose an explicit unsaved migration choice.
+- Selecting a task/office/domain/agent/prompt block exposes compact **Inputs & capabilities** actions. Context, MCP, skill, and connector blocks are created already connected to that exact step; **Approval next** adds the following checkpoint. The embedded editor removes the duplicate Overview/Workflow switch.
+- Context blocks accept notes, a source label/path, and selected task files. Tests verify that a file attached to one visual step is absent from the next step. Discovered non-disabled capabilities compile only on a matching provider and produce an exact required-capability instruction; manual/unverified, disabled, provider-mismatched, and unenforceable restriction configurations fail closed.
+- Chromium QA created a task through the new visual route, added scoped context, saved it, reopened its Overview, and confirmed the compiled step plan. Desktop light and 390 × 844 light/dark layouts were visually inspected; console errors were zero. The temporary browser task was moved to Removed items and no native provider run was started.
+- 187 Vitest tests across 29 files passed. Typecheck, formatting, source audit (131 reachable files, no broken imports), 16 offline native tests (four account-backed tests ignored by default), production web build, and final app/DMG packaging passed.
+
 ### Agent prompts and skills follow-up
 
 - Added optional per-agent instructions and selection of up to 24 available Codex or Claude Code skills from the existing read-only capability inventory. Cached/disabled records are visible but not selectable, changing provider clears incompatible choices with an explicit notice, and saved choices are visible from Agent Activity.

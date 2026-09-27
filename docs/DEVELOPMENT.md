@@ -2,7 +2,7 @@
 
 ## Product and integration boundaries
 
-AgentOS is the default desktop UI. `@staffforge/*` names identify the earlier internal packages; they are not a second copy of the company app. The company UI is a local planning surface, not a runtime client. Never turn stored plans, UI status, discovered capability metadata, or simulated approvals into permission to execute an action.
+AgentOS is the default desktop UI. `@staffforge/*` names identify the earlier internal packages; they are not a second copy of the company app. The installed company UI is a local runtime client; browser preview is planning-only. Never turn stored plans, UI status, discovered capability metadata, or simulated approvals into permission to execute an action. Native runs must keep provider sandboxes, action-scoped approvals, immutable request snapshots, and fail-closed compilation boundaries intact.
 
 The browser entry point is `apps/desktop/src/main.tsx`. It lazily loads exactly one experience:
 
@@ -93,4 +93,4 @@ These are not encrypted secret stores. Keep credentials out. Preserve local data
 
 Generated `dist`, `dist-types`, `target`, `node_modules`, TypeScript caches, browser artifacts, and local stores are ignored. They are not source organization problems. If build caches need cleaning, stop relevant processes and remove only a validated generated directory, never a workspace root or user data directory.
 
-The next runtime milestone must compile blueprints into validated plans and enforce approvals at a trusted execution boundary. Cosmetic work must not imply this is already implemented.
+Visual workflows compile into validated native plans. Per-step context notes and selected task files are scoped by attachment edges. Discovered MCP/skill/connector records become explicit required-capability instructions only when their provider matches; local discovery still does not prove authentication or live availability. Restriction blocks remain non-executable and must fail closed until the host can enforce them. Cosmetic work must not imply stronger guarantees.

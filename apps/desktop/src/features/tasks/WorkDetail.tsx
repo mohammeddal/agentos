@@ -185,9 +185,15 @@ export function WorkDetail({
               </li>
             ))}
           </ol>
-          {task && !task.handoffs?.length && (
+          {task && !task.canvas && !task.handoffs?.length && (
             <p className="co-work-caption">
-              No handoffs yet. Use Edit task → Workflow to add conditional steps.
+              No handoffs yet. Use Edit task → Workflow map to add conditional steps.
+            </p>
+          )}
+          {task?.canvas && (
+            <p className="co-work-caption">
+              This plan comes from the visual workflow. Open Workflow map to inspect per-step
+              context, capabilities, conditions, and approvals.
             </p>
           )}
           {task?.handoffs?.some((s) => s.kind === "task") && (

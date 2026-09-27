@@ -13,20 +13,20 @@ An expired/revoked login requires provider reauthentication; AgentOS cannot repa
 
 ## Supported behavior
 
-| Feature           | Native behavior                                                                                                                                                      |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Chat              | Codex app-server or Claude Code bidirectional streaming; persistent sessions, output, cancellation, errors                                                           |
-| Tasks             | Assigned agents run in order, using each agent's selected engine and role; previous outputs become reference context                                                 |
-| Workflow handoffs | Success, failure, completion, human approval, and structured JSON output comparisons                                                                                 |
-| Linked tasks      | Expanded into the same run; require the same project; cycles/deep nesting and conflicting reviewer gates are rejected                                                |
-| Approval          | Human start gates; actual reviewer-agent JSON decisions; provider command/file/tool approval requests supported by the adapter                                       |
-| Canvas            | Agent/domain flows, custom prompts, inline context, human/reviewer checkpoints; joins require matching conditions                                                    |
-| Cron              | Explicitly enable a frozen plan in task details; ticks every 15 seconds while app is open/awake; more than one minute overdue is skipped; no replay queue or overlap |
-| Memory            | Reviewed, non-conflicting scope-matched Markdown records included as reference; off excludes memory; live failures can be captured as unreviewed issues              |
-| Activity          | Real saved runs, status, step results, provider-published progress, tool output, pending approvals, and Stop                                                         |
-| Office map        | Active performer status from runs; approval state; completed performers can be idle; no synthetic activity unless preview is explicitly enabled                      |
-| Notifications     | User opt-in, macOS permission; completion/failure/approval messages omit prompts and output                                                                          |
-| Projects          | Project tasks run in the app-owned project root; existing domain/agent directories remain organization folders, not separate execution sandboxes                     |
+| Feature           | Native behavior                                                                                                                                                                    |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chat              | Codex app-server or Claude Code bidirectional streaming; persistent sessions, output, cancellation, errors                                                                         |
+| Tasks             | Assigned agents run in order, using each agent's selected engine and role; previous outputs become reference context                                                               |
+| Workflow handoffs | Success, failure, completion, human approval, and structured JSON output comparisons                                                                                               |
+| Linked tasks      | Expanded into the same run; require the same project; cycles/deep nesting and conflicting reviewer gates are rejected                                                              |
+| Approval          | Human start gates; actual reviewer-agent JSON decisions; provider command/file/tool approval requests supported by the adapter                                                     |
+| Canvas            | Agent/office/domain flows, custom prompts, step-scoped context/files, discovered matching provider capabilities, and human/reviewer checkpoints; joins require matching conditions |
+| Cron              | Explicitly enable a frozen plan in task details; ticks every 15 seconds while app is open/awake; more than one minute overdue is skipped; no replay queue or overlap               |
+| Memory            | Reviewed, non-conflicting scope-matched Markdown records included as reference; off excludes memory; live failures can be captured as unreviewed issues                            |
+| Activity          | Real saved runs, status, step results, provider-published progress, tool output, pending approvals, and Stop                                                                       |
+| Office map        | Active performer status from runs; approval state; completed performers can be idle; no synthetic activity unless preview is explicitly enabled                                    |
+| Notifications     | User opt-in, macOS permission; completion/failure/approval messages omit prompts and output                                                                                        |
+| Projects          | Project tasks run in the app-owned project root; existing domain/agent directories remain organization folders, not separate execution sandboxes                                   |
 
 ## Attachment transport
 
@@ -48,7 +48,8 @@ Codex transport follows the official [App Server input protocol](https://learn.c
 
 ## Explicitly unsupported
 
-- Per-block MCP, skill, connector, and restriction overrides are still blueprint-only. Including one blocks the whole canvas run. Existing provider-configured capabilities are available to ordinary task sessions, subject to provider permissions; source inventory is not proof of runtime availability.
+- Restriction blocks remain blueprint-only because the host cannot yet enforce their requested read/write, network, or step-limit policy. Including one blocks the whole canvas run.
+- MCP, skill, and connector blocks must be selected from discovery, must not be disabled, and must match the target step's provider. They add an exact required-capability instruction, but discovery is still not proof of installation, authentication, health, effective permissions, or actual tool use. The provider is instructed to report `capability_unavailable` rather than pretend; provider approvals and sandbox rules still apply.
 - Visual flows and Workflow handoffs cannot both drive the same task. Choose one plan. Multiple independent reviewer gates at one joined action are blocked rather than collapsed.
 - No separate direct-provider API mode, unattended service, wake-from-sleep scheduler, cross-project linked execution, or bundled provider installation.
 - Unsupported provider interactions are declined explicitly, not auto-approved. The current adapter does not implement every Codex experimental request, custom-tool UI, or interactive question type.

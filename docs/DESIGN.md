@@ -28,7 +28,7 @@ Choose the quiet workspace. The IDE direction is the fallback for expert-only to
 
 Start shows a prompt, a task checkbox, the selected engine, and project context when projects exist. Model and effort controls are one click away behind a summary of the current choices. Saved chats live in the sidebar, not a competing panel on Start. Chats open on their own routes and show readable replies; logs stay in Activity. Avoid welcome banners, promotional subtitles, empty metrics, or parallel “start” actions.
 
-Task detail is for understanding work; Edit task is for configuration. Schedules and structured handoffs remain separate tabs. The canvas is a deliberate second-level tool with Work, Resources, and Control groups, selected-block settings, and Fit view. Selector-based connections remain available behind an explicit disclosure. Never make mouse dragging the only path.
+Task detail is for understanding work; Edit task is for configuration. The task editor exposes **Task & team**, **Schedule**, and **Workflow map** at the same level so visual creation is available before the task is saved. The canvas remains an expert surface with Work, Resources, and Control groups, selected-step settings, and Fit view. A selected work step exposes compact controls for attaching only its context, files, MCPs, skills, connectors, and next approval. Selector-based connections remain behind an explicit disclosure. Never make mouse dragging the only path or show a second, competing workflow builder for new tasks.
 
 Each view should answer: where am I, what is here, what can I do next? Show advanced fields after the user chooses the relevant object or option. Keep important safety states visible, but avoid repeating the same paragraph in three places.
 
@@ -67,7 +67,7 @@ The core loop is **start → review → continue → find again**. Company confi
 | Find a blocked run         | Activity “Needs attention” filter, plus sidebar approval count | Pending decisions and errors are actionable, not buried in decorative metrics.                                      |
 | Review finished work       | Activity or Tasks “Finished” filter                            | Runtime state comes from recorded runs, not the existence of a task record.                                         |
 | Adjust appearance or setup | Settings & help in sidebar footer                              | Engines, notifications, theme, and help are occasional preferences.                                                 |
-| Build complex coordination | Task detail → edit, workflow, or visual builder                | Start simple; configure schedules, conditions, and per-agent models in context.                                     |
+| Build complex coordination | New/Edit task → Workflow map                                   | Start simple; attach conditions, context, capabilities, approvals, and per-agent models to the exact step.          |
 | Run a local command        | Top toolbar → Terminal, or Cmd/Ctrl+J                          | Give engineers a real command surface without turning the primary navigation into an IDE cockpit.                   |
 
 ### Readability and trust

@@ -16,6 +16,7 @@ import {
   Redo2,
   Plus,
   Minus,
+  Paperclip,
   Trash2,
 } from "lucide-react";
 import { companyDomains, type Company, type CompanyTask } from "../company/company-model";
@@ -70,6 +71,7 @@ const descriptions = {
   prompt: "Your instructions",
 };
 const clamp = (n: number, max: number) => Math.max(0, Math.min(max, n));
+const stepKinds: BlockKind[] = ["task", "office", "agent", "domain", "prompt"];
 
 export function TaskCanvas({
   company,
@@ -78,6 +80,7 @@ export function TaskCanvas({
   back,
   storageError,
   saveModels,
+  embedded = false,
 }: {
   company: Company;
   task: CompanyTask;
@@ -85,6 +88,7 @@ export function TaskCanvas({
   back: () => void;
   storageError: boolean;
   saveModels: (task: CompanyTask) => void;
+  embedded?: boolean;
 }) {
   const [graph, setGraph] = useState(() => initialTaskCanvas(task));
   const [past, setPast] = useState<TaskCanvasGraph[]>([]),
@@ -115,8 +119,16 @@ export function TaskCanvas({
     [discoveryError, setDiscoveryError] = useState("");
   const node = graph.nodes.find((n) => n.id === selected),
     edge = graph.edges.find((e) => e.id === edgeId);
-  const agents = company.offices.flatMap((o) => o.agents),
-    warnings = canvasWarnings(company, graph);
+  const agents = company.offices.flatMap((o) => o.agents);
+  const scopedFileIds = new Set(graph.nodes.flatMap((candidate) => candidate.attachmentIds || []));
+  const warnings = [
+    ...canvasWarnings(company, graph),
+    ...(scopedFileIds.size
+      ? (task.attachments || [])
+          .filter((file) => !scopedFileIds.has(file.id))
+          .map((file) => `${file.name}: attached to the task but not assigned to a workflow step.`)
+      : []),
+  ];
   const shown = graph.nodes.map((n) =>
     moving?.id === n.id ? { ...n, x: moving.x, y: moving.y } : n,
   );
@@ -188,6 +200,50 @@ export function TaskCanvas({
         behavior: "smooth",
       });
   }
+  function attach(kind: (typeof attachmentKinds)[number], target: CanvasNode) {
+    if (graph.nodes.length >= 80) {
+      setError("This draft supports up to 80 blocks.");
+      return;
+    }
+    const offset = graph.edges.filter((e) => e.kind === "attachment" && e.to === target.id).length;
+    const hasLeftSpace = target.x >= 270;
+    const resource = newCanvasNode(
+      kind,
+      clamp(hasLeftSpace ? target.x - 270 : target.x, 2190),
+      clamp(target.y + (hasLeftSpace ? offset : offset + 1) * 155, 1470),
+    );
+    try {
+      const withNode = { ...graph, nodes: [...graph.nodes, resource] };
+      commit(connectCanvas(withNode, resource.id, target.id));
+      setSelected(resource.id);
+      setEdgeId("");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  function addApprovalAfter(target: CanvasNode) {
+    if (graph.nodes.length >= 80) {
+      setError("This draft supports up to 80 blocks.");
+      return;
+    }
+    const offset = graph.edges.filter(
+      (candidate) => candidate.kind === "flow" && candidate.from === target.id,
+    ).length;
+    const hasRightSpace = target.x <= 1920;
+    const approval = newCanvasNode(
+      "approval",
+      clamp(hasRightSpace ? target.x + 270 : target.x, 2190),
+      clamp(target.y + (hasRightSpace ? offset : offset + 1) * 155, 1470),
+    );
+    try {
+      const withNode = { ...graph, nodes: [...graph.nodes, approval] };
+      commit(connectCanvas(withNode, target.id, approval.id));
+      setSelected(approval.id);
+      setEdgeId("");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
   function connect(source: string, target: string) {
     try {
       commit(connectCanvas(graph, source, target));
@@ -231,21 +287,24 @@ export function TaskCanvas({
   return (
     <section className="tc" aria-label="Visual task builder">
       <div className="tc-toolbar">
-        <nav className="co-task-view-switch" aria-label="Task view">
-          <button type="button" aria-pressed="false" onClick={back}>
-            Overview
-          </button>
-          <button type="button" aria-pressed="true">
-            <GitBranch size={13} />
-            Workflow map
-          </button>
-        </nav>
-        <span className="tc-draft">Blueprint · {graph.nodes.length} blocks</span>
+        {!embedded && (
+          <nav className="co-task-view-switch" aria-label="Task view">
+            <button type="button" aria-pressed="false" onClick={back}>
+              Overview
+            </button>
+            <button type="button" aria-pressed="true">
+              <GitBranch size={13} />
+              Workflow map
+            </button>
+          </nav>
+        )}
+        <span className="tc-draft">Workflow · {graph.nodes.length} blocks</span>
         <div className="tc-tools">
-          <button className="co-button" onClick={fit}>
+          <button type="button" className="co-button" onClick={fit}>
             Fit view
           </button>
           <button
+            type="button"
             className="co-icon-button"
             aria-label="Undo canvas change"
             disabled={!past.length}
@@ -254,6 +313,7 @@ export function TaskCanvas({
             <Undo2 size={15} />
           </button>
           <button
+            type="button"
             className="co-icon-button"
             aria-label="Redo canvas change"
             disabled={!future.length}
@@ -262,6 +322,7 @@ export function TaskCanvas({
             <Redo2 size={15} />
           </button>
           <button
+            type="button"
             className="co-icon-button"
             aria-label="Zoom out"
             disabled={zoom <= 0.1}
@@ -271,6 +332,7 @@ export function TaskCanvas({
           </button>
           <span>{Math.round(zoom * 100)}%</span>
           <button
+            type="button"
             className="co-icon-button"
             aria-label="Zoom in"
             disabled={zoom >= 1.2}
@@ -282,7 +344,7 @@ export function TaskCanvas({
       </div>
       <p className="tc-boundary">
         {executionIssue ||
-          "Executable visual flow · Save, then open task details to run. Task assignment supplies the default team; the visual flow replaces Workflow handoffs."}
+          "Ready to run · Each work step can have its own files, context, MCPs, skills, connectors, model, and approval path."}
       </p>
       <div className="tc-layout">
         <aside className="tc-palette">
@@ -308,6 +370,7 @@ export function TaskCanvas({
                 const Icon = icons[kind];
                 return (
                   <button
+                    type="button"
                     key={kind}
                     className="tc-palette-block"
                     draggable
@@ -419,6 +482,9 @@ export function TaskCanvas({
                 </svg>
                 {shown.map((n) => {
                   const Icon = icons[n.kind];
+                  const inputCount = graph.edges.filter(
+                    (edge) => edge.kind === "attachment" && edge.to === n.id,
+                  ).length;
                   return (
                     <article
                       key={n.id}
@@ -501,6 +567,7 @@ export function TaskCanvas({
                       </div>
                       <strong>{n.title || "Untitled block"}</strong>
                       <p>
+                        {inputCount ? `${inputCount} attached · ` : ""}
                         {n.kind === "approval"
                           ? n.reviewer === "human"
                             ? "Your approval required"
@@ -509,11 +576,14 @@ export function TaskCanvas({
                             ? `${n.readOnly ? "Read only" : "Writes requested"} · ${n.network ? "Network requested" : "No network"}`
                             : n.prompt ||
                               (n.reference
-                                ? "Reference selected · not activated"
+                                ? n.capabilityStatus
+                                  ? `${n.capabilityStatus} · ${n.engine}`
+                                  : "Reference selected · unverified"
                                 : "Select to configure")}
                       </p>
                       {!attachmentKinds.includes(n.kind) && (
                         <button
+                          type="button"
                           className="tc-port tc-port-in"
                           data-input={n.id}
                           aria-label={`Connect into ${n.title}`}
@@ -528,6 +598,7 @@ export function TaskCanvas({
                         />
                       )}
                       <button
+                        type="button"
                         className={`tc-port tc-port-out ${connecting === n.id ? "active" : ""}`}
                         aria-label={`Connect from ${n.title}`}
                         onPointerDown={(e) => {
@@ -604,6 +675,7 @@ export function TaskCanvas({
                 </select>
               </label>
               <button
+                type="button"
                 className="co-button"
                 disabled={!from || !to}
                 onClick={() => connect(from, to)}
@@ -619,6 +691,7 @@ export function TaskCanvas({
                 : "Drag headers to move. Drag output → input to connect. Arrow keys move a focused block.")}
             {connecting && (
               <button
+                type="button"
                 onClick={() => {
                   setConnecting("");
                   setWire(null);
@@ -704,6 +777,62 @@ export function TaskCanvas({
                   save={saveModels}
                 />
               )}
+              {stepKinds.includes(node.kind) && (
+                <section className="tc-step-inputs" aria-label={`Inputs for ${node.title}`}>
+                  <div>
+                    <strong>Inputs & capabilities</strong>
+                    <span>
+                      {
+                        graph.edges.filter(
+                          (item) => item.kind === "attachment" && item.to === node.id,
+                        ).length
+                      }{" "}
+                      attached
+                    </span>
+                  </div>
+                  <div className="tc-quick-add">
+                    {(["context", "mcp", "skill", "connector"] as const).map((kind) => (
+                      <button type="button" key={kind} onClick={() => attach(kind, node)}>
+                        <Plus size={11} /> {blockNames[kind]}
+                      </button>
+                    ))}
+                    <button type="button" onClick={() => addApprovalAfter(node)}>
+                      <ShieldCheck size={11} /> Approval next
+                    </button>
+                  </div>
+                  {graph.edges
+                    .filter((item) => item.kind === "attachment" && item.to === node.id)
+                    .map((item) => graph.nodes.find((candidate) => candidate.id === item.from)!)
+                    .map((resource) => (
+                      <button
+                        type="button"
+                        className="tc-attached-resource"
+                        key={resource.id}
+                        onClick={() => {
+                          setSelected(resource.id);
+                          setEdgeId("");
+                        }}
+                      >
+                        {blockNames[resource.kind]} <strong>{resource.title}</strong>
+                      </button>
+                    ))}
+                  <small>
+                    Attach only what this step needs. Files and context stay scoped to this step;
+                    required provider capabilities are checked when the plan compiles.
+                  </small>
+                </section>
+              )}
+              {node.kind === "context" && (
+                <label>
+                  Source label or path <span className="co-field-optional">Optional</span>
+                  <input
+                    maxLength={1200}
+                    value={node.source}
+                    placeholder="Research brief, docs/plan.md, customer notes…"
+                    onChange={(e) => update(node.id, { source: e.target.value })}
+                  />
+                </label>
+              )}
               <label>
                 {node.kind === "context" ? "Context / source notes" : "Custom prompt"}
                 <textarea
@@ -718,6 +847,33 @@ export function TaskCanvas({
                   onChange={(e) => update(node.id, { prompt: e.target.value })}
                 />
               </label>
+              {node.kind === "context" && (
+                <fieldset className="tc-context-files">
+                  <legend>
+                    <Paperclip size={11} /> Task files for this step
+                  </legend>
+                  {(task.attachments || []).length ? (
+                    (task.attachments || []).map((file) => (
+                      <label className="tc-check" key={file.id}>
+                        <input
+                          type="checkbox"
+                          checked={(node.attachmentIds || []).includes(file.id)}
+                          onChange={() =>
+                            update(node.id, {
+                              attachmentIds: (node.attachmentIds || []).includes(file.id)
+                                ? (node.attachmentIds || []).filter((id) => id !== file.id)
+                                : [...(node.attachmentIds || []), file.id],
+                            })
+                          }
+                        />
+                        <span>{file.name}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <small>Add files under Task & team, then return here to scope them.</small>
+                  )}
+                </fieldset>
+              )}
               {node.kind === "approval" && (
                 <label>
                   Approval by
@@ -780,13 +936,18 @@ export function TaskCanvas({
                       maxLength={6000}
                       value={node.reference}
                       onChange={(e) =>
-                        update(node.id, { reference: e.target.value, source: "", engine: "" })
+                        update(node.id, {
+                          reference: e.target.value,
+                          source: "",
+                          engine: "",
+                          capabilityStatus: "",
+                        })
                       }
                     />
                     <small>
                       {node.source
-                        ? `Discovered from ${node.engine}: ${node.source}`
-                        : "Manual reference · unverified"}
+                        ? `${node.capabilityStatus} in ${node.engine} · ${node.source}`
+                        : "Manual reference · saved as a draft but blocked from live execution"}
                     </small>
                   </label>
                   <details className="tc-discovery">
@@ -819,6 +980,7 @@ export function TaskCanvas({
                       />
                     </label>
                     <button
+                      type="button"
                       className="co-button"
                       disabled={discovering}
                       onClick={() => void discover()}
@@ -837,6 +999,7 @@ export function TaskCanvas({
                           .filter((e) => e.kind === node.kind)
                           .map((entry) => (
                             <button
+                              type="button"
                               className="tc-capability"
                               key={entry.id}
                               onClick={() =>
@@ -845,6 +1008,7 @@ export function TaskCanvas({
                                   title: entry.name.slice(0, 120),
                                   source: entry.source,
                                   engine: inventory.engine,
+                                  capabilityStatus: entry.status,
                                 })
                               }
                             >
@@ -861,7 +1025,7 @@ export function TaskCanvas({
                 </>
               )}
               {node.kind !== "task" && (
-                <button className="co-button tc-delete" onClick={remove}>
+                <button type="button" className="co-button tc-delete" onClick={remove}>
                   <Trash2 size={13} />
                   Remove block
                 </button>
@@ -902,7 +1066,7 @@ export function TaskCanvas({
                   </select>
                 </label>
               )}
-              <button className="co-button" onClick={remove}>
+              <button type="button" className="co-button" onClick={remove}>
                 <Trash2 size={13} />
                 Remove connection
               </button>
@@ -914,6 +1078,7 @@ export function TaskCanvas({
             <summary>Connections ({graph.edges.length})</summary>
             {graph.edges.map((e) => (
               <button
+                type="button"
                 key={e.id}
                 onClick={() => {
                   setSelected("");
@@ -932,9 +1097,11 @@ export function TaskCanvas({
         <span role="status">
           {storageError
             ? "Storage unavailable · session only"
-            : task.canvas
-              ? "Draft saved on this device"
-              : "Changes save automatically on this device"}
+            : embedded
+              ? "Saved when you create or save this task"
+              : task.canvas
+                ? "Draft saved on this device"
+                : "Changes save automatically on this device"}
         </span>
         <details>
           <summary>

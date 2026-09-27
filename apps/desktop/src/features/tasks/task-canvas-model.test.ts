@@ -76,7 +76,22 @@ describe("visual task blueprints", () => {
   it("keeps the task as flow entry and resources as outward attachments", () => {
     expect(connectionError(sample(), "agent", "task-root")).toMatch(/entry/);
     expect(connectionError(sample(), "agent", "context")).toMatch(/resources/);
+    expect(connectionError(sample(), "context", "review")).toMatch(/approval/);
     expect(isTaskCanvas(connectCanvas(sample(), "context", "task-root"))).toBe(true);
+  });
+  it("loads legacy approval attachments but reports them for repair", () => {
+    const graph = sample();
+    graph.edges.push({
+      id: "legacy",
+      from: "context",
+      to: "review",
+      kind: "attachment",
+      condition: "always",
+    });
+    expect(isTaskCanvas(graph)).toBe(true);
+    expect(canvasWarnings(starterCompany, graph).join(" ")).toContain(
+      "Move resources from an approval block",
+    );
   });
   it("removes incident edges but protects the task root", () => {
     const g = connectCanvas(sample(), "task-root", "agent");
@@ -114,6 +129,34 @@ describe("visual task blueprints", () => {
     expect(isCompanyTask(saved)).toBe(true);
     saved.canvas.nodes[1].maxSteps = 0;
     expect(isCompanyTask(saved)).toBe(false);
+  });
+  it("validates scoped files and discovered capability state", () => {
+    const graph = sample();
+    graph.nodes[4]!.attachmentIds = ["file-one"];
+    graph.nodes.push({
+      ...newCanvasNode("mcp", 650, 350, "mcp"),
+      reference: "warehouse",
+      source: "/config.toml",
+      engine: "codex",
+      capabilityStatus: "configured",
+    });
+    expect(isTaskCanvas(graph)).toBe(true);
+    expect(
+      isTaskCanvas({
+        ...graph,
+        nodes: graph.nodes.map((node) =>
+          node.id === "context" ? { ...node, attachmentIds: ["same", "same"] } : node,
+        ),
+      }),
+    ).toBe(false);
+    expect(
+      isTaskCanvas({
+        ...graph,
+        nodes: graph.nodes.map((node) =>
+          node.id === "mcp" ? { ...node, capabilityStatus: "invented" } : node,
+        ),
+      }),
+    ).toBe(false);
   });
   it("rejects malformed graphs and unsafe sizes", () => {
     const g = sample();
