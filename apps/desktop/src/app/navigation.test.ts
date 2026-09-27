@@ -15,7 +15,7 @@ describe("workspace navigation", () => {
     expect(primaryView("agents")).toBe("map");
     expect(primaryView("engines")).toBe("memory");
   });
-  it("round trips every page and encoded office/project link", () => {
+  it("round trips every current page and redirects legacy domain links", () => {
     for (const view of [
       "start",
       "tasks",
@@ -23,12 +23,12 @@ describe("workspace navigation", () => {
       "map",
       "offices",
       "agents",
-      "domains",
       "activity",
       "memory",
       "engines",
     ] as WorkspaceView[])
       expect(parseRoute(routeHash({ view }))).toEqual({ view });
+    expect(parseRoute("#/company/domains")).toEqual({ view: "offices" });
     for (const route of [
       { view: "offices" as const, officeId: "research / east" },
       { view: "projects" as const, projectId: "a project" },
@@ -51,7 +51,7 @@ describe("workspace navigation", () => {
     expect(findWorkspace(starterCompany, "project details")[0]?.route?.view).toBe("projects");
     expect(findWorkspace(starterCompany, "no-such-item")).toEqual([]);
   });
-  it("returns tasks, projects, offices and domains with stable identifiers", () => {
+  it("returns tasks, projects and offices with stable identifiers", () => {
     const company: Company = {
       ...starterCompany,
       tasks: [
@@ -77,7 +77,7 @@ describe("workspace navigation", () => {
     };
     expect(findWorkspace(company, "revenue").map((r) => r.kind)).toEqual(["task", "project"]);
     expect(findWorkspace(company, "Data & Analytics").map((r) => r.kind)).toContain("office");
-    expect(findWorkspace(company, "Data & Analytics").map((r) => r.kind)).toContain("domain");
+    expect(findWorkspace(company, "Data & Analytics").map((r) => r.kind)).not.toContain("domain");
   });
   it("keeps default results short and caps large searches", () => {
     expect(findWorkspace(starterCompany, "")).toHaveLength(6);

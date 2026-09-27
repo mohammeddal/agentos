@@ -555,7 +555,7 @@ export function TaskCanvas({
           )}
           {(
             [
-              { label: "Work", kinds: ["task", "office", "domain", "agent", "prompt"] },
+              { label: "Work", kinds: ["task", "office", "agent", "prompt"] },
               { label: "Resources", kinds: ["context", "mcp", "skill", "connector"] },
               { label: "Control", kinds: ["approval", "restriction"] },
             ] as { label: string; kinds: BlockKind[] }[]

@@ -9,58 +9,16 @@ import {
 } from "./company-model";
 import { discoverEngine, type Capability, type Engine } from "../engines/engine-inventory";
 import { HelpTip } from "../../shared/HelpTip";
-export function DomainForm({ domains, save }: { domains: string[]; save: (name: string) => void }) {
-  const [name, setName] = useState("");
-  const duplicate = domains.some((d) => d.toLowerCase() === name.trim().toLowerCase());
-  return (
-    <form
-      className="co-form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (name.trim() && !duplicate) save(name.trim());
-      }}
-    >
-      <label>
-        Domain name
-        <input
-          required
-          autoFocus
-          maxLength={48}
-          placeholder="e.g. Customer Success"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          aria-invalid={duplicate}
-          aria-describedby={duplicate ? "domain-name-error" : undefined}
-        />
-      </label>
-      {duplicate && (
-        <p className="co-form-error" id="domain-name-error" role="alert">
-          This domain already exists. Choose a different name.
-        </p>
-      )}
-      <button className="co-button co-button-primary" disabled={!name.trim() || duplicate}>
-        Create domain
-        <ArrowRight size={15} />
-      </button>
-    </form>
-  );
-}
-
 export function OfficeForm({
   existing,
-  domains,
-  initialDomain,
   save,
   remove,
 }: {
   existing: Office | undefined;
-  domains: string[];
-  initialDomain: string | undefined;
   save: (office: Office) => void;
   remove?: (() => void) | undefined;
 }) {
   const [name, setName] = useState(existing?.name || "");
-  const [domain, setDomain] = useState(existing?.domain || initialDomain || "Data & Analytics");
   const [color, setColor] = useState(existing?.color || "sage");
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -68,7 +26,8 @@ export function OfficeForm({
     save({
       id: existing?.id || crypto.randomUUID(),
       name: name.trim(),
-      domain,
+      // Keep the legacy key for saved task/project compatibility. New offices own their scope.
+      domain: existing?.domain || name.trim(),
       color,
       agents: existing?.agents || [],
     });
@@ -85,14 +44,6 @@ export function OfficeForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-      </label>
-      <label>
-        Domain
-        <select value={domain} onChange={(e) => setDomain(e.target.value)}>
-          {domains.map((d) => (
-            <option key={d}>{d}</option>
-          ))}
-        </select>
       </label>
       <fieldset>
         <legend>Office color</legend>

@@ -85,7 +85,7 @@ export function QuickFind({
         ))}
       </div>
       {!results.length && (
-        <p className="co-find-empty">No matches. Try a name, role, domain, or “MCP”.</p>
+        <p className="co-find-empty">No matches. Try a name, role, office, or “MCP”.</p>
       )}
       <footer>
         ↑ ↓ to browse · Enter to open · Esc to close<span>Saved company records only</span>

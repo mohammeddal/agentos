@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
 import {
-  ArrowRight,
   ArrowUpRight,
   Blocks,
   ChevronRight,
@@ -14,7 +13,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { projectDomainNames, type Company, type Office } from "./company-model";
+import type { Office } from "./company-model";
 const domainIcons: Record<string, typeof Database> = {
   "Data & Analytics": Database,
   "Software Engineering": Code2,
@@ -32,66 +31,6 @@ function initials(name: string) {
     .join("")
     .toUpperCase();
 }
-export function DomainDirectory({
-  company,
-  domains,
-  addOffice,
-  openProject,
-  removeDomain,
-}: {
-  openProject: (id: string) => void;
-  company: Company;
-  domains: string[];
-  addOffice: (domain: string) => void;
-  removeDomain: (domain: string) => void;
-}) {
-  return (
-    <div className="co-domain-grid">
-      {domains.map((domain) => {
-        const Icon = Object.hasOwn(domainIcons, domain) ? domainIcons[domain]! : Blocks;
-        const offices = company.offices.filter((o) => o.domain === domain);
-        const count = offices.reduce((total, o) => total + o.agents.length, 0);
-        return (
-          <article className="co-domain-tile" key={domain}>
-            <div className="co-domain-tile-top">
-              <span className="co-domain-tile-icon">
-                <Icon size={21} />
-              </span>
-              <button
-                className="co-domain-actions"
-                aria-label={`Delete ${domain} domain`}
-                title="Delete domain"
-                onClick={() => removeDomain(domain)}
-              >
-                <MoreHorizontal size={18} />
-              </button>
-            </div>
-            <h3>{domain}</h3>
-            <p>
-              {offices.length} {offices.length === 1 ? "office" : "offices"} · {count}{" "}
-              {count === 1 ? "agent" : "agents"}
-            </p>
-            <div className="co-project-links">
-              {(company.projects || [])
-                .filter((p) => projectDomainNames(company, p).includes(domain))
-                .map((p) => (
-                  <button key={p.id} onClick={() => openProject(p.id)}>
-                    {p.name}
-                  </button>
-                ))}
-            </div>
-            <button className="co-domain-create" onClick={() => addOffice(domain)}>
-              <Plus size={14} />
-              Create office in this domain
-              <ArrowRight size={13} />
-            </button>
-          </article>
-        );
-      })}
-    </div>
-  );
-}
-
 export function OfficeCard({
   office,
   index,
@@ -120,7 +59,6 @@ export function OfficeCard({
         </span>
         <span>
           <h3>{office.name}</h3>
-          <small>{office.domain}</small>
         </span>
         <ArrowUpRight size={17} />
       </button>

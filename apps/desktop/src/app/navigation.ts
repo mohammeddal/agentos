@@ -1,4 +1,4 @@
-import { companyDomains, type Company } from "../features/company/company-model";
+import type { Company } from "../features/company/company-model";
 import { activeCompany } from "../features/company/company-directory";
 
 export type WorkspaceView =
@@ -8,7 +8,6 @@ export type WorkspaceView =
   | "map"
   | "offices"
   | "agents"
-  | "domains"
   | "activity"
   | "memory"
   | "engines";
@@ -21,16 +20,12 @@ export type WorkspaceRoute = {
 export const destinations = [
   { view: "start", label: "Start", description: "Write a prompt or continue a chat" },
   { view: "tasks", label: "Tasks", description: "Plans, workflows, and task details" },
-  { view: "map", label: "Company", description: "Offices, agents, and domains" },
+  { view: "map", label: "Company", description: "Offices and agents" },
   { view: "activity", label: "Activity", description: "Status, approvals, and rehearsals" },
   { view: "memory", label: "Library", description: "Memory and local capabilities" },
 ] as const;
 export function primaryView(view: WorkspaceView): WorkspaceView {
-  return ["map", "offices", "agents", "domains"].includes(view)
-    ? "map"
-    : view === "engines"
-      ? "memory"
-      : view;
+  return ["map", "offices", "agents"].includes(view) ? "map" : view === "engines" ? "memory" : view;
 }
 export const viewLabels: Record<WorkspaceView, string> = {
   start: "Start",
@@ -39,7 +34,6 @@ export const viewLabels: Record<WorkspaceView, string> = {
   map: "Office map",
   offices: "Offices",
   agents: "Agents",
-  domains: "Domains",
   activity: "Activity",
   memory: "Memory",
   engines: "Capabilities",
@@ -51,7 +45,6 @@ const paths: Record<WorkspaceView, string> = {
   map: "company/map",
   offices: "company/offices",
   agents: "company/agents",
-  domains: "company/domains",
   activity: "activity",
   memory: "library/memory",
   engines: "library/engines",
@@ -69,6 +62,7 @@ export function parseRoute(hash: string): WorkspaceRoute {
   const path = hash.replace(/^#\/?/, "");
   const exact = Object.entries(paths).find(([, value]) => value === path);
   if (exact) return { view: exact[0] as WorkspaceView };
+  if (path === "company/domains") return { view: "offices" };
   try {
     if (/^chats\/[^/]+$/.test(path))
       return { view: "start", chatId: decodeURIComponent(path.slice("chats/".length)) };
@@ -90,7 +84,7 @@ export function parseRoute(hash: string): WorkspaceRoute {
 }
 export type FindResult = {
   id: string;
-  kind: "page" | "task" | "chat" | "project" | "agent" | "office" | "domain";
+  kind: "page" | "task" | "chat" | "project" | "agent" | "office";
   title: string;
   detail: string;
   route?: WorkspaceRoute;
@@ -105,7 +99,7 @@ export function findWorkspace(company: Company, text: string): FindResult[] {
       detail: d.description,
       route: { view: d.view },
     })),
-    ...(["projects", "agents", "domains", "offices", "engines"] as const).map((view) => ({
+    ...(["projects", "agents", "offices", "engines"] as const).map((view) => ({
       id: `page:${view}`,
       kind: "page" as const,
       title: viewLabels[view],
@@ -150,13 +144,7 @@ export function findWorkspace(company: Company, text: string): FindResult[] {
       id: o.id,
       kind: "office" as const,
       title: o.name,
-      detail: `Office · ${o.domain}`,
-    })),
-    ...companyDomains(company).map((d) => ({
-      id: d,
-      kind: "domain" as const,
-      title: d,
-      detail: "Domain",
+      detail: `Office · ${o.agents.length} ${o.agents.length === 1 ? "agent" : "agents"}`,
     })),
   ];
   const words = text.trim().toLowerCase().split(/\s+/).filter(Boolean);

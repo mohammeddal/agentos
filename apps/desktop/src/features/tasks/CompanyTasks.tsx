@@ -148,7 +148,7 @@ export function CompanyTasks({
               <small>
                 {team.length} {team.length === 1 ? "agent" : "agents"} ·{" "}
                 {countLabel(new Set(team.map((a) => a.office.id)).size, "office")} ·{" "}
-                {task.assignment.kind === "domains" ? "Domain team" : "Direct assignment"}
+                {task.assignment.kind === "domains" ? "Office team" : "Direct assignment"}
                 {!team.length ? " · Needs agents" : ""}
               </small>
               {(task.schedule?.kind === "cron" || !!task.handoffs?.length) && (
@@ -411,7 +411,7 @@ export function TaskForm({
         <div className="co-task-save-errors">
           {!assignmentValid ? (
             <button type="button" onClick={() => setPanel("workflow")}>
-              Add a task name and connect an office, domain, or agent to save.
+              Add a task name and connect an office or agent to save.
             </button>
           ) : gateError ? (
             <button type="button" onClick={() => setPanel("workflow")}>

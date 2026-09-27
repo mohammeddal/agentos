@@ -247,13 +247,40 @@
 }
 .fp-room-title,
 .fp-workstation,
-.fp-add-room {
+.fp-add-room,
+.fp-room-add-agent {
   cursor: pointer;
   outline: none;
 }
 .fp-room-title:hover .fp-office-name,
 .fp-room-title:focus-visible .fp-office-name {
   text-decoration: underline;
+}
+.fp-room-add-agent rect {
+  fill: color-mix(in srgb, var(--fp-room-floor) 82%, var(--fp-label));
+  stroke: var(--fp-door);
+}
+.fp-room-add-agent path {
+  stroke: var(--fp-label);
+}
+.fp-room-add-agent text {
+  fill: var(--fp-label);
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0.55px;
+}
+.fp-room-add-agent:hover rect,
+.fp-room-add-agent:focus-visible rect {
+  fill: var(--fp-label);
+  stroke: var(--fp-label);
+}
+.fp-room-add-agent:hover path,
+.fp-room-add-agent:focus-visible path {
+  stroke: var(--fp-room-floor);
+}
+.fp-room-add-agent:hover text,
+.fp-room-add-agent:focus-visible text {
+  fill: var(--fp-room-floor);
 }
 .fp-person-name {
   fill: var(--fp-label);

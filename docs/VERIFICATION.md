@@ -4,6 +4,14 @@ Branch: `codex/agentos-ux-cleanup`.
 
 This records the earlier UX-only change. For the subsequent native runtime integration, see [Live execution](LIVE-EXECUTION.md). The Codex transport passed actual reply and conversation-resume tests; Claude returned a revoked-token 401 and requires reauthentication before successful generation can be verified.
 
+## Office hierarchy simplification follow-up
+
+- Simplified the visible company model to **Company → Offices → Agents**. Removed the separate Domains tab, domain creation action, office-domain selector, domain search results, and new Domain workflow block while preserving older domain-backed tasks and projects internally.
+- Added a persistent **Add agent** action to every office room on the map, including populated rooms. Activating it from Engineering opened the agent editor with Engineering already selected; the empty-room first-agent action remains available.
+- Updated project language and selectors to present office teams rather than domains. Legacy `#/company/domains` links now route safely to Offices.
+- Browser QA covered the dark desktop map, the populated-office add flow, the simplified new-office form, and a 390 × 844 layout. All actions remained accessible, and the browser console reported no warnings or errors.
+- All 192 Vitest tests passed together with TypeScript, formatting, production build, whitespace, and the 131-file source reachability audit.
+
 ## Workflow input-placement follow-up
 
 - Moved the selected step's **Inputs & capabilities** actions from Block settings into the top of the left building-block palette beside Work, Resources, and Control.

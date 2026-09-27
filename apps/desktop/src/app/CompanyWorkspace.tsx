@@ -12,7 +12,6 @@ import {
   Trash2,
 } from "lucide-react";
 import {
-  companyDomains,
   isCompany,
   starterCompany,
   type Company,
@@ -24,13 +23,13 @@ import {
 import "./company-workspace.css";
 import "./workspace-shell.css";
 import { CompanyFloorplan } from "../features/company/CompanyFloorplan";
-import { DomainDirectory, OfficeCard } from "../features/company/CompanyDirectory";
+import { OfficeCard } from "../features/company/CompanyDirectory";
 import {
   deleteStructure,
   structureDeletion,
   type StructureTarget,
 } from "../features/company/company-structure";
-import { AgentForm, DomainForm, OfficeForm, RenameForm } from "../features/company/CompanyForms";
+import { AgentForm, OfficeForm, RenameForm } from "../features/company/CompanyForms";
 import { CompanyDialog } from "../shared/CompanyDialog";
 import { HelpTip } from "../shared/HelpTip";
 import { CompanyTasks, TaskForm } from "../features/tasks/CompanyTasks";
@@ -83,8 +82,7 @@ type DialogState =
       projectId?: string | undefined;
       agentId?: string | undefined;
     }
-  | { type: "office"; domain?: string }
-  | { type: "domain" }
+  | { type: "office" }
   | { type: "agent"; officeId: string; agent?: CompanyAgent }
   | { type: "rename" }
   | { type: "edit-office"; office: Office }
@@ -112,7 +110,6 @@ const descriptions: Record<WorkspaceView, string> = {
   map: "Your offices and the agents working in them.",
   offices: "Organize teams into dedicated spaces.",
   agents: "Find a specialist and inspect their work.",
-  domains: "Organize your company by area of expertise.",
   activity: "See what’s running, what needs you, and what finished.",
   memory: "Facts, lessons, and context worth keeping.",
   engines: "Discover the tools and skills already available locally.",
@@ -140,7 +137,6 @@ export function CompanyWorkspace() {
   const createMenu = useRef<HTMLDetailsElement>(null);
   const office = company.offices.find((o) => o.id === selectedOffice);
   const allAgents = company.offices.flatMap((o) => o.agents.map((a) => ({ ...a, office: o })));
-  const domains = companyDomains(company);
   const tasks = company.tasks || [];
   const structureImpact =
     dialog?.type === "delete-structure"
@@ -294,7 +290,7 @@ export function CompanyWorkspace() {
         : { type: "office" },
     );
   }
-  function create(type: "task" | "project" | "office" | "domain" | "agent") {
+  function create(type: "task" | "project" | "office" | "agent") {
     if (createMenu.current) createMenu.current.open = false;
     if (type === "agent") addAgent();
     else if (type === "task") setDialog({ type, domain: office?.domain });
@@ -307,10 +303,7 @@ export function CompanyWorkspace() {
       go(result.route);
     } else if (result.kind === "project") openProject(result.id);
     else if (result.kind === "office") navigate(result.id);
-    else if (result.kind === "domain") {
-      setView("domains");
-      setQuery(result.id);
-    } else if (result.kind === "task") {
+    else if (result.kind === "task") {
       setView("tasks");
       setDialog({ type: "inspect-task", taskId: result.id });
     } else if (result.kind === "agent") {
@@ -395,11 +388,9 @@ export function CompanyWorkspace() {
       ? { type: "agent" as const, label: "New agent" }
       : view === "tasks"
         ? { type: "task" as const, label: "New task" }
-        : view === "domains"
-          ? { type: "domain" as const, label: "New domain" }
-          : view === "offices"
-            ? { type: "office" as const, label: "New office" }
-            : null;
+        : view === "offices"
+          ? { type: "office" as const, label: "New office" }
+          : null;
   const searchLabel =
     office || view === "agents"
       ? "Search agents"
@@ -413,9 +404,7 @@ export function CompanyWorkspace() {
               ? "Search activity"
               : view === "tasks"
                 ? "Search tasks"
-                : view === "domains"
-                  ? "Search domains"
-                  : "Search offices";
+                : "Search offices";
   return (
     <div className="company-app" data-theme={theme} data-terminal-open={terminalOpen || undefined}>
       <WorkspaceNavigation {...navigationProps} />
@@ -495,7 +484,7 @@ export function CompanyWorkspace() {
                 </div>
                 {office && (
                   <p>
-                    {office.domain} · {office.agents.length} agents
+                    {office.agents.length} {office.agents.length === 1 ? "agent" : "agents"}
                   </p>
                 )}
               </div>
@@ -523,7 +512,7 @@ export function CompanyWorkspace() {
                     >
                       <summary className="co-button">Create…</summary>
                       <div>
-                        {(["task", "project", "office", "domain", "agent"] as const).map((type) => (
+                        {(["task", "project", "office", "agent"] as const).map((type) => (
                           <button key={type} onClick={() => create(type)}>
                             New {type}
                           </button>
@@ -537,7 +526,7 @@ export function CompanyWorkspace() {
           )}
           {!office && group === "map" && (
             <nav className="co-page-tabs" aria-label="Company sections">
-              {(["map", "offices", "agents", "domains"] as const).map((tab) => (
+              {(["map", "offices", "agents"] as const).map((tab) => (
                 <button
                   key={tab}
                   aria-current={view === tab ? "page" : undefined}
@@ -573,7 +562,7 @@ export function CompanyWorkspace() {
                         : view === "projects"
                           ? `${company.projects?.length || 0} projects`
                           : group === "map"
-                            ? `${company.offices.length} offices · ${allAgents.length} agents · ${domains.length} domains`
+                            ? `${company.offices.length} offices · ${allAgents.length} agents`
                             : "Saved on this device"}
                   </span>
                 </div>
@@ -658,16 +647,6 @@ export function CompanyWorkspace() {
               company={company}
               query={query}
               edit={(task) => setDialog({ type: "inspect-task", taskId: task.id })}
-            />
-          ) : !office && view === "domains" ? (
-            <DomainDirectory
-              openProject={openProject}
-              company={company}
-              domains={domains.filter((d) => d.toLowerCase().includes(query.toLowerCase()))}
-              addOffice={(domain) => setDialog({ type: "office", domain })}
-              removeDomain={(id) =>
-                setDialog({ type: "delete-structure", target: { kind: "domain", id } })
-              }
             />
           ) : !office && view === "map" ? (
             <CompanyFloorplan
@@ -774,19 +753,17 @@ export function CompanyWorkspace() {
                               ? dialog.task
                                 ? "Edit task"
                                 : "Create a task"
-                              : dialog.type === "domain"
-                                ? "Create a domain"
-                                : dialog.type === "office"
-                                  ? "Create an office"
-                                  : dialog.type === "edit-office"
-                                    ? "Edit office"
-                                    : dialog.type === "agent"
-                                      ? dialog.agent
-                                        ? "Edit agent"
-                                        : "Add a teammate"
-                                      : dialog.type === "rename"
-                                        ? "Make it your company"
-                                        : "Getting started"
+                              : dialog.type === "office"
+                                ? "Create an office"
+                                : dialog.type === "edit-office"
+                                  ? "Edit office"
+                                  : dialog.type === "agent"
+                                    ? dialog.agent
+                                      ? "Edit agent"
+                                      : "Add a teammate"
+                                    : dialog.type === "rename"
+                                      ? "Make it your company"
+                                      : "Getting started"
           }
           close={() => setDialog(null)}
         >
@@ -1014,8 +991,6 @@ export function CompanyWorkspace() {
           )}
           {(dialog.type === "office" || dialog.type === "edit-office") && (
             <OfficeForm
-              domains={domains}
-              initialDomain={dialog.type === "office" ? dialog.domain : undefined}
               existing={dialog.type === "edit-office" ? dialog.office : undefined}
               remove={
                 dialog.type === "edit-office"
@@ -1081,22 +1056,6 @@ export function CompanyWorkspace() {
                     ],
                   })),
                 }));
-                setDialog(null);
-              }}
-            />
-          )}
-          {dialog.type === "domain" && (
-            <DomainForm
-              domains={domains}
-              save={(name) => {
-                setCompany((c) => ({
-                  ...c,
-                  domains: [...(c.domains || []), name],
-                  hiddenDomains: (c.hiddenDomains || []).filter(
-                    (domain) => domain.toLowerCase() !== name.toLowerCase(),
-                  ),
-                }));
-                setView("domains");
                 setDialog(null);
               }}
             />

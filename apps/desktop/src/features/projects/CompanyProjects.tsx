@@ -14,7 +14,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 import {
-  companyDomains,
   projectDirectoryTeam,
   projectDomainNames,
   taskParticipants,
@@ -32,6 +31,9 @@ import { HelpTip } from "../../shared/HelpTip";
 import "./company-projects.css";
 
 type Scope = { projectId?: string; domain?: string; agentId?: string; shared?: boolean };
+function officeScopeName(company: Company, scope: string) {
+  return company.offices.find((office) => office.domain === scope)?.name || scope;
+}
 export function CompanyProjects({
   company,
   selectedId,
@@ -104,7 +106,7 @@ export function CompanyProjects({
               <summary>
                 <ChevronRight size={12} />
                 <Layers3 size={14} />
-                <span>{domain}</span>
+                <span>{officeScopeName(company, domain)}</span>
               </summary>
               <div>
                 <button
@@ -113,7 +115,7 @@ export function CompanyProjects({
                   onClick={() => setScope({ domain, projectId: project.id })}
                 >
                   <Folder size={13} />
-                  Domain workspace
+                  Office workspace
                 </button>
                 {projectDirectoryTeam(company, project)
                   .filter((agent) => agent.office.domain === domain)
@@ -243,7 +245,9 @@ function ProjectDetail({
       setBusy(false);
     }
   }
-  const title = scope.shared ? "Shared" : agent?.name || scope.domain || project.name;
+  const title = scope.shared
+    ? "Shared"
+    : agent?.name || (scope.domain ? officeScopeName(company, scope.domain) : project.name);
   return (
     <div className="co-project-detail">
       <div className="co-project-location">
@@ -253,7 +257,7 @@ function ProjectDetail({
         {scope.domain && (
           <>
             <ChevronRight size={12} />
-            <span>{scope.domain}</span>
+            <span>{officeScopeName(company, scope.domain)}</span>
           </>
         )}
         {agent && (
@@ -275,7 +279,7 @@ function ProjectDetail({
             {agent
               ? "AGENT WORKSPACE"
               : scope.domain
-                ? "DOMAIN WORKSPACE"
+                ? "OFFICE WORKSPACE"
                 : scope.shared
                   ? "SHARED WORKSPACE"
                   : "COMPANY PROJECT"}
@@ -285,7 +289,7 @@ function ProjectDetail({
             {agent
               ? `${agent.role} · ${agent.office.name}`
               : scope.domain
-                ? "One domain’s part in this project."
+                ? "One office’s part in this project."
                 : scope.shared
                   ? "A common folder for briefs, references, and deliverables."
                   : project.brief || "Add a brief to give your team a shared direction."}
@@ -298,7 +302,7 @@ function ProjectDetail({
       </header>
       <div className="co-project-stats">
         <span>
-          <strong>{projectDomainNames(company, project).length}</strong> domains
+          <strong>{projectDomainNames(company, project).length}</strong> offices
         </span>
         <span>
           <strong>{team.length}</strong> agents
@@ -401,7 +405,7 @@ function ProjectDetail({
               </button>
             ))}
             {!visibleTeam.length && (
-              <p>No agents assigned here yet. Add a domain or choose agents in Edit project.</p>
+              <p>No agents assigned here yet. Add an office or choose agents in Edit project.</p>
             )}
           </div>
           <div className="co-project-section-heading">
@@ -419,7 +423,9 @@ function ProjectDetail({
                   <strong>{t.title}</strong>
                   <small>
                     {t.assignment.kind === "domains"
-                      ? t.assignment.targets.join(" · ")
+                      ? t.assignment.targets
+                          .map((target) => officeScopeName(company, target))
+                          .join(" · ")
                       : taskParticipants(company, t.assignment)
                           .map((a) => a.name)
                           .join(" · ")}
@@ -502,22 +508,24 @@ export function ProjectForm({
         />
       </label>
       <fieldset>
-        <legend>Assign whole domains</legend>
+        <legend>Assign whole offices</legend>
         <div className="co-project-options">
-          {companyDomains(company).map((domain) => (
-            <label key={domain}>
-              <input
-                type="checkbox"
-                checked={domains.includes(domain)}
-                onChange={() => setDomains(toggle(domains, domain))}
-              />
-              <Layers3 size={14} />
-              <span>{domain}</span>
-            </label>
-          ))}
+          {[...new Set([...company.offices.map((office) => office.domain), ...domains])].map(
+            (domain) => (
+              <label key={domain}>
+                <input
+                  type="checkbox"
+                  checked={domains.includes(domain)}
+                  onChange={() => setDomains(toggle(domains, domain))}
+                />
+                <Layers3 size={14} />
+                <span>{officeScopeName(company, domain)}</span>
+              </label>
+            ),
+          )}
         </div>
         <p className="co-project-hint">
-          All agents in these domains join automatically as your teams grow.
+          All agents in these offices join automatically as your teams grow.
         </p>
       </fieldset>
       <fieldset>
@@ -535,7 +543,7 @@ export function ProjectForm({
                 {a.name}
                 <small>
                   {a.office.name}
-                  {domains.includes(a.office.domain) ? " · Already included through domain" : ""}
+                  {domains.includes(a.office.domain) ? " · Already included through office" : ""}
                 </small>
               </span>
             </label>

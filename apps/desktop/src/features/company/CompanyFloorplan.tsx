@@ -286,7 +286,7 @@ export function CompanyFloorplan({
                         <rect
                           x={x + 16}
                           y={y + 16}
-                          width="315"
+                          width="246"
                           height="40"
                           rx="5"
                           fill="transparent"
@@ -300,7 +300,7 @@ export function CompanyFloorplan({
                           fill={colors[office.color]}
                         />
                         <text x={x + 36} y={y + 29} className="fp-office-name">
-                          {office.name.length > 29 ? `${office.name.slice(0, 28)}…` : office.name}
+                          {office.name.length > 20 ? `${office.name.slice(0, 19)}…` : office.name}
                         </text>
                         <text x={x + 36} y={y + 44} className="fp-office-meta">
                           {office.agents.length} {office.agents.length === 1 ? "agent" : "agents"} ·{" "}
@@ -308,7 +308,23 @@ export function CompanyFloorplan({
                           {!preview ? " · live status" : ""}
                         </text>
                       </g>
-                      <Plant x={x + 342} y={y + 34} />
+                      <g
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Add agent to ${office.name}`}
+                        className="fp-room-add-agent"
+                        onClick={() => addAgent(office.id)}
+                        onKeyDown={(e) => enter(e, () => addAgent(office.id))}
+                      >
+                        <rect x={x + 276} y={y + 20} width="77" height="26" rx="13" />
+                        <path
+                          d={`M${x + 289} ${y + 33}h8 M${x + 293} ${y + 29}v8`}
+                          strokeWidth="1.4"
+                        />
+                        <text x={x + 302} y={y + 36}>
+                          ADD AGENT
+                        </text>
+                      </g>
                       {office.agents.map((agent, agentIndex) => (
                         <Workstation
                           key={agent.id}

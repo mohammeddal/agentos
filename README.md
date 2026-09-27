@@ -1,6 +1,6 @@
 # AgentOS
 
-A local-first, installable macOS workspace for organizing projects, domains, offices, agents, and task plans.
+A local-first, installable macOS workspace for organizing projects, offices, agents, and task plans.
 
 **Current status:** the installed Mac app runs chats and tasks through local Codex and Claude Code CLIs, using their existing sign-ins. It records real replies, progress, approvals, failures, and cancellations. Opt-in schedules require the app to stay open. Visual workflows execute agent/domain/office steps, scoped context and files, conditions, and approval checkpoints. Discovered matching provider capabilities can be required by a step; unverified, disabled, incompatible, or unenforceable policy blocks fail closed. The browser remains a planning preview. See the [live execution guide](docs/LIVE-EXECUTION.md) for exact support and safety boundaries.
 
@@ -15,7 +15,7 @@ Open [the local app](http://127.0.0.1:4173). Requires Node.js 22+ and pnpm 9.15.
 
 - **Start** — write a prompt or continue a saved chat.
 - **Tasks** — plan and inspect work; the persistent sidebar nests chats and tasks inside project directories.
-- **Company** — offices, agents, domains, and the office map.
+- **Company** — offices, agents, and the live office map.
 - **Activity** — live runs, approvals, output, and separately labeled rehearsals.
 - **Library** — memory and local capabilities.
 
