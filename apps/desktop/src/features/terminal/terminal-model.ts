@@ -27,3 +27,7 @@ export function simpleCd(command: string): string | null {
   const value = (match[1] || "~").trim();
   return value.replace(/^(?:"([\s\S]*)"|'([\s\S]*)')$/, "$1$2");
 }
+
+export function terminalDockHeight(value: number, viewportHeight: number) {
+  return Math.max(180, Math.min(value, viewportHeight * 0.72));
+}

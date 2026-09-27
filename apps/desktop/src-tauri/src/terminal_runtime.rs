@@ -100,7 +100,7 @@ impl Runtime {
             entries: vec![TerminalEntry {
                 at: stamp,
                 stream: "system".into(),
-                text: "Local shell ready. Commands run only after you submit them.".into(),
+                text: "Shell ready.".into(),
             }],
         };
         inner.sessions.push(session.clone());

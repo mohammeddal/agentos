@@ -6,6 +6,13 @@ This records the earlier UX-only change. For the subsequent native runtime integ
 
 ## Native execution follow-up
 
+### Professional terminal follow-up
+
+- Rebuilt the terminal as a compact developer console instead of a large form. Commands now live at an inline prompt directly below the transcript; the separate bottom command bar and Run button were removed. Enter runs, Shift+Enter creates a multiline command, and Up/Down still navigates history.
+- Added pointer and keyboard resizing with bounded height, quieter session tabs, concise shell status, a focused working-directory row, a compact footer, growing multiline input, and click-to-focus behavior in empty console space. Transcript polling now scrolls only when the session or latest entry changes, so reading older output is not interrupted every 300 ms.
+- Isolated visual checks covered light/dark desktop and 390 × 844 dark layouts. The user’s open native agent editor contained unsaved text, so it was deliberately left untouched; native behavior was verified through the real runtime tests rather than by closing that form for a screenshot.
+- All 188 Vitest tests across 29 files passed, including terminal resize bounds. All 16 offline native tests passed, including a real temporary shell command and working-directory validation; four account-backed tests remained intentionally ignored. Typecheck, formatting, whitespace checks, the 131-file source audit, production build, and headless `.app`/`.dmg` packaging passed. The signed build replaced `/Applications/AgentOS.app` without replacing saved application data.
+
 ### Start composer surface follow-up
 
 - Reworked the Start composer as one quiet input surface: narrower proportions, a flatter background, a restrained edge and focus treatment, tighter utility controls, and no elevated card shadow.

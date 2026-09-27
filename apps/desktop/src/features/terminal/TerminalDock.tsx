@@ -1,7 +1,12 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { Folder, Plus, RotateCcw, Square, SquareTerminal, Trash2, X } from "lucide-react";
+import { Folder, Plus, Square, SquareTerminal, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { simpleCd, visibleTerminalText, type TerminalSession } from "./terminal-model";
+import {
+  simpleCd,
+  terminalDockHeight,
+  visibleTerminalText,
+  type TerminalSession,
+} from "./terminal-model";
 import "./terminal-dock.css";
 
 export function TerminalDock({ open, close }: { open: boolean; close: () => void }) {
@@ -14,8 +19,10 @@ export function TerminalDock({ open, close }: { open: boolean; close: () => void
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const creating = useRef(false);
+  const dockRef = useRef<HTMLElement>(null);
   const outputRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [height, setHeight] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     if (!native) return;
@@ -57,16 +64,46 @@ export function TerminalDock({ open, close }: { open: boolean; close: () => void
   }, [create, native, open, refresh]);
 
   const selected = sessions.find((session) => session.id === selectedId) || sessions[0];
+  const latestEntry = selected?.entries[selected.entries.length - 1];
   useEffect(() => setCwd(selected?.cwd || ""), [selected?.id, selected?.cwd]);
   useEffect(() => {
     if (!open) return;
     requestAnimationFrame(() => {
       if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight;
     });
-  }, [open, selected?.entries, selected?.status]);
+  }, [
+    latestEntry?.at,
+    latestEntry?.text,
+    open,
+    selected?.entries.length,
+    selected?.id,
+    selected?.status,
+  ]);
   useEffect(() => {
     if (open) requestAnimationFrame(() => inputRef.current?.focus());
   }, [open, selected?.id]);
+  useEffect(() => {
+    if (!inputRef.current) return;
+    inputRef.current.style.height = "auto";
+    inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 96)}px`;
+  }, [command]);
+
+  function resize(next: number) {
+    setHeight(terminalDockHeight(next, window.innerHeight));
+  }
+
+  function startResize(event: React.PointerEvent<HTMLDivElement>) {
+    const startY = event.clientY;
+    const startHeight = dockRef.current?.getBoundingClientRect().height || 320;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const move = (pointer: PointerEvent) => resize(startHeight + startY - pointer.clientY);
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+  }
 
   async function run() {
     if (!selected || selected.status === "running" || !command.trim()) return;
@@ -124,12 +161,32 @@ export function TerminalDock({ open, close }: { open: boolean; close: () => void
 
   if (!open) return null;
   return (
-    <section className="co-terminal" aria-label="Local terminal">
+    <section
+      ref={dockRef}
+      className="co-terminal"
+      aria-label="Local terminal"
+      style={height ? { flexBasis: height } : undefined}
+    >
+      <div
+        className="co-terminal-resize"
+        role="separator"
+        aria-label="Resize terminal"
+        aria-orientation="horizontal"
+        tabIndex={0}
+        onPointerDown={startResize}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+          event.preventDefault();
+          resize(
+            (dockRef.current?.getBoundingClientRect().height || 320) +
+              (event.key === "ArrowUp" ? 24 : -24),
+          );
+        }}
+      />
       <header className="co-terminal-header">
         <div className="co-terminal-title">
           <SquareTerminal size={15} />
           <strong>Terminal</strong>
-          <span>{native ? "Local" : "Preview"}</span>
         </div>
         {native && (
           <div className="co-terminal-tabs" role="tablist" aria-label="Terminal sessions">
@@ -162,6 +219,15 @@ export function TerminalDock({ open, close }: { open: boolean; close: () => void
           </div>
         )}
         <div className="co-terminal-actions">
+          {native && selected && (
+            <span className={`co-terminal-status is-${selected.status}`}>
+              {selected.status === "running"
+                ? "Running"
+                : selected.exitCode === null
+                  ? "Ready"
+                  : `Exit ${selected.exitCode}`}
+            </span>
+          )}
           {native && selected && (
             <button aria-label="Clear terminal" title="Clear terminal" onClick={() => void clear()}>
               <Trash2 size={14} />
@@ -196,80 +262,86 @@ export function TerminalDock({ open, close }: { open: boolean; close: () => void
                 onBlur={() => void changeDirectory()}
               />
             </form>
-            <span>
-              {selected.status === "running"
-                ? "Running"
-                : selected.exitCode === null
-                  ? "Ready"
-                  : `Exit ${selected.exitCode}`}
-            </span>
           </div>
-          <div className="co-terminal-output" ref={outputRef} role="log" aria-live="polite">
-            {selected.entries.map((entry, index) => (
-              <pre key={`${entry.at}:${index}`} className={`is-${entry.stream}`}>
-                {entry.stream === "input" && <b>› </b>}
-                {visibleTerminalText(entry.text)}
-              </pre>
-            ))}
-          </div>
-          {error && (
-            <div className="co-terminal-error" role="alert">
-              {error}
-            </div>
-          )}
-          <form
-            className="co-terminal-command"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void run();
+          <div
+            className="co-terminal-console"
+            ref={outputRef}
+            onMouseDown={(event) => {
+              if (
+                event.target === event.currentTarget ||
+                event.target === event.currentTarget.firstElementChild
+              ) {
+                event.preventDefault();
+                inputRef.current?.focus();
+              }
             }}
           >
-            <span aria-hidden="true">›</span>
-            <textarea
-              ref={inputRef}
-              rows={1}
-              aria-label="Terminal command"
-              placeholder="Run a command…"
-              value={command}
-              disabled={selected.status === "running"}
-              onChange={(event) => setCommand(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  void run();
-                } else if (event.key === "ArrowUp" && !command.includes("\n") && history.length) {
-                  event.preventDefault();
-                  const next =
-                    historyIndex < 0 ? history.length - 1 : Math.max(0, historyIndex - 1);
-                  setHistoryIndex(next);
-                  setCommand(history[next] || "");
-                } else if (event.key === "ArrowDown" && historyIndex >= 0) {
-                  event.preventDefault();
-                  const next = historyIndex + 1;
-                  setHistoryIndex(next >= history.length ? -1 : next);
-                  setCommand(next >= history.length ? "" : history[next] || "");
-                } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "l") {
-                  event.preventDefault();
-                  void clear();
-                }
+            <div className="co-terminal-output" role="log" aria-live="polite">
+              {selected.entries.map((entry, index) => (
+                <pre key={`${entry.at}:${index}`} className={`is-${entry.stream}`}>
+                  {entry.stream === "input" && <b>› </b>}
+                  {visibleTerminalText(entry.text)}
+                </pre>
+              ))}
+              {error && (
+                <div className="co-terminal-error" role="alert">
+                  {error}
+                </div>
+              )}
+            </div>
+            <form
+              className="co-terminal-command"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void run();
               }}
-            />
-            {selected.status === "running" ? (
-              <button
-                type="button"
-                className="co-terminal-stop"
-                onClick={() => void invoke("terminal_control", { sessionId: selected.id })}
-              >
-                <Square size={11} fill="currentColor" /> Stop
-              </button>
-            ) : (
-              <button type="submit" disabled={!command.trim()}>
-                <RotateCcw size={13} /> Run
-              </button>
-            )}
-          </form>
+            >
+              <span className="co-terminal-prompt" aria-hidden="true">
+                ❯
+              </span>
+              <textarea
+                ref={inputRef}
+                rows={1}
+                aria-label="Terminal command"
+                placeholder={selected.status === "running" ? "Command running…" : "Type a command"}
+                value={command}
+                disabled={selected.status === "running"}
+                onChange={(event) => setCommand(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void run();
+                  } else if (event.key === "ArrowUp" && !command.includes("\n") && history.length) {
+                    event.preventDefault();
+                    const next =
+                      historyIndex < 0 ? history.length - 1 : Math.max(0, historyIndex - 1);
+                    setHistoryIndex(next);
+                    setCommand(history[next] || "");
+                  } else if (event.key === "ArrowDown" && historyIndex >= 0) {
+                    event.preventDefault();
+                    const next = historyIndex + 1;
+                    setHistoryIndex(next >= history.length ? -1 : next);
+                    setCommand(next >= history.length ? "" : history[next] || "");
+                  } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "l") {
+                    event.preventDefault();
+                    void clear();
+                  }
+                }}
+              />
+              {selected.status === "running" && (
+                <button
+                  type="button"
+                  className="co-terminal-stop"
+                  onClick={() => void invoke("terminal_control", { sessionId: selected.id })}
+                >
+                  <Square size={10} fill="currentColor" /> Stop
+                </button>
+              )}
+            </form>
+          </div>
           <footer>
-            Enter runs · Shift+Enter adds a line · Up/Down recalls commands · Cmd/Ctrl J toggles
+            <span>Local shell</span>
+            <span>Enter to run · Shift+Enter for a new line · ↑↓ history · ⌘J toggle</span>
           </footer>
         </>
       ) : (

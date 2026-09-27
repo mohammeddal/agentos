@@ -12,8 +12,8 @@ AgentOS uses a **Codex-inspired shell**: compact navigation, quiet graphite surf
 
 Select the terminal icon in the top-right toolbar, or press **Cmd/Ctrl+J**, to open the bottom terminal dock from any workspace view. The terminal is available only in the installed Mac app; browser preview shows the layout but cannot execute commands or read local folders.
 
-- Each terminal has an explicit working-directory field. Enter an absolute path, `~`, a path beginning with `~/`, or use a standalone `cd` command. Paths are canonicalized and must point to an accessible folder.
-- Enter runs the command; Shift+Enter adds another line. Up/Down recalls commands from the current UI session. **Stop** terminates the launched process group, **Clear** clears the visible transcript, and **+** opens another terminal.
+- Each terminal has an explicit working-directory field. Enter an absolute path, `~`, a path beginning with `~/`, or use a standalone `cd` command. Paths are canonicalized and must point to an accessible folder. Drag the terminal’s top edge to resize the dock; focus that edge and use Up/Down for keyboard resizing.
+- Commands are entered at the inline prompt directly beneath the transcript. Enter runs the command; Shift+Enter adds another line. Up/Down recalls commands from the current UI session. **Stop** terminates the launched process group, **Clear** clears the visible transcript, and **+** opens another terminal.
 - Commands run through the user's local shell one at a time with visible stdout, stderr, status, and exit code. Interactive prompts and full-screen terminal programs are not supported in this first version because command stdin is closed.
 - Terminal commands are direct user actions, not model-generated tool calls. They do not pass through agent approval gates. Review a command before submitting it, especially commands copied from a chat.
 - Terminal sessions and command history are memory-only and disappear when AgentOS closes. Output is escaped for display and limited to 1 MB per session; up to eight terminal sessions and four concurrently running commands are allowed.
