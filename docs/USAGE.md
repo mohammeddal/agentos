@@ -8,6 +8,16 @@ The six primary destinations are **Start**, **Tasks**, **Projects**, **Company**
 
 AgentOS uses a **Codex-inspired shell**: compact navigation, quiet graphite surfaces, restrained borders, and a focused composer in both light and dark appearances. Color is deliberately reserved for AgentOS meaning—office identity, agent status, approvals, warnings, and the interactive company map—so the product stays familiar without hiding its own operational model. The map, workflow canvas, and company structure remain AgentOS-specific surfaces rather than visual copies of another product.
 
+## Local terminal
+
+Select the terminal icon in the top-right toolbar, or press **Cmd/Ctrl+J**, to open the bottom terminal dock from any workspace view. The terminal is available only in the installed Mac app; browser preview shows the layout but cannot execute commands or read local folders.
+
+- Each terminal has an explicit working-directory field. Enter an absolute path, `~`, a path beginning with `~/`, or use a standalone `cd` command. Paths are canonicalized and must point to an accessible folder.
+- Enter runs the command; Shift+Enter adds another line. Up/Down recalls commands from the current UI session. **Stop** terminates the launched process group, **Clear** clears the visible transcript, and **+** opens another terminal.
+- Commands run through the user's local shell one at a time with visible stdout, stderr, status, and exit code. Interactive prompts and full-screen terminal programs are not supported in this first version because command stdin is closed.
+- Terminal commands are direct user actions, not model-generated tool calls. They do not pass through agent approval gates. Review a command before submitting it, especially commands copied from a chat.
+- Terminal sessions and command history are memory-only and disappear when AgentOS closes. Output is escaped for display and limited to 1 MB per session; up to eight terminal sessions and four concurrently running commands are allowed.
+
 The company opens in **Start**, a clean chat surface with the composer fixed at the bottom. Start and its compact navigation drawer do not show the projects/chats/task directory; open Tasks or Projects when you want that directory. Use the paperclip to attach context, the settings control beside it to choose engine/model/effort or switch the prompt into a planned task, and the arrow to send. **Enter** sends and **Shift+Enter** adds a line. Sending a chat in the native app opens its own conversation. Browser preview does not execute providers. Conversation pages show prompts and assistant replies; **View activity & logs** opens their filtered execution history in Activity. Clicking Start returns to the new-work composer, not the last conversation. Composer drafts are preserved separately for each conversation and new-project context. Do not paste credentials into local unencrypted drafts/history.
 
 ## Attach images and files

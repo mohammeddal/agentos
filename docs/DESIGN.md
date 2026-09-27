@@ -20,6 +20,7 @@ Choose the quiet workspace. The IDE direction is the fallback for expert-only to
 - Company owns Office map, Offices, Agents, Domains. Library owns Memory and Engine capabilities.
 - One relevant primary create action per page. Other creation actions live under Create….
 - Cmd/Ctrl+K opens Find anything. Page search filters only the current destination.
+- Cmd/Ctrl+J opens a global bottom terminal dock. It is an expert tool, not another primary destination, and stays closed until requested.
 - Small screens get the same destinations in a labeled navigation dialog, never an inaccessible hidden sidebar.
 - Hash routes retain location on refresh and support browser navigation. Do not silently navigate users home after a reload.
 
@@ -67,6 +68,7 @@ The core loop is **start → review → continue → find again**. Company confi
 | Review finished work       | Activity or Tasks “Finished” filter                            | Runtime state comes from recorded runs, not the existence of a task record.                                         |
 | Adjust appearance or setup | Settings & help in sidebar footer                              | Engines, notifications, theme, and help are occasional preferences.                                                 |
 | Build complex coordination | Task detail → edit, workflow, or visual builder                | Start simple; configure schedules, conditions, and per-agent models in context.                                     |
+| Run a local command        | Top toolbar → Terminal, or Cmd/Ctrl+J                          | Give engineers a real command surface without turning the primary navigation into an IDE cockpit.                   |
 
 ### Readability and trust
 

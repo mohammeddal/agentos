@@ -6,6 +6,14 @@ This records the earlier UX-only change. For the subsequent native runtime integ
 
 ## Native execution follow-up
 
+### Local terminal follow-up
+
+- Added a global bottom terminal dock, toggled from the top toolbar or Cmd/Ctrl+J, without adding another primary navigation destination. It supports multiple sessions, explicit working directories, command history, stdout/stderr, exit status, Clear, Stop, and session removal.
+- The native runtime launches only commands explicitly submitted in the terminal, closes stdin, canonicalizes working directories, limits command/output size and concurrency, and terminates the process group on Stop or app exit. Transcripts are memory-only. This manual terminal is separate from provider tool approvals.
+- Browser preview truthfully disables command execution. Isolated Chromium checks covered the Start layout with the terminal open at desktop and 390 × 844, verified no document overflow, and found zero console errors. No command was executed by browser QA.
+- Native unit coverage executed a real temporary `printf` command, captured its output and zero exit code, and verified directory validation. The current limitation is explicit: interactive prompts and full-screen terminal programs are not supported.
+- All 182 Vitest tests across 29 files and 16 offline native tests passed; four live native tests remain opt-in. Typecheck, formatting, whitespace checks, the 131-file source audit, and final `.app`/`.dmg` packaging passed.
+
 ### Codex-inspired shell follow-up
 
 - Reworked the shared light and dark palettes around neutral graphite system colors, reduced sidebar and toolbar density, tightened page hierarchy, card radii, dialogs, and directory rows, and corrected short pages so they consistently begin below the toolbar instead of vertically centering.

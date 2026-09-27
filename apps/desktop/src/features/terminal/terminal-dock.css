@@ -1,0 +1,242 @@
+.co-terminal {
+  flex: 0 0 min(38vh, 360px);
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--co-border);
+  background: color-mix(in srgb, var(--co-card) 92%, var(--co-bg));
+  color: var(--co-text);
+  box-shadow: 0 -12px 30px #00000008;
+}
+.co-terminal-header {
+  min-height: 39px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 10px 0 14px;
+  border-bottom: 1px solid var(--co-border);
+}
+.co-terminal-title,
+.co-terminal-tabs,
+.co-terminal-tabs > div,
+.co-terminal-actions,
+.co-terminal-cwd,
+.co-terminal-command {
+  display: flex;
+  align-items: center;
+}
+.co-terminal-title {
+  gap: 7px;
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+.co-terminal-title span {
+  padding: 1px 5px;
+  border: 1px solid var(--co-border);
+  border-radius: 4px;
+  color: var(--co-muted);
+  font-size: 8px;
+}
+.co-terminal-tabs {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  gap: 3px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.co-terminal-tabs > div {
+  align-self: stretch;
+  border-bottom: 2px solid transparent;
+}
+.co-terminal-tabs > div.selected {
+  border-bottom-color: var(--co-text);
+}
+.co-terminal button {
+  border: 0;
+  background: transparent;
+}
+.co-terminal-tabs > div > button:first-child {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 5px 0 9px;
+  color: var(--co-secondary);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.co-terminal-tabs > div > button:last-child,
+.co-terminal-new,
+.co-terminal-actions button {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--co-muted);
+}
+.co-terminal-tabs button:hover,
+.co-terminal-actions button:hover {
+  background: var(--co-hover);
+  color: var(--co-text);
+}
+.co-terminal-state {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--co-muted);
+}
+.co-terminal-state.is-running {
+  border-color: #4b9b72;
+  background: #4b9b72;
+}
+.co-terminal-state.is-failed {
+  border-color: #c27762;
+  background: #c27762;
+}
+.co-terminal-state.is-completed {
+  border-color: var(--co-secondary);
+  background: var(--co-secondary);
+}
+.co-terminal-cwd {
+  min-height: 31px;
+  gap: 7px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--co-border);
+  color: var(--co-muted);
+}
+.co-terminal-cwd form {
+  flex: 1;
+  min-width: 0;
+}
+.co-terminal-cwd input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--co-secondary);
+  font:
+    10px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+.co-terminal-cwd > span {
+  font-size: 9px;
+  white-space: nowrap;
+}
+.co-terminal-output {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 11px 15px;
+  background: var(--co-bg);
+  scrollbar-gutter: stable;
+}
+.co-terminal-output pre {
+  margin: 0;
+  color: var(--co-secondary);
+  font:
+    11px/1.55 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.co-terminal-output pre.is-input {
+  margin: 7px 0 3px;
+  color: var(--co-text);
+  font-weight: 600;
+}
+.co-terminal-output pre.is-stderr,
+.co-terminal-error {
+  color: #c27762;
+}
+.co-terminal-output pre.is-system {
+  color: var(--co-muted);
+  font-style: italic;
+}
+.co-terminal-error {
+  padding: 6px 14px 0;
+  background: var(--co-bg);
+  font-size: 10px;
+}
+.co-terminal-command {
+  min-height: 43px;
+  gap: 8px;
+  padding: 7px 10px 7px 15px;
+  border-top: 1px solid var(--co-border);
+  background: var(--co-bg);
+  color: var(--co-secondary);
+}
+.co-terminal-command textarea {
+  flex: 1;
+  min-width: 0;
+  max-height: 84px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--co-text);
+  font:
+    11px/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+.co-terminal-command > button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: var(--co-text);
+  color: var(--co-bg);
+  font-size: 9px;
+}
+.co-terminal-command > button:disabled {
+  opacity: 0.4;
+}
+.co-terminal-command > button.co-terminal-stop {
+  background: color-mix(in srgb, #c27762 14%, var(--co-card));
+  color: #c27762;
+}
+.co-terminal > footer {
+  padding: 4px 14px 5px;
+  background: var(--co-bg);
+  color: var(--co-muted);
+  font-size: 8px;
+  text-align: right;
+}
+.co-terminal-unavailable {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--co-muted);
+}
+.co-terminal-unavailable strong {
+  margin-top: 10px;
+  color: var(--co-text);
+  font-size: 12px;
+}
+.co-terminal-unavailable p {
+  margin: 4px 0 0;
+  font-size: 10px;
+}
+@media (max-width: 580px) {
+  .co-terminal {
+    flex-basis: min(52vh, 410px);
+  }
+  .co-terminal-title span,
+  .co-terminal > footer {
+    display: none;
+  }
+  .co-terminal-header {
+    gap: 7px;
+  }
+}

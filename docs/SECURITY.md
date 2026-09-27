@@ -28,6 +28,7 @@ Policy considers action risk, requested capability, agent allow-list, plugin gra
 
 - Structured logs redact common credential fields and environment values.
 - Shell parameters are structured arrays, not interpolated command strings.
+- The visible Terminal is a separate, direct-user authority boundary: it passes exactly the command the user submits to their local login shell. It never executes model output automatically, keeps its transcript in memory only, closes stdin, exposes the working directory, limits captured output, and stops the process group on request or app exit. Agent approval gates do not apply to this manual terminal.
 - Paths are canonicalized and checked against the selected workspace.
 - Rendered tool output is escaped and size-limited.
 - Memory has scope, provenance, timestamp, confidence, source, and deletion support.

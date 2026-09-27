@@ -4,6 +4,7 @@ mod engine_inventory;
 mod live_runtime;
 mod project_directories;
 mod provider_models;
+mod terminal_runtime;
 use tauri::Manager;
 
 #[tauri::command]
@@ -22,6 +23,7 @@ pub fn run() {
         .manage(company_memory::MemoryLock::default())
         .setup(|app| {
             app.manage(live_runtime::setup(app.handle())?);
+            app.manage(terminal_runtime::Runtime::load()?);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -36,13 +38,21 @@ pub fn run() {
             live_runtime::live_control,
             provider_models::live_models,
             attachments::save_attachment,
-            attachments::attachment_preview
+            attachments::attachment_preview,
+            terminal_runtime::terminal_snapshot,
+            terminal_runtime::terminal_create,
+            terminal_runtime::terminal_set_cwd,
+            terminal_runtime::terminal_run,
+            terminal_runtime::terminal_control,
+            terminal_runtime::terminal_clear,
+            terminal_runtime::terminal_remove
         ])
         .build(tauri::generate_context!())
         .expect("error while running StaffForge");
     app.run(|app, event| {
         if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
             app.state::<live_runtime::Runtime>().stop_all();
+            app.state::<terminal_runtime::Runtime>().stop_all();
         }
     });
 }

@@ -23,6 +23,7 @@ apps/
     src/
       main.tsx                 # Experience entry point
       app/                     # Company shell, routes, global search, shared styling
+      features/terminal/       # Global terminal dock, session UI, command presentation
       features/
         company/               # Offices, domains, agents, forms, floor plan, model
         start/                 # Prompt composer and saved chats

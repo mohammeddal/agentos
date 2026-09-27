@@ -8,6 +8,7 @@ import {
   Pencil,
   Plus,
   Search,
+  SquareTerminal,
   Trash2,
 } from "lucide-react";
 import {
@@ -57,6 +58,7 @@ import {
   type Lifecycle,
 } from "../features/company/company-directory";
 import { useLiveNotifications } from "../features/engines/live-notifications";
+import { TerminalDock } from "../features/terminal/TerminalDock";
 import {
   destinations,
   primaryView,
@@ -126,6 +128,7 @@ export function CompanyWorkspace() {
   const [activityKey, setActivityKey] = useState("");
   const [composerVersion, setComposerVersion] = useState(0);
   const [theme, setTheme] = useState(initialTheme);
+  const [terminalOpen, setTerminalOpen] = useState(false);
   const { route, go } = useWorkspaceRoute();
   const view = route.view,
     selectedOffice = route.officeId || null,
@@ -351,6 +354,13 @@ export function CompanyWorkspace() {
       ) {
         event.preventDefault();
         if (!dialog || dialog.type === "find") setDialog(dialog ? null : { type: "find" });
+      } else if (
+        (event.metaKey || event.ctrlKey) &&
+        event.key.toLowerCase() === "j" &&
+        !event.isComposing
+      ) {
+        event.preventDefault();
+        setTerminalOpen((open) => !open);
       }
     };
     window.addEventListener("keydown", handler);
@@ -409,7 +419,7 @@ export function CompanyWorkspace() {
                   ? "Search domains"
                   : "Search offices";
   return (
-    <div className="company-app" data-theme={theme}>
+    <div className="company-app" data-theme={theme} data-terminal-open={terminalOpen || undefined}>
       <WorkspaceNavigation {...navigationProps} />
       <div className="co-main">
         <header className="co-topbar">
@@ -434,6 +444,14 @@ export function CompanyWorkspace() {
             <HelpTip label="About local storage" align="end">
               Company data and history stay on this Mac. Provider requests use the selected engine.
             </HelpTip>
+            <button
+              aria-label={terminalOpen ? "Close terminal" : "Open terminal"}
+              aria-pressed={terminalOpen}
+              title="Terminal · Cmd/Ctrl J"
+              onClick={() => setTerminalOpen((open) => !open)}
+            >
+              <SquareTerminal size={17} />
+            </button>
             <button
               aria-label="Find anything"
               title="Find anything · Cmd/Ctrl K"
@@ -722,6 +740,7 @@ export function CompanyWorkspace() {
             </footer>
           )}
         </main>
+        <TerminalDock open={terminalOpen} close={() => setTerminalOpen(false)} />
       </div>
       {dialog && (
         <CompanyDialog

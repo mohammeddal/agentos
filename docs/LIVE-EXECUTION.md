@@ -69,7 +69,7 @@ Approvals are keyed to the exact active run/request. A task snapshot is immutabl
 - Native transport/state: `apps/desktop/src-tauri/src/live_runtime.rs`.
 - UI client and workflow compiler: `apps/desktop/src/features/engines/live-runtime.ts`.
 - Execution views, schedules, notifications: adjacent `LiveExecution.tsx`, `live-schedules.ts`, `live-notifications.tsx`.
-- Native commands: `live_engines`, `live_models`, `live_start`, `live_snapshot`, `live_control`.
+- Native commands: `live_engines`, `live_models`, `live_start`, `live_snapshot`, `live_control`, plus the separate manual-terminal lifecycle (`terminal_create`, `terminal_set_cwd`, `terminal_run`, `terminal_snapshot`, `terminal_control`, `terminal_clear`, `terminal_remove`).
 - Catalog discovery/validation: `apps/desktop/src-tauri/src/provider_models.rs`. Selectors and task overrides: `ModelPicker.tsx`, `TaskModels.tsx`, and `model-choice.ts` in the engines feature.
 
 Run `pnpm typecheck`, `pnpm test`, and `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --lib` for offline checks. The live provider test is intentionally ignored by default because it makes account-backed model requests:
