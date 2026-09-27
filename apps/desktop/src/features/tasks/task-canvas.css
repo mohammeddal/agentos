@@ -533,6 +533,38 @@
   padding: 7px 10px;
   font-size: 10px;
 }
+.tc-tools .co-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tc-tools .co-button[aria-pressed="true"] {
+  border-color: var(--co-accent);
+  color: var(--co-text);
+}
+.tc-palette-block:disabled {
+  opacity: 0.38;
+  cursor: default;
+  background: transparent;
+}
+.tc-node-handle .tc-entry {
+  margin-left: auto;
+  padding: 2px 5px;
+  border: 1px solid var(--co-border);
+  border-radius: 999px;
+  color: var(--co-secondary);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.tc-node-handle .tc-entry + svg:last-child {
+  margin-left: 0;
+}
+.tc-task-settings-note {
+  margin: -10px 0 20px;
+}
 @media (min-width: 1600px) {
   .tc-canvas {
     height: 560px;

@@ -930,6 +930,42 @@ export function CompanyWorkspace() {
                 }
                 storageError={storageError}
                 back={() => setDialog({ type: "inspect-task", taskId: inspectedTask.id })}
+                changeTaskDetails={({ title, brief }) =>
+                  setCompany((c) => ({
+                    ...c,
+                    tasks: (c.tasks || []).map((t) =>
+                      t.id === inspectedTask.id ? { ...t, title, brief } : t,
+                    ),
+                  }))
+                }
+                changeProject={(projectId) =>
+                  setCompany((c) => ({
+                    ...c,
+                    tasks: (c.tasks || []).map((t) => {
+                      if (t.id !== inspectedTask.id) return t;
+                      if (projectId) return { ...t, projectId };
+                      const { projectId: _projectId, ...withoutProject } = t;
+                      return withoutProject;
+                    }),
+                  }))
+                }
+                changeApproval={(approval) =>
+                  setCompany((c) => ({
+                    ...c,
+                    tasks: (c.tasks || []).map((t) =>
+                      t.id === inspectedTask.id ? { ...t, approval } : t,
+                    ),
+                  }))
+                }
+                changeAttachments={(attachments) =>
+                  setCompany((c) => ({
+                    ...c,
+                    tasks: (c.tasks || []).map((t) =>
+                      t.id === inspectedTask.id ? { ...t, attachments } : t,
+                    ),
+                  }))
+                }
+                onAttachmentsBusy={() => {}}
                 save={(canvas) =>
                   setCompany((c) => ({
                     ...c,

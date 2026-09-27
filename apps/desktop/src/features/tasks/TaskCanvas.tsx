@@ -34,6 +34,7 @@ import {
 import {
   attachmentKinds,
   blockNames,
+  canvasEntryNodes,
   fitCanvas,
   canvasSize,
   canvasWarnings,
@@ -62,6 +63,7 @@ const icons = {
   prompt: MessageSquare,
 };
 const descriptions = {
+  task: "Task-wide starting brief",
   office: "One office team",
   agent: "A specialist",
   domain: "An entire team",
@@ -87,6 +89,7 @@ export function TaskCanvas({
   changeAttachments,
   onAttachmentsBusy,
   changeApproval,
+  changeTaskDetails,
   embedded = false,
 }: {
   company: Company;
@@ -99,13 +102,15 @@ export function TaskCanvas({
   changeAttachments?: (attachments: Attachment[]) => void;
   onAttachmentsBusy?: (busy: boolean) => void;
   changeApproval?: (rule: ApprovalRule) => void;
+  changeTaskDetails?: (details: { title: string; brief: string }) => void;
   embedded?: boolean;
 }) {
   const [graph, setGraph] = useState(() => initialTaskCanvas(task));
   const [past, setPast] = useState<TaskCanvasGraph[]>([]),
     [future, setFuture] = useState<TaskCanvasGraph[]>([]);
-  const [selected, setSelected] = useState(graph.nodes[0]!.id),
+  const [selected, setSelected] = useState(graph.nodes[0]?.id || ""),
     [edgeId, setEdgeId] = useState("");
+  const [taskSettings, setTaskSettings] = useState(!graph.nodes.length);
   const [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
     [connecting, setConnecting] = useState("");
@@ -144,6 +149,7 @@ export function TaskCanvas({
   const shown = graph.nodes.map((n) =>
     moving?.id === n.id ? { ...n, x: moving.x, y: moving.y } : n,
   );
+  const entryIds = new Set(canvasEntryNodes(graph).map((entry) => entry.id));
   function commit(next: TaskCanvasGraph) {
     if (JSON.stringify(next) === JSON.stringify(graph)) return;
     setPast((p) => [...p, graph].slice(-50));
@@ -177,11 +183,25 @@ export function TaskCanvas({
     save(next);
   }
   function update(id: string, patch: Partial<CanvasNode>) {
+    const current = graph.nodes.find((candidate) => candidate.id === id);
+    if (
+      current?.kind === "task" &&
+      changeTaskDetails &&
+      (patch.title !== undefined || patch.prompt !== undefined)
+    )
+      changeTaskDetails({
+        title: patch.title ?? current.title,
+        brief: patch.prompt ?? current.prompt,
+      });
     commit({ ...graph, nodes: graph.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)) });
   }
   function add(kind: BlockKind, x?: number, y?: number) {
     if (graph.nodes.length >= 80) {
       setError("This draft supports up to 80 blocks.");
+      return;
+    }
+    if (kind === "task" && graph.nodes.some((candidate) => candidate.kind === "task")) {
+      setError("A workflow can contain only one Task start block.");
       return;
     }
     const columns = Math.max(
@@ -205,6 +225,7 @@ export function TaskCanvas({
     commit({ ...graph, nodes: [...graph.nodes, next] });
     setSelected(next.id);
     setEdgeId("");
+    setTaskSettings(false);
     if (x === undefined)
       viewport.current?.scrollTo({
         left: Math.max(0, next.x * zoom - 50),
@@ -269,9 +290,11 @@ export function TaskCanvas({
     if (edge) {
       commit({ ...graph, edges: graph.edges.filter((e) => e.id !== edge.id) });
       setEdgeId("");
-    } else if (node?.kind !== "task") {
+    } else if (node) {
+      const removedTask = node.kind === "task";
       commit(removeCanvasNode(graph, selected));
       setSelected("");
+      setTaskSettings(removedTask);
     }
   }
   function point(clientX: number, clientY: number) {
@@ -296,6 +319,109 @@ export function TaskCanvas({
   } catch (e) {
     executionIssue = String(e).replace(/^Error: /, "");
   }
+  const taskSettingsPanel = (
+    <>
+      <h3>Task settings</h3>
+      <p className="tc-task-settings-note">
+        These details belong to the task, not to a workflow block. Removing the Task start block
+        does not remove them.
+      </p>
+      <label>
+        Task name
+        <input
+          maxLength={120}
+          value={task.title}
+          disabled={!changeTaskDetails}
+          onChange={(event) =>
+            changeTaskDetails?.({ title: event.target.value, brief: task.brief })
+          }
+        />
+      </label>
+      <label>
+        Task outcome
+        <textarea
+          rows={6}
+          maxLength={6000}
+          value={task.brief}
+          disabled={!changeTaskDetails}
+          placeholder="Describe the outcome, context, and what done looks like…"
+          onChange={(event) =>
+            changeTaskDetails?.({ title: task.title, brief: event.target.value })
+          }
+        />
+      </label>
+      {changeProject && (
+        <label>
+          Company project
+          <select
+            value={task.projectId || ""}
+            onChange={(event) => changeProject(event.target.value)}
+          >
+            <option value="">No project · Company-wide</option>
+            {task.projectId &&
+              !company.projects?.some((project) => project.id === task.projectId) && (
+                <option value={task.projectId}>Unavailable project (retained)</option>
+              )}
+            {(company.projects || []).map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {changeApproval && (
+        <label>
+          Before this task starts
+          <select
+            value={
+              task.approval?.kind === "agent"
+                ? `agent:${task.approval.agentId}`
+                : task.approval?.kind || "none"
+            }
+            onChange={(event) => {
+              const value = event.target.value;
+              changeApproval(
+                value === "human"
+                  ? { kind: "human" }
+                  : value.startsWith("agent:")
+                    ? { kind: "agent", agentId: value.slice(6) }
+                    : { kind: "none" },
+              );
+            }}
+          >
+            <option value="human">My approval</option>
+            <option value="none">No approval</option>
+            <optgroup label="Agent approval">
+              {agents.map((agent) => (
+                <option key={agent.id} value={`agent:${agent.id}`}>
+                  {agent.name}
+                </option>
+              ))}
+            </optgroup>
+            {taskApprovalAgentId && !agents.some((agent) => agent.id === taskApprovalAgentId) && (
+              <option value={`agent:${taskApprovalAgentId}`}>Unavailable reviewer</option>
+            )}
+          </select>
+          <small>Step-specific reviews can still be added as Approval blocks.</small>
+        </label>
+      )}
+      {changeAttachments && onAttachmentsBusy && (
+        <section className="tc-root-files">
+          <strong>Task files</strong>
+          <AttachmentEditor
+            compact
+            value={task.attachments || []}
+            onChange={changeAttachments}
+            onBusy={onAttachmentsBusy}
+          >
+            {null}
+          </AttachmentEditor>
+          <small>Attach here, then scope files to individual Context blocks.</small>
+        </section>
+      )}
+    </>
+  );
   return (
     <section className="tc" aria-label="Visual task builder">
       <div className="tc-toolbar">
@@ -312,6 +438,18 @@ export function TaskCanvas({
         )}
         <span className="tc-draft">Workflow · {graph.nodes.length} blocks</span>
         <div className="tc-tools">
+          <button
+            type="button"
+            className="co-button"
+            aria-pressed={taskSettings && !node && !edge}
+            onClick={() => {
+              setSelected("");
+              setEdgeId("");
+              setTaskSettings(true);
+            }}
+          >
+            <ClipboardList size={13} /> Task settings
+          </button>
           <button type="button" className="co-button" onClick={fit}>
             Fit view
           </button>
@@ -356,7 +494,7 @@ export function TaskCanvas({
       </div>
       <p className="tc-boundary">
         {executionIssue ||
-          "Ready to run · Each work step can have its own files, context, MCPs, skills, connectors, model, and approval path."}
+          "Ready to run · Blocks without an incoming flow start in parallel. Each step can have its own inputs, model, and approval path."}
       </p>
       <div className="tc-layout">
         <aside className="tc-palette">
@@ -368,10 +506,10 @@ export function TaskCanvas({
           </p>
           {(
             [
-              { label: "Work", kinds: ["office", "domain", "agent", "prompt"] },
+              { label: "Work", kinds: ["task", "office", "domain", "agent", "prompt"] },
               { label: "Resources", kinds: ["context", "mcp", "skill", "connector"] },
               { label: "Control", kinds: ["approval", "restriction"] },
-            ] as { label: string; kinds: Exclude<BlockKind, "task">[] }[]
+            ] as { label: string; kinds: BlockKind[] }[]
           ).map(({ label, kinds }) => (
             <details className="tc-block-group" key={label} open={label !== "Resources"}>
               <summary>
@@ -385,6 +523,9 @@ export function TaskCanvas({
                     type="button"
                     key={kind}
                     className="tc-palette-block"
+                    disabled={
+                      kind === "task" && graph.nodes.some((candidate) => candidate.kind === "task")
+                    }
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData("application/agentos-block", kind);
@@ -531,6 +672,8 @@ export function TaskCanvas({
                         if (e.key === "Delete" || e.key === "Backspace") {
                           e.preventDefault();
                           commit(removeCanvasNode(graph, n.id));
+                          setSelected("");
+                          if (n.kind === "task") setTaskSettings(true);
                         }
                       }}
                     >
@@ -575,6 +718,7 @@ export function TaskCanvas({
                       >
                         <Icon size={15} />
                         <span>{blockNames[n.kind]}</span>
+                        {entryIds.has(n.id) && <em className="tc-entry">Start</em>}
                         <GripVertical size={13} />
                       </div>
                       <strong>{n.title || "Untitled block"}</strong>
@@ -959,7 +1103,7 @@ export function TaskCanvas({
                       </label>
                     ))
                   ) : (
-                    <small>Attach files from the Task block, then return here to scope them.</small>
+                    <small>Attach files from Task settings, then return here to scope them.</small>
                   )}
                 </fieldset>
               )}
@@ -1113,16 +1257,14 @@ export function TaskCanvas({
                   </details>
                 </>
               )}
-              {node.kind !== "task" && (
-                <button type="button" className="co-button tc-delete" onClick={remove}>
-                  <Trash2 size={13} />
-                  Remove block
-                </button>
-              )}
+              <button type="button" className="co-button tc-delete" onClick={remove}>
+                <Trash2 size={13} />
+                {node.kind === "task" ? "Remove start block" : "Remove block"}
+              </button>
               {node.kind === "task" && (
                 <small>
-                  This block defines the task. Connected office, domain, and agent blocks define who
-                  does the work.
+                  Removing this block keeps the task name, outcome, project, files, and approval in
+                  Task settings. Any block without an incoming flow then becomes a start step.
                 </small>
               )}
             </>
@@ -1161,6 +1303,8 @@ export function TaskCanvas({
                 Remove connection
               </button>
             </>
+          ) : taskSettings ? (
+            taskSettingsPanel
           ) : (
             <p>Select a block or connection to edit it.</p>
           )}

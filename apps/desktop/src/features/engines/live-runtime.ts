@@ -11,7 +11,12 @@ import { memoryContext, parseMemory } from "../memory/company-memory";
 import { memoryFile } from "../memory/memory-storage";
 import type { ApprovalRule } from "../tasks/task-approvals";
 import { workflowError } from "../tasks/task-workflow";
-import { attachmentKinds, canvasWarnings, type CanvasNode } from "../tasks/task-canvas-model";
+import {
+  attachmentKinds,
+  canvasEntryNodes,
+  canvasWarnings,
+  type CanvasNode,
+} from "../tasks/task-canvas-model";
 
 export type LiveStep = {
   attachments?: string[];
@@ -265,7 +270,12 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
     );
   const warnings = canvasWarnings(company, graph);
   if (warnings.length) throw new Error(warnings[0]);
-  const root = graph.nodes.find((n) => n.kind === "task")!;
+  const root = graph.nodes.find((n) => n.kind === "task");
+  const entries = canvasEntryNodes(graph);
+  if (!entries.length)
+    throw new Error(
+      "Add an office, domain, agent, custom prompt, or approval to start the workflow.",
+    );
   const allAgents = company.offices.flatMap((o) => o.agents);
   const baseTeam = taskParticipants(company, task.assignment);
   const attachedNodes = (id: string) =>
@@ -298,19 +308,21 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
       })
       .filter(Boolean)
       .join("\n\n");
-  const rootContext = attachedNodes(root.id)
-    .filter((n) => n.kind === "context" && (n.prompt.trim() || n.source.trim()))
-    .map((n) =>
-      [
-        `${n.title} (reference context):`,
-        n.source.trim() ? `Source: ${n.source.trim()}` : "",
-        n.prompt.trim(),
-      ]
-        .filter(Boolean)
-        .join("\n"),
-    )
-    .join("\n\n");
-  const rootPrompt = [root.prompt || task.brief, rootContext].filter(Boolean).join("\n\n");
+  const rootContext = root
+    ? attachedNodes(root.id)
+        .filter((n) => n.kind === "context" && (n.prompt.trim() || n.source.trim()))
+        .map((n) =>
+          [
+            `${n.title} (reference context):`,
+            n.source.trim() ? `Source: ${n.source.trim()}` : "",
+            n.prompt.trim(),
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        )
+        .join("\n\n")
+    : "";
+  const rootPrompt = [root?.prompt || task.brief, rootContext].filter(Boolean).join("\n\n");
   const workers = graph.nodes.filter((n) =>
     ["office", "agent", "domain", "prompt"].includes(n.kind),
   );
@@ -321,26 +333,27 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
       );
     if (graph.nodes.some((n) => n.kind === "approval"))
       throw new Error("Connect the approval checkpoint to an agent or domain.");
-    const { canvas: _canvas, ...base } = task;
-    return compileTask(company, { ...base, brief: rootPrompt });
+    if (root) {
+      const { canvas: _canvas, ...base } = task;
+      return compileTask(company, { ...base, brief: rootPrompt });
+    }
+    throw new Error("Add an office, domain, agent, or custom prompt step to run this workflow.");
   }
   if (task.handoffs?.length)
     throw new Error(
       "This task contains both a visual flow and Workflow handoffs. Choose one execution plan to avoid silently dropping either.",
     );
   type Endpoint = { after: string[]; gates: ApprovalRule[]; condition: string };
-  const endpoints = new Map<string, Endpoint>([
-    [
-      root.id,
-      {
-        after: [],
-        gates: task.approval && task.approval.kind !== "none" ? [task.approval] : [],
-        condition: "success",
-      },
-    ],
-  ]);
+  const startGates = task.approval && task.approval.kind !== "none" ? [task.approval] : [];
+  const endpoints = new Map<string, Endpoint>();
+  if (root)
+    endpoints.set(root.id, {
+      after: [],
+      gates: startGates,
+      condition: "success",
+    });
   const pending: CanvasNode[] = graph.nodes.filter(
-    (n) => n.id !== root.id && !attachmentKinds.includes(n.kind),
+    (n) => n.id !== root?.id && !attachmentKinds.includes(n.kind),
   );
   const result: LiveStep[] = [];
   while (pending.length) {
@@ -352,22 +365,25 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
     if (index < 0) throw new Error("The visual flow contains an unresolved dependency.");
     const node = pending.splice(index, 1)[0]!;
     const incoming = graph.edges.filter((e) => e.kind === "flow" && e.to === node.id);
-    if (!incoming.length) throw new Error(`Connect ${node.title} to the task flow.`);
+    const startsHere = !root && entries.some((entry) => entry.id === node.id);
+    if (!incoming.length && !startsHere) throw new Error(`Connect ${node.title} to the workflow.`);
     const parents = incoming.map((edge) => endpoints.get(edge.from)!);
-    const after = [...new Set(parents.flatMap((p) => p.after))];
-    const conditions = [
-      ...new Set(
-        incoming.map((e) =>
-          e.condition === "approved" ? endpoints.get(e.from)!.condition : e.condition,
-        ),
-      ),
-    ];
+    const after = startsHere ? [] : [...new Set(parents.flatMap((p) => p.after))];
+    const conditions = startsHere
+      ? ["success"]
+      : [
+          ...new Set(
+            incoming.map((e) =>
+              e.condition === "approved" ? endpoints.get(e.from)!.condition : e.condition,
+            ),
+          ),
+        ];
     if (conditions.length !== 1)
       throw new Error(
         "Connections joining one block must use the same condition. Split mixed branches into separate blocks.",
       );
     const condition = conditions[0]!;
-    const gates = parents.flatMap((p) => p.gates);
+    const gates = startsHere ? [...startGates] : parents.flatMap((p) => p.gates);
     if (
       incoming.some(
         (e) =>
@@ -402,7 +418,7 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
         [
           rootPrompt,
           node.prompt,
-          resources(root.id, engineId(agent.engine)),
+          root ? resources(root.id, engineId(agent.engine)) : "",
           resources(node.id, engineId(agent.engine)),
         ]
           .filter(Boolean)
@@ -410,7 +426,9 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
         i ? [result.at(-1)!.id] : after,
         i ? "success" : condition,
       );
-      step.attachments = [...new Set([...scopedFiles(root.id), ...scopedFiles(node.id)])];
+      step.attachments = [
+        ...new Set([...(root ? scopedFiles(root.id) : []), ...scopedFiles(node.id)]),
+      ];
       if (reviewerIds[0]) rule(step, { kind: "agent", agentId: reviewerIds[0] }, company);
       step.approval = gates.some((g) => g.kind === "human");
       result.push(step);

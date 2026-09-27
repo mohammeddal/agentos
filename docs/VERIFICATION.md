@@ -4,6 +4,13 @@ Branch: `codex/agentos-ux-cleanup`.
 
 This records the earlier UX-only change. For the subsequent native runtime integration, see [Live execution](LIVE-EXECUTION.md). The Codex transport passed actual reply and conversation-resume tests; Claude returned a revoked-token 401 and requires reauthentication before successful generation can be verified.
 
+## Removable workflow entry follow-up
+
+- The initial Task block is now an optional convenience instead of a permanent graph root. It can be removed from its inspector or with Delete/Backspace and restored from the Work palette.
+- Without a Task block, every work/control block with no incoming flow is labeled **Start** and compiles as a real entry; multiple entries begin in parallel. Task name, outcome, project, files, and start approval remain available in the separate **Task settings** inspector.
+- Browser QA removed the initial block from a new task, confirmed the empty-canvas state, added a Domain as the new start, and verified the Start label and configuration guidance. No task was saved or provider run started.
+- All 192 Vitest tests passed with the new rootless compiler and graph-validation coverage, together with TypeScript, formatting, and whitespace checks.
+
 ## Activity progressive-disclosure follow-up
 
 - Replaced the oversized Activity view selector with compact **Runs / Rehearsals** controls and converted live history into a scannable status inbox.

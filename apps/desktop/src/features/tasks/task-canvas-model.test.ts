@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isCompanyTask, starterCompany, type CompanyTask } from "../company/company-model";
 import {
   canvasWarnings,
+  canvasEntryNodes,
   connectCanvas,
   connectionError,
   fitCanvas,
@@ -116,10 +117,26 @@ describe("visual task blueprints", () => {
       "Move resources from an approval block",
     );
   });
-  it("removes incident edges but protects the task root", () => {
+  it("removes any block and lets another work block become the entry", () => {
     const g = connectCanvas(sample(), "task-root", "agent");
     expect(removeCanvasNode(g, "agent").edges).toEqual([]);
-    expect(removeCanvasNode(g, "task-root")).toBe(g);
+    const withoutTask = removeCanvasNode(g, "task-root");
+    expect(withoutTask.nodes.some((node) => node.kind === "task")).toBe(false);
+    expect(canvasEntryNodes(withoutTask).map((node) => node.id)).toEqual([
+      "agent",
+      "review",
+      "prompt",
+    ]);
+    expect(isTaskCanvas(withoutTask)).toBe(true);
+  });
+  it("accepts an empty draft and treats rootless flow sources as parallel starts", () => {
+    expect(isTaskCanvas({ version: 1, nodes: [], edges: [] })).toBe(true);
+    const withoutTask = removeCanvasNode(sample(), "task-root");
+    const graph = connectCanvas(withoutTask, "agent", "review");
+    expect(canvasEntryNodes(graph).map((node) => node.id)).toEqual(["agent", "prompt"]);
+    const warnings = canvasWarnings(starterCompany, graph).join(" ");
+    expect(warnings).not.toContain("Agent: not connected");
+    expect(warnings).not.toContain("Custom prompt: not connected");
   });
   it("accepts incomplete drafts and reports missing references and disconnected blocks", () => {
     const g = sample();
@@ -187,8 +204,8 @@ describe("visual task blueprints", () => {
       null,
       {},
       { ...g, version: 2 },
-      { ...g, nodes: [] },
       { ...g, nodes: [g.nodes[0], g.nodes[0]] },
+      { ...g, nodes: [...g.nodes, { ...g.nodes[0], id: "second-task" }] },
       { ...g, nodes: g.nodes.map((n) => ({ ...n, x: -1 })) },
       { ...g, nodes: g.nodes.map((n) => ({ ...n, prompt: "x".repeat(6001) })) },
       {

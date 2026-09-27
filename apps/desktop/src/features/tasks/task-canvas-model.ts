@@ -49,6 +49,7 @@ export type TaskCanvasGraph = { version: 1; nodes: CanvasNode[]; edges: CanvasEd
 export const attachmentKinds: BlockKind[] = ["context", "mcp", "skill", "connector", "restriction"];
 export const canvasSize = { width: 2400, height: 1600, nodeWidth: 210, nodeHeight: 130 };
 export function fitCanvas(graph: TaskCanvasGraph, width: number, height: number) {
+  if (!graph.nodes.length) return { zoom: 1, left: 0, top: 0 };
   const left = Math.max(0, Math.min(...graph.nodes.map((n) => n.x)) - 35);
   const top = Math.max(0, Math.min(...graph.nodes.map((n) => n.y)) - 35);
   const right = Math.max(...graph.nodes.map((n) => n.x + canvasSize.nodeWidth)) + 35;
@@ -80,6 +81,37 @@ export function newCanvasNode(
     capabilityStatus: "",
   };
 }
+
+/**
+ * A legacy Task block remains the single explicit entry when present. Without one,
+ * every flow block with no incoming handoff is an entry and starts in parallel.
+ */
+export function canvasEntryNodes(graph: TaskCanvasGraph): CanvasNode[] {
+  const task = graph.nodes.find((node) => node.kind === "task");
+  if (task) return [task];
+  const incoming = new Set(
+    graph.edges.filter((edge) => edge.kind === "flow").map((edge) => edge.to),
+  );
+  return graph.nodes.filter(
+    (node) => !attachmentKinds.includes(node.kind) && !incoming.has(node.id),
+  );
+}
+
+function reachableCanvasNodes(graph: TaskCanvasGraph): Set<string> {
+  const reachable = new Set(canvasEntryNodes(graph).map((node) => node.id));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const edge of graph.edges) {
+      if (edge.kind === "flow" && reachable.has(edge.from) && !reachable.has(edge.to)) {
+        reachable.add(edge.to);
+        changed = true;
+      }
+    }
+  }
+  return reachable;
+}
+
 export function initialTaskCanvas(task: CompanyTask): TaskCanvasGraph {
   return (
     task.canvas || {
@@ -125,18 +157,7 @@ export function taskCanvasFromAssignment(company: Company, task: CompanyTask): T
 /** Canvas work blocks are the source of truth for the saved task team. */
 export function taskCanvasAssignment(company: Company, graph: TaskCanvasGraph): TaskAssignment {
   const ids = new Set<string>();
-  const root = graph.nodes.find((node) => node.kind === "task");
-  const reachable = new Set(root ? [root.id] : []);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const edge of graph.edges) {
-      if (edge.kind === "flow" && reachable.has(edge.from) && !reachable.has(edge.to)) {
-        reachable.add(edge.to);
-        changed = true;
-      }
-    }
-  }
+  const reachable = reachableCanvasNodes(graph);
   for (const node of graph.nodes.filter((candidate) => reachable.has(candidate.id))) {
     if (node.kind === "agent") {
       if (
@@ -216,7 +237,6 @@ export function connectCanvas(
   };
 }
 export function removeCanvasNode(graph: TaskCanvasGraph, id: string): TaskCanvasGraph {
-  if (graph.nodes.find((n) => n.id === id)?.kind === "task") return graph;
   return {
     ...graph,
     nodes: graph.nodes.filter((n) => n.id !== id),
@@ -229,7 +249,6 @@ export function isTaskCanvas(value: unknown): value is TaskCanvasGraph {
   if (
     graph.version !== 1 ||
     !Array.isArray(graph.nodes) ||
-    !graph.nodes.length ||
     graph.nodes.length > 80 ||
     !Array.isArray(graph.edges) ||
     graph.edges.length > 160
@@ -270,7 +289,7 @@ export function isTaskCanvas(value: unknown): value is TaskCanvasGraph {
     return false;
   if (
     new Set(graph.nodes.map((n) => n.id)).size !== graph.nodes.length ||
-    graph.nodes.filter((n) => n.kind === "task").length !== 1 ||
+    graph.nodes.filter((n) => n.kind === "task").length > 1 ||
     new Set(graph.edges.map((e) => e?.id)).size !== graph.edges.length
   )
     return false;
@@ -297,24 +316,19 @@ export function isTaskCanvas(value: unknown): value is TaskCanvasGraph {
 export function canvasWarnings(company: Company, graph: TaskCanvasGraph): string[] {
   const warnings: string[] = [];
   const agents = company.offices.flatMap((o) => o.agents);
-  const root = graph.nodes.find((n) => n.kind === "task")!;
-  const reachable = new Set([root.id]);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const e of graph.edges)
-      if (e.kind === "flow" && reachable.has(e.from) && !reachable.has(e.to)) {
-        reachable.add(e.to);
-        changed = true;
-      }
-  }
+  const entries = canvasEntryNodes(graph);
+  const reachable = reachableCanvasNodes(graph);
+  if (!entries.length)
+    warnings.push(
+      "Add an office, domain, agent, custom prompt, or approval to start the workflow.",
+    );
   for (const n of graph.nodes) {
     if (
       attachmentKinds.includes(n.kind)
         ? !graph.edges.some((e) => e.from === n.id && reachable.has(e.to))
         : !reachable.has(n.id)
     )
-      warnings.push(`${n.title}: not connected to the task flow.`);
+      warnings.push(`${n.title}: not connected to the workflow.`);
     if (n.kind === "agent" && !agents.some((a) => a.id === n.reference))
       warnings.push(`${n.title}: choose an available agent.`);
     if (n.kind === "office") {

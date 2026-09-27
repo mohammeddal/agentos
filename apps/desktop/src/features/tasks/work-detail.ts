@@ -45,11 +45,15 @@ export function plannedSteps(company: Company, task: CompanyTask): DetailStep[] 
           step.id.startsWith(`canvas-${candidate.id}-`),
         );
         const targetId =
-          node?.id || task.canvas!.nodes.find((candidate) => candidate.kind === "task")!.id;
-        const resources = task
-          .canvas!.edges.filter((edge) => edge.kind === "attachment" && edge.to === targetId)
-          .map((edge) => task.canvas!.nodes.find((candidate) => candidate.id === edge.from)?.title)
-          .filter(Boolean);
+          node?.id || task.canvas!.nodes.find((candidate) => candidate.kind === "task")?.id;
+        const resources = targetId
+          ? task
+              .canvas!.edges.filter((edge) => edge.kind === "attachment" && edge.to === targetId)
+              .map(
+                (edge) => task.canvas!.nodes.find((candidate) => candidate.id === edge.from)?.title,
+              )
+              .filter(Boolean)
+          : [];
         return {
           id: step.id,
           title: step.label,

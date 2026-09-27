@@ -426,6 +426,29 @@ describe("native execution plans", () => {
       true,
     );
   });
+  it("runs rootless work blocks as workflow starts", () => {
+    const agent = {
+      ...newCanvasNode("agent", 0, 0, "agent"),
+      reference: "data-engineer",
+      prompt: "Inspect the source",
+    };
+    const domain = {
+      ...newCanvasNode("domain", 300, 0, "domain"),
+      reference: "Software Engineering",
+      prompt: "Implement the result",
+    };
+    const steps = compileTask(
+      starterCompany,
+      task({
+        assignment: { kind: "agents", targets: ["data-engineer", "developer", "reviewer"] },
+        canvas: { version: 1, nodes: [agent, domain], edges: [] },
+      }),
+    );
+    expect(steps[0]).toMatchObject({ agentId: "data-engineer", after: [] });
+    expect(steps[1]).toMatchObject({ agentId: "developer", after: [] });
+    expect(steps[2]?.after).toEqual([steps[1]!.id]);
+    expect(steps.every((step) => step.prompt.includes("Answer a question"))).toBe(true);
+  });
   it("uses the canvas root custom prompt even without other blocks", () => {
     const root = { ...newCanvasNode("task", 0, 0, "root"), prompt: "Changed instructions" };
     const steps = compileTask(

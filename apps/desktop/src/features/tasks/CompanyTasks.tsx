@@ -346,6 +346,10 @@ export function TaskForm({
               changeAttachments={setAttachments}
               onAttachmentsBusy={setAttaching}
               changeApproval={setApproval}
+              changeTaskDetails={({ title: nextTitle, brief: nextBrief }) => {
+                setTitle(nextTitle);
+                setBrief(nextBrief);
+              }}
               saveModels={(next) => {
                 setModelDefaults(next.modelDefaults || {});
                 setStepModels(next.stepModels || {});
