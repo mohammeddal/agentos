@@ -405,6 +405,14 @@ export function CompanyWorkspace() {
     },
     find: () => setDialog({ type: "find" }),
     rename: () => setDialog({ type: "rename" }),
+    engineSettings: () => {
+      setLibraryFocus((current) => ({
+        id: (current?.id || 0) + 1,
+        openSettings: true,
+      }));
+      setDialog(null);
+      setView("engines");
+    },
     help: () => setDialog({ type: "help" }),
     toggleTheme: () => setTheme((t) => (t === "light" ? "dark" : "light")),
   };

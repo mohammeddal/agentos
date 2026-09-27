@@ -69,24 +69,25 @@
 .co-workspace-settings {
   position: relative;
 }
-.co-workspace-settings > summary {
+.co-workspace-settings-trigger {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
   display: flex;
   gap: 9px;
   align-items: center;
-  list-style: none;
   cursor: pointer;
   min-height: 34px;
   padding: 7px 9px;
   font-size: 12px;
   border-radius: 7px;
 }
-.co-workspace-settings > summary::-webkit-details-marker {
-  display: none;
-}
-.co-workspace-settings > summary:hover {
+.co-workspace-settings-trigger:hover,
+.co-workspace-settings-trigger[aria-expanded="true"] {
   background: var(--co-hover);
 }
-.co-workspace-settings > div {
+.co-workspace-settings-menu {
   position: absolute;
   bottom: calc(100% + 6px);
   left: 0;
@@ -553,7 +554,7 @@
     flex: none;
     overflow: visible;
   }
-  .co-mobile-navigation .co-workspace-settings > div {
+  .co-mobile-navigation .co-workspace-settings-menu {
     position: static;
     margin-top: 6px;
     box-shadow: none;

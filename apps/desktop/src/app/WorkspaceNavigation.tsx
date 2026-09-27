@@ -11,6 +11,7 @@ import {
   Settings2,
   Sun,
 } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
 import { destinations, primaryView, type WorkspaceView } from "./navigation";
 import { isActiveRun, useLiveRuntime } from "../features/engines/live-runtime";
 import { WorkspaceDirectory, type DirectoryProps } from "./WorkspaceDirectory";
@@ -28,6 +29,7 @@ export function WorkspaceNavigation({
   navigate,
   find,
   rename,
+  engineSettings,
   help,
   toggleTheme,
   mobile = false,
@@ -38,6 +40,7 @@ export function WorkspaceNavigation({
   navigate: (view: WorkspaceView) => void;
   find: () => void;
   rename: () => void;
+  engineSettings: () => void;
   help: () => void;
   toggleTheme: () => void;
   mobile?: boolean;
@@ -46,6 +49,26 @@ export function WorkspaceNavigation({
   const live = useLiveRuntime();
   const pending = live.runs.reduce((n, r) => n + r.approvals.length, 0);
   const active = live.runs.filter(isActiveRun).length;
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsId = useId();
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !settingsRef.current?.contains(event.target))
+        setSettingsOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, [settingsOpen]);
+
+  function runSettingsAction(action: () => void) {
+    action();
+    setSettingsOpen(false);
+  }
+
   return (
     <aside className={`co-sidebar ${mobile ? "co-mobile-navigation" : ""}`}>
       <button className="co-brand" onClick={() => navigate("start")} aria-label="AgentOS home">
@@ -106,46 +129,57 @@ export function WorkspaceNavigation({
                   : "Browser preview · Open Mac app"}
           </button>
         )}
-        <details
+        <div
+          ref={settingsRef}
           className="co-workspace-settings"
           onKeyDown={(event) => {
             if (event.key === "Escape") {
               event.stopPropagation();
-              event.currentTarget.open = false;
-              event.currentTarget.querySelector("summary")?.focus();
+              setSettingsOpen(false);
+              settingsTriggerRef.current?.focus();
             }
           }}
-          onBlur={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget))
-              event.currentTarget.open = false;
-          }}
         >
-          <summary>
+          <button
+            ref={settingsTriggerRef}
+            type="button"
+            className="co-workspace-settings-trigger"
+            aria-expanded={settingsOpen}
+            aria-controls={settingsId}
+            onClick={() => setSettingsOpen((open) => !open)}
+          >
             <Settings2 size={16} /> Settings & help
-          </summary>
-          <div onClick={(event) => event.currentTarget.parentElement?.removeAttribute("open")}>
-            <button className="co-help" onClick={rename}>
-              <Building2 size={16} />
-              <span>Rename company</span>
-            </button>
-            <button className="co-help" onClick={() => navigate("engines")}>
-              <Settings2 size={16} />
-              <span>Engines & notifications</span>
-            </button>
-            <button className="co-help" onClick={help}>
-              <CircleHelp size={16} />
-              <span>Getting started</span>
-            </button>
-            <button
-              className="co-theme-toggle"
-              onClick={toggleTheme}
-              aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
-            >
-              {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
-              <span>{theme === "light" ? "Dark appearance" : "Light appearance"}</span>
-            </button>
-          </div>
-        </details>
+          </button>
+          {settingsOpen && (
+            <div id={settingsId} className="co-workspace-settings-menu" role="menu">
+              <button className="co-help" role="menuitem" onClick={() => runSettingsAction(rename)}>
+                <Building2 size={16} />
+                <span>Rename company</span>
+              </button>
+              <button
+                className="co-help"
+                role="menuitem"
+                onClick={() => runSettingsAction(engineSettings)}
+              >
+                <Settings2 size={16} />
+                <span>Engines & notifications</span>
+              </button>
+              <button className="co-help" role="menuitem" onClick={() => runSettingsAction(help)}>
+                <CircleHelp size={16} />
+                <span>Getting started</span>
+              </button>
+              <button
+                className="co-theme-toggle"
+                role="menuitem"
+                onClick={() => runSettingsAction(toggleTheme)}
+                aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
+              >
+                {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+                <span>{theme === "light" ? "Dark appearance" : "Light appearance"}</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );

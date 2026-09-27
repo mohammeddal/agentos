@@ -35,8 +35,8 @@ const statusNames = {
 };
 export type LibraryFocus = {
   id: number;
-  kind: CapabilityKind;
-  engine: Engine;
+  kind?: CapabilityKind;
+  engine?: Engine;
   openSettings: boolean;
 };
 export function EngineLibrary({ query, focus }: { query: string; focus?: LibraryFocus | null }) {
@@ -60,8 +60,8 @@ export function EngineLibrary({ query, focus }: { query: string; focus?: Library
   const [limit, setLimit] = useState(30);
   useEffect(() => {
     if (!focus) return;
-    setEngine(focus.engine);
-    setKind(focus.kind);
+    if (focus.engine) setEngine(focus.engine);
+    if (focus.kind) setKind(focus.kind);
     setScope("all");
     setSettings(focus.openSettings);
   }, [focus?.id]);
@@ -154,9 +154,11 @@ export function EngineLibrary({ query, focus }: { query: string; focus?: Library
         <section id="engine-settings" className="co-engine-settings" aria-label="Engine settings">
           <header>
             <div>
-              <strong>{focus ? `Set up ${capabilityNames[focus.kind]}` : "Engine settings"}</strong>
+              <strong>
+                {focus?.kind ? `Set up ${capabilityNames[focus.kind]}` : "Engine settings"}
+              </strong>
               <p>
-                {focus
+                {focus?.kind
                   ? `Configure it for ${engineNames[engine]}, then refresh the inventory.`
                   : "Connections, inventory location, and notifications."}
               </p>
@@ -169,7 +171,7 @@ export function EngineLibrary({ query, focus }: { query: string; focus?: Library
               <X size={16} />
             </button>
           </header>
-          {focus && (
+          {focus?.kind && (
             <div className="co-engine-setup-note">
               <strong>Provider-managed setup</strong>
               <p>
