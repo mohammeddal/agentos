@@ -50,16 +50,16 @@
 }
 .co-attachment-editor.is-compact .co-attachment-toolbar {
   gap: 6px;
-  padding: 6px 0 0;
+  padding: 4px 0 0;
 }
 .co-attachment-editor.is-compact .co-attach-button {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   justify-content: center;
   padding: 0;
   border-color: transparent;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 7px;
 }
 .co-attachment-editor.is-compact .co-attach-button:hover,
 .co-attachment-editor.is-compact .co-attach-button:focus-visible {

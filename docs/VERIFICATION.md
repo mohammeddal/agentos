@@ -6,6 +6,13 @@ This records the earlier UX-only change. For the subsequent native runtime integ
 
 ## Native execution follow-up
 
+### Start composer surface follow-up
+
+- Reworked the Start composer as one quiet input surface: narrower proportions, a flatter background, a restrained edge and focus treatment, tighter utility controls, and no elevated card shadow.
+- Removed the textarea-level focus outline that drew a second rectangle inside the composer. Keyboard focus remains visible on the outer composer through `:focus-within`, preserving one clear focus state instead of a box inside a box.
+- Isolated Chromium checks covered desktop light/dark and 390 × 844 dark layouts. The composer remained a single surface at rest and while focused, and the final session reported zero console warnings or errors.
+- All 187 Vitest tests across 29 files passed, along with typecheck, formatting, whitespace checks, the 131-file source audit, production build, and headless `.app`/`.dmg` packaging. The signed build replaced `/Applications/AgentOS.app`, reopened successfully, and retained the native Start controls and saved sidebar data.
+
 ### Persistent project directory follow-up
 
 - Reduced the primary navigation to five destinations by removing the duplicate Projects button. The desktop sidebar and compact Workspace drawer now keep Projects, project-scoped chats/tasks, unassigned chats/tasks, and Archived available on every page, including Start.
