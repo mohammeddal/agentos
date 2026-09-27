@@ -30,7 +30,7 @@ apps/
         tasks/                 # Task editor, schedules, handoffs, canvas, task detail
         projects/              # Company project explorer and folder requests
         activity/              # Rehearsals, approvals, agent/run inspection
-        memory/                # Local Markdown memory UI and validation
+        memory/                # Local Markdown workspace, editor, scoped files, and validation
         engines/               # Read-only capability inventory UI/contracts
       shared/                  # Shared dialog and Studio transport types
       legacy/                  # Explicitly retained alternate experiences

@@ -20,6 +20,7 @@ export const memoryKinds = {
   issue: "Known issue",
   decision: "Decision",
 };
+const entryMarker = "<!-- agentos-memory-entry-v1\n";
 const marker = "<!-- agentos-memory-v1\n";
 const normalize = (text: string) => text.trim().toLowerCase().replace(/\s+/g, " ");
 export function entryError(entry: MemoryEntry): string | null {
@@ -146,4 +147,84 @@ export function parseMemory(markdown: string | null): MemoryLibrary {
       "This Markdown file was edited outside AgentOS. Reconcile the external edits before saving; nothing was overwritten.",
     );
   return value;
+}
+
+export type MemoryDocument = { path: string; contents: string };
+type EntryMetadata = Pick<
+  MemoryEntry,
+  "id" | "kind" | "status" | "scope" | "source" | "sourceId" | "createdAt" | "updatedAt"
+>;
+
+const documentText = (text: string) => (text.trim() ? text.trim() : "Not supplied");
+export function renderEntryDocument(entry: MemoryEntry): string {
+  const metadata: EntryMetadata = {
+    id: entry.id,
+    kind: entry.kind,
+    status: entry.status,
+    scope: entry.scope,
+    source: entry.source,
+    sourceId: entry.sourceId,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+  };
+  return `${entryMarker}${JSON.stringify(metadata).replace(/</g, "\\u003c")}\n-->\n# ${entry.title.replace(/\n/g, " ").trim()}\n\n${documentText(entry.body)}\n\n## Evidence\n\n${documentText(entry.evidence)}\n\n## Next time\n\n${documentText(entry.prevention)}\n`;
+}
+
+export function parseEntryDocument(markdown: string): MemoryEntry {
+  if (!markdown.startsWith(entryMarker)) throw new Error("This is not an AgentOS memory file.");
+  const markerEnd = markdown.indexOf("\n-->\n");
+  if (markerEnd < 0) throw new Error("The memory metadata is incomplete.");
+  let metadata: EntryMetadata;
+  try {
+    metadata = JSON.parse(markdown.slice(entryMarker.length, markerEnd));
+  } catch {
+    throw new Error("The memory metadata is invalid.");
+  }
+  const content = markdown.slice(markerEnd + 5);
+  const evidenceAt = content.indexOf("\n## Evidence\n");
+  const nextTimeAt = content.indexOf("\n## Next time\n");
+  if (!content.startsWith("# ") || evidenceAt < 0 || nextTimeAt < evidenceAt)
+    throw new Error("Keep the title, Evidence, and Next time headings in the file.");
+  const titleEnd = content.indexOf("\n", 2);
+  if (titleEnd < 0) throw new Error("Add content below the title.");
+  const cleanOptional = (value: string) => {
+    const result = value.trim();
+    return result === "Not supplied" ? "" : result;
+  };
+  const entry: MemoryEntry = {
+    ...metadata,
+    title: content.slice(2, titleEnd).trim(),
+    body: content.slice(titleEnd + 1, evidenceAt).trim(),
+    evidence: cleanOptional(content.slice(evidenceAt + "\n## Evidence\n".length, nextTimeAt)),
+    prevention: cleanOptional(content.slice(nextTimeAt + "\n## Next time\n".length)),
+  };
+  if (!isMemoryLibrary({ version: 1, enabled: true, entries: [entry] }))
+    throw new Error(entryError(entry) || "This memory file contains invalid metadata.");
+  return entry;
+}
+
+function scopeFolder(scope: string): string {
+  if (scope === "company") return "main";
+  if (scope.startsWith("domain:")) return "offices";
+  return "agents";
+}
+export function entryDocumentPath(entry: MemoryEntry): string {
+  return `${scopeFolder(entry.scope)}/${entry.id}.md`;
+}
+export function renderMemoryIndex(library: MemoryLibrary, documents: MemoryDocument[]): string {
+  const links = documents
+    .sort((a, b) => a.path.localeCompare(b.path))
+    .map(
+      (document) =>
+        `- [${document.path.split("/").at(-1)?.replace(/\.md$/, "")}](${document.path})`,
+    )
+    .join("\n");
+  return `# AgentOS memory\n\nMemory is **${library.enabled ? "on" : "off"}**. Only reviewed, non-conflicting files are added to matching agent context. Files never bypass approvals.\n\n## Files\n\n${links || "No memory files yet."}\n`;
+}
+export function memoryDocuments(library: MemoryLibrary): MemoryDocument[] {
+  const entries = library.entries.map((entry) => ({
+    path: entryDocumentPath(entry),
+    contents: renderEntryDocument(entry),
+  }));
+  return [{ path: "MEMORY.md", contents: renderMemoryIndex(library, [...entries]) }, ...entries];
 }

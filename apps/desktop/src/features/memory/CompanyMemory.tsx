@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import {
   BookOpen,
   Bot,
   Building2,
   Check,
-  Download,
+  Eye,
   FileText,
+  FolderOpen,
+  Pencil,
   Plus,
   RefreshCw,
   ShieldCheck,
+  SlidersHorizontal,
 } from "lucide-react";
 import { type Company } from "../company/company-model";
 import {
@@ -16,8 +20,11 @@ import {
   duplicateEntry,
   entryError,
   memoryContext,
+  memoryDocuments,
   memoryKinds,
+  parseEntryDocument,
   parseMemory,
+  renderEntryDocument,
   renderMemory,
   type MemoryEntry,
   type MemoryLibrary,
@@ -73,6 +80,14 @@ function freshEntry(): MemoryEntry {
     updatedAt: now,
   };
 }
+const editableDocument = (markdown: string) => {
+  const markerEnd = markdown.indexOf("\n-->\n");
+  return markerEnd < 0 ? markdown : markdown.slice(markerEnd + 5);
+};
+const replaceEditableDocument = (markdown: string, editable: string) => {
+  const markerEnd = markdown.indexOf("\n-->\n");
+  return markerEnd < 0 ? editable : `${markdown.slice(0, markerEnd + 5)}${editable}`;
+};
 
 export function CompanyMemory({
   company,
@@ -90,6 +105,8 @@ export function CompanyMemory({
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   const [draft, setDraft] = useState<MemoryEntry | null>(null);
+  const [documentDraft, setDocumentDraft] = useState("");
+  const [editorMode, setEditorMode] = useState<"write" | "preview" | "details">("write");
   const [tab, setTab] = useState<"library" | "issues" | "context">("library");
   const [filter, setFilter] = useState("all"),
     [scope, setScope] = useState("company"),
@@ -116,7 +133,6 @@ export function CompanyMemory({
       ),
     ...rehearsalCandidates,
   ];
-  const [showMarkdown, setShowMarkdown] = useState(false);
   const handledCreateRequest = useRef(0);
   const officeScopes = Array.from(
     new Map(
@@ -149,7 +165,14 @@ export function CompanyMemory({
     setError("");
     try {
       const next = await memoryFile();
-      const parsed = parseMemory(next.contents);
+      const legacy = parseMemory(next.contents);
+      const savedDocuments = next.documents.filter((document) => document.path !== "MEMORY.md");
+      const parsed = savedDocuments.length
+        ? {
+            ...legacy,
+            entries: savedDocuments.map((document) => parseEntryDocument(document.contents)),
+          }
+        : legacy;
       setFile(next);
       setLibrary(parsed);
       setCandidates(issueCandidates());
@@ -168,7 +191,9 @@ export function CompanyMemory({
     setTab("library");
     setFilter("all");
     setScope("company");
-    setDraft(freshEntry());
+    const entry = freshEntry();
+    setDraft(entry);
+    setDocumentDraft(renderEntryDocument(entry));
   }, [library, createRequest]);
   useEffect(() => {
     if (!scopes.some((item) => item.value === scope)) {
@@ -182,7 +207,12 @@ export function CompanyMemory({
     setError("");
     setNotice("");
     try {
-      const saved = await memoryFile({ expected: file.contents, contents: renderMemory(next) });
+      const saved = await memoryFile({
+        expected: file.contents,
+        contents: renderMemory(next),
+        expectedDocuments: file.documents,
+        documents: memoryDocuments(next),
+      });
       setFile(saved);
       setLibrary(next);
       setNotice("Saved to Markdown on this device.");
@@ -212,14 +242,19 @@ export function CompanyMemory({
         contextQuery,
       )
     : [];
-  const draftError = draft
-    ? entryError(draft) ||
-      (library && duplicateEntry(library, draft)
-        ? "This statement is already recorded in the same scope."
-        : null)
-    : null;
   function patch(change: Partial<MemoryEntry>) {
     setDraft((current) => (current ? { ...current, ...change } : current));
+  }
+  function openEntry(entry: MemoryEntry) {
+    setDraft({ ...entry });
+    setDocumentDraft(renderEntryDocument(entry));
+    setEditorMode("write");
+  }
+  function newEntry() {
+    const entry = { ...freshEntry(), scope };
+    setDraft(entry);
+    setDocumentDraft(renderEntryDocument(entry));
+    setEditorMode("write");
   }
   function chooseScope(next: string) {
     setScope(next);
@@ -280,42 +315,19 @@ export function CompanyMemory({
       ) : (
         <>
           <div className="co-memory-storage">
-            <FileText size={17} />
+            <FolderOpen size={17} />
             <div>
-              <strong>
-                {file?.contents
-                  ? "Persistent Markdown"
-                  : "Ready to create a Markdown file on first save"}
-              </strong>
-              <code>{file?.path}</code>
+              <strong>Local Markdown workspace</strong>
+              <code>{file?.directory}</code>
               <small>
-                {library.enabled
-                  ? "Reviewed, non-conflicting records are included in matching native runs."
-                  : "Memory is off. Existing files are retained; context preview and issue capture are disabled."}{" "}
-                Memory is reference context, never permission to bypass approvals.
+                MEMORY.md is the index. Every memory below is a normal Markdown file you can open,
+                edit, and reload from disk. Only reviewed files enter agent context.
               </small>
             </div>
-            <button
-              className="co-button"
-              disabled={!file?.contents}
-              onClick={() => {
-                const url = URL.createObjectURL(
-                  new Blob([file!.contents!], { type: "text/markdown" }),
-                );
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "company-memory.md";
-                a.click();
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-              }}
-            >
-              <Download size={14} />
-              Download .md
-            </button>
           </div>
           <nav className="co-activity-filters" aria-label="Memory view">
             <button aria-pressed={tab === "library"} onClick={() => setTab("library")}>
-              Library · {library.entries.length}
+              Files · {library.entries.length + 1}
             </button>
             <button
               aria-pressed={tab === "issues"}
@@ -425,59 +437,84 @@ export function CompanyMemory({
                     <option value="archived">Archived</option>
                   </select>
                 </label>
-                <button
-                  className="co-button co-button-primary"
-                  disabled={busy}
-                  onClick={() => setDraft({ ...freshEntry(), scope })}
-                >
+                <button className="co-button co-button-primary" disabled={busy} onClick={newEntry}>
                   <Plus size={14} />
                   New memory
                 </button>
               </div>
-              <div className={`co-memory-layout ${draft ? "editing" : ""}`}>
-                <div className="co-memory-records">
+              <div className="co-memory-workspace">
+                <aside className="co-memory-files" aria-label="Markdown memory files">
+                  <button className={!draft ? "selected" : ""} onClick={() => setDraft(null)}>
+                    <FileText size={14} />
+                    <span>
+                      <strong>MEMORY.md</strong>
+                      <small>Workspace index</small>
+                    </span>
+                  </button>
                   {visible.map((entry) => (
                     <button
-                      className={`co-memory-record ${draft?.id === entry.id ? "selected" : ""}`}
+                      className={draft?.id === entry.id ? "selected" : ""}
                       key={entry.id}
-                      onClick={() => setDraft({ ...entry })}
+                      onClick={() => openEntry(entry)}
                     >
+                      <FileText size={14} />
                       <span>
-                        <em>{memoryKinds[entry.kind]}</em>
+                        <strong>{entry.title}.md</strong>
                         <small>
-                          {conflicts.has(entry.id) ? "Conflict · excluded" : entry.status}
+                          {conflicts.has(entry.id)
+                            ? "Conflict · excluded"
+                            : `${memoryKinds[entry.kind]} · ${entry.status}`}
                         </small>
                       </span>
-                      <h3>{entry.title}</h3>
-                      <p>{entry.body}</p>
-                      <footer>
-                        {scopes.find((s) => s.value === entry.scope)?.label || entry.scope} ·{" "}
-                        {new Date(entry.updatedAt).toLocaleDateString()}
-                      </footer>
                     </button>
                   ))}
-                  {!visible.length && (
-                    <div className="co-activity-empty">
-                      <BookOpen size={26} />
-                      <h3>No memory for {selectedScope?.label || "this scope"} yet.</h3>
-                      <p>Record a sourced fact, decision, issue, or lesson for this scope.</p>
+                  {!visible.length && <p>No files in this scope.</p>}
+                </aside>
+                {!draft ? (
+                  <article className="co-memory-file-view co-memory-preview">
+                    <header>
+                      <span>
+                        <FileText size={16} />
+                        <strong>MEMORY.md</strong>
+                      </span>
+                      <small>Generated index · read only</small>
+                    </header>
+                    <div className="co-memory-rendered">
+                      <ReactMarkdown>{memoryDocuments(library)[0]!.contents}</ReactMarkdown>
                     </div>
-                  )}
-                </div>
-                {draft && (
+                  </article>
+                ) : (
                   <form
-                    className="co-memory-editor"
+                    className="co-memory-file-view"
                     onSubmit={async (e) => {
                       e.preventDefault();
-                      if (draftError) return;
+                      let parsed: MemoryEntry;
+                      try {
+                        parsed = parseEntryDocument(documentDraft);
+                      } catch (reason) {
+                        setError(
+                          reason instanceof Error
+                            ? reason.message
+                            : "Invalid Markdown memory file.",
+                        );
+                        return;
+                      }
                       const entry = {
-                        ...draft,
-                        title: draft.title.trim(),
-                        body: draft.body.trim(),
-                        evidence: draft.evidence.trim(),
-                        prevention: draft.prevention.trim(),
+                        ...parsed,
+                        kind: draft.kind,
+                        status: draft.status,
+                        scope: draft.scope,
                         updatedAt: new Date().toISOString(),
                       };
+                      const validation =
+                        entryError(entry) ||
+                        (duplicateEntry(library, entry)
+                          ? "This statement is already recorded in the same scope."
+                          : null);
+                      if (validation) {
+                        setError(validation);
+                        return;
+                      }
                       if (
                         await persist({
                           ...library,
@@ -486,131 +523,140 @@ export function CompanyMemory({
                             : [...library.entries, entry],
                         })
                       )
-                        setDraft(null);
+                        openEntry(entry);
                     }}
                   >
-                    <header>
-                      <ShieldCheck size={17} />
-                      <strong>
-                        {library.entries.some((e) => e.id === draft.id)
-                          ? "Edit memory"
-                          : "Capture memory"}
-                      </strong>
+                    <header className="co-memory-editor-bar">
+                      <span>
+                        <FileText size={16} />
+                        <strong>{draft.title || "Untitled memory"}.md</strong>
+                        <small>
+                          {editorMode === "details"
+                            ? "File settings"
+                            : `${editorMode === "write" ? "Editing" : "Previewing"} Markdown`}
+                        </small>
+                      </span>
+                      <nav aria-label="Editor mode">
+                        <button
+                          type="button"
+                          aria-pressed={editorMode === "write"}
+                          onClick={() => setEditorMode("write")}
+                        >
+                          <Pencil size={13} />
+                          Write
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={editorMode === "preview"}
+                          onClick={() => setEditorMode("preview")}
+                        >
+                          <Eye size={13} />
+                          Preview
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={editorMode === "details"}
+                          onClick={() => setEditorMode("details")}
+                        >
+                          <SlidersHorizontal size={13} />
+                          Details
+                        </button>
+                      </nav>
                     </header>
-                    <div className="co-form-pair">
-                      <label>
-                        Kind
-                        <select
-                          value={draft.kind}
-                          onChange={(e) => patch({ kind: e.target.value as MemoryEntry["kind"] })}
-                        >
-                          {Object.entries(memoryKinds).map(([value, label]) => (
-                            <option key={value} value={value}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>
-                        Status
-                        <select
-                          value={draft.status}
-                          onChange={(e) =>
-                            patch({ status: e.target.value as MemoryEntry["status"] })
-                          }
-                        >
-                          <option value="draft">Draft · needs review</option>
-                          <option value="reviewed" disabled={draft.source === "rehearsal"}>
-                            Reviewed by me
-                          </option>
-                          <option value="archived">Archived · excluded</option>
-                        </select>
-                      </label>
-                    </div>
-                    <label>
-                      Title
-                      <input
-                        required
-                        maxLength={120}
-                        value={draft.title}
-                        onChange={(e) => patch({ title: e.target.value })}
-                      />
-                    </label>
-                    <label>
-                      Applies to
-                      <select
-                        value={draft.scope}
-                        onChange={(e) => patch({ scope: e.target.value })}
-                      >
-                        {!scopes.some((s) => s.value === draft.scope) && (
-                          <option value={draft.scope}>{draft.scope} (unavailable)</option>
-                        )}
-                        {scopes.map((s) => (
-                          <option key={s.value} value={s.value}>
-                            {s.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      {draft.kind === "lesson" ? "What happened and what we learned" : "Statement"}
+                    {editorMode === "write" && (
                       <textarea
-                        required
-                        rows={4}
-                        maxLength={4000}
-                        value={draft.body}
-                        onChange={(e) => patch({ body: e.target.value })}
+                        className="co-memory-source"
+                        aria-label="Markdown file contents"
+                        spellCheck
+                        value={editableDocument(documentDraft)}
+                        onChange={(event) =>
+                          setDocumentDraft(
+                            replaceEditableDocument(documentDraft, event.target.value),
+                          )
+                        }
                       />
-                    </label>
-                    <label>
-                      Evidence / source
-                      <textarea
-                        rows={2}
-                        maxLength={2000}
-                        placeholder="A file, test result, issue, URL, or directly observed evidence"
-                        value={draft.evidence}
-                        onChange={(e) => patch({ evidence: e.target.value })}
-                      />
-                    </label>
-                    <label>
-                      Next time / prevention
-                      <textarea
-                        rows={2}
-                        maxLength={2000}
-                        placeholder="A concrete check or change that prevents repeating the mistake"
-                        value={draft.prevention}
-                        onChange={(e) => patch({ prevention: e.target.value })}
-                      />
-                    </label>
-                    <p className="co-automation-hint">
-                      {draft.source === "rehearsal"
-                        ? "Rehearsal observations stay drafts. To record a real lesson, create a separate entry supported by real evidence."
-                        : "Reviewed means you checked the evidence. It is not an automated truth guarantee. Do not store passwords or API keys."}
-                    </p>
-                    {draftError && (
-                      <p className="co-form-error" role="alert">
-                        {draftError}
-                      </p>
+                    )}
+                    {editorMode === "preview" && (
+                      <div className="co-memory-rendered">
+                        <ReactMarkdown>{editableDocument(documentDraft)}</ReactMarkdown>
+                      </div>
+                    )}
+                    {editorMode === "details" && (
+                      <div className="co-memory-details">
+                        <div className="co-form-pair">
+                          <label>
+                            Kind
+                            <select
+                              value={draft.kind}
+                              onChange={(e) =>
+                                patch({ kind: e.target.value as MemoryEntry["kind"] })
+                              }
+                            >
+                              {Object.entries(memoryKinds).map(([value, label]) => (
+                                <option key={value} value={value}>
+                                  {label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label>
+                            Status
+                            <select
+                              value={draft.status}
+                              onChange={(e) =>
+                                patch({ status: e.target.value as MemoryEntry["status"] })
+                              }
+                            >
+                              <option value="draft">Draft · needs review</option>
+                              <option value="reviewed" disabled={draft.source === "rehearsal"}>
+                                Reviewed by me
+                              </option>
+                              <option value="archived">Archived · excluded</option>
+                            </select>
+                          </label>
+                          <label>
+                            Applies to
+                            <select
+                              value={draft.scope}
+                              onChange={(e) => patch({ scope: e.target.value })}
+                            >
+                              {!scopes.some((s) => s.value === draft.scope) && (
+                                <option value={draft.scope}>{draft.scope} (unavailable)</option>
+                              )}
+                              {scopes.map((s) => (
+                                <option key={s.value} value={s.value}>
+                                  {s.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        <p className="co-automation-hint">
+                          The title and content live in the Markdown file. Reviewed files require
+                          evidence; archived and draft files stay out of agent context.
+                        </p>
+                      </div>
                     )}
                     <footer>
                       <button
                         type="button"
                         className="co-button"
                         disabled={busy}
-                        onClick={() => setDraft(null)}
+                        onClick={() =>
+                          openEntry(library.entries.find((entry) => entry.id === draft.id) || draft)
+                        }
                       >
-                        Cancel
+                        Revert
                       </button>
                       <button
                         className="co-button co-button-primary"
                         disabled={
                           busy ||
-                          !!draftError ||
                           (library.entries.length >= 500 &&
                             !library.entries.some((e) => e.id === draft.id))
                         }
                       >
-                        {busy ? "Saving…" : "Save to Markdown"}
+                        {busy ? "Saving…" : "Save file"}
                       </button>
                     </footer>
                   </form>
@@ -650,7 +696,7 @@ export function CompanyMemory({
                         className="co-button"
                         disabled={!library.enabled || busy}
                         onClick={() => {
-                          setDraft({ ...entry, scope });
+                          openEntry({ ...entry, scope });
                           setTab("library");
                         }}
                       >
@@ -719,12 +765,6 @@ export function CompanyMemory({
                 )}
               </div>
             </>
-          )}
-          <button className="co-memory-file-toggle" onClick={() => setShowMarkdown(!showMarkdown)}>
-            {showMarkdown ? "Hide" : "View"} saved Markdown
-          </button>
-          {showMarkdown && (
-            <pre className="co-memory-markdown">{file?.contents || "No file written yet."}</pre>
           )}
         </>
       )}

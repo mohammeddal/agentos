@@ -4,7 +4,10 @@ import {
   duplicateEntry,
   entryError,
   memoryContext,
+  memoryDocuments,
+  parseEntryDocument,
   parseMemory,
+  renderEntryDocument,
   renderMemory,
   type MemoryEntry,
   type MemoryLibrary,
@@ -32,6 +35,28 @@ describe("fact-based memory", () => {
     };
     expect(parseMemory(renderMemory(special))).toEqual(special);
     expect(renderMemory(library)).toContain("Team handbook");
+  });
+  it("round trips editable per-memory Markdown files and builds an index", () => {
+    const document = renderEntryDocument(entry);
+    expect(parseEntryDocument(document)).toEqual(entry);
+    expect(
+      parseEntryDocument(
+        document.replace("The team reviews at 9 AM.", "The team reviews at 10 AM."),
+      ).body,
+    ).toBe("The team reviews at 10 AM.");
+    const documents = memoryDocuments(library);
+    expect(documents.map((item) => item.path)).toEqual(["MEMORY.md", "main/one.md"]);
+    expect(documents[0]!.contents).toContain("main/one.md");
+  });
+  it("keeps protected file structure and validation around direct Markdown edits", () => {
+    expect(() =>
+      parseEntryDocument(renderEntryDocument(entry).replace("## Evidence", "## Source")),
+    ).toThrow("headings");
+    expect(() =>
+      parseEntryDocument(
+        renderEntryDocument(entry).replace("The team reviews at 9 AM.", "password=example"),
+      ),
+    ).toThrow("credential");
   });
   it("detects external edits rather than silently losing them", () => {
     expect(() =>

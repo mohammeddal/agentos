@@ -7,6 +7,13 @@ use std::{
 };
 use tauri::Manager;
 
+#[derive(Clone, serde::Deserialize, serde::Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryDocument {
+    path: String,
+    contents: String,
+}
+
 #[derive(Default)]
 pub struct MemoryLock(pub Mutex<()>);
 
@@ -66,18 +73,87 @@ fn save_at(path: &Path, expected: Option<String>, contents: String) -> Result<()
     }
     replace_file(path, &contents)
 }
+fn read_documents(directory: &Path) -> Result<Vec<MemoryDocument>, String> {
+    let mut result = Vec::new();
+    let index = directory.join("MEMORY.md");
+    if let Some(contents) = read_at(&index)? {
+        result.push(MemoryDocument {
+            path: "MEMORY.md".into(),
+            contents,
+        });
+    }
+    for folder in ["main", "offices", "agents"] {
+        let root = directory.join(folder);
+        let entries = match fs::read_dir(&root) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error.to_string()),
+        };
+        let mut paths = entries
+            .filter_map(Result::ok)
+            .map(|item| item.path())
+            .collect::<Vec<_>>();
+        paths.sort();
+        for path in paths {
+            let name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("");
+            if !name.ends_with(".md")
+                || !name[..name.len() - 3]
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+            {
+                continue;
+            }
+            if let Some(contents) = read_at(&path)? {
+                if contents.len() > 200_000 {
+                    return Err("Memory document is too large.".into());
+                }
+                result.push(MemoryDocument {
+                    path: format!("{folder}/{name}"),
+                    contents,
+                });
+            }
+        }
+    }
+    Ok(result)
+}
+fn valid_document(document: &MemoryDocument) -> bool {
+    let valid_path = document.path == "MEMORY.md" || {
+        let parts = document.path.split('/').collect::<Vec<_>>();
+        parts.len() == 2
+            && ["main", "offices", "agents"].contains(&parts[0])
+            && parts[1].ends_with(".md")
+            && parts[1][..parts[1].len() - 3]
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    };
+    valid_path
+        && document.contents.len() <= 200_000
+        && if document.path == "MEMORY.md" {
+            document.contents.starts_with("# AgentOS memory\n")
+        } else {
+            document
+                .contents
+                .starts_with("<!-- agentos-memory-entry-v1\n")
+        }
+}
 #[tauri::command]
 pub fn read_company_memory(
     app: tauri::AppHandle,
     lock: tauri::State<'_, MemoryLock>,
 ) -> Result<serde_json::Value, String> {
     let _guard = lock.0.lock().map_err(|e| e.to_string())?;
-    let path = app
+    let directory = app
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?
-        .join("memory/company-memory.md");
-    Ok(serde_json::json!({"contents": read_at(&path)?, "path": path.to_string_lossy()}))
+        .join("memory");
+    let path = directory.join("company-memory.md");
+    Ok(
+        serde_json::json!({"contents": read_at(&path)?, "path": path.to_string_lossy(), "directory": directory.to_string_lossy(), "documents": read_documents(&directory)?}),
+    )
 }
 #[tauri::command]
 pub fn save_company_memory(
@@ -85,15 +161,41 @@ pub fn save_company_memory(
     lock: tauri::State<'_, MemoryLock>,
     expected: Option<String>,
     contents: String,
+    expected_documents: Vec<MemoryDocument>,
+    documents: Vec<MemoryDocument>,
 ) -> Result<serde_json::Value, String> {
     let _guard = lock.0.lock().map_err(|e| e.to_string())?;
-    let path = app
+    let directory = app
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?
-        .join("memory/company-memory.md");
+        .join("memory");
+    let path = directory.join("company-memory.md");
+    if read_documents(&directory)? != expected_documents {
+        return Err("A Markdown memory file changed on disk. Reload before saving.".into());
+    }
+    if documents.len() > 501 || !documents.iter().all(valid_document) {
+        return Err("Invalid memory document.".into());
+    }
+    let retained = documents
+        .iter()
+        .map(|document| document.path.clone())
+        .collect::<std::collections::HashSet<_>>();
     save_at(&path, expected, contents.clone())?;
-    Ok(serde_json::json!({"contents": contents, "path": path.to_string_lossy()}))
+    for document in documents {
+        let destination = directory.join(&document.path);
+        fs::create_dir_all(destination.parent().ok_or("Missing memory folder")?)
+            .map_err(|e| e.to_string())?;
+        replace_file(&destination, &document.contents)?;
+    }
+    for previous in read_documents(&directory)? {
+        if previous.path != "MEMORY.md" && !retained.contains(&previous.path) {
+            fs::remove_file(directory.join(previous.path)).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(
+        serde_json::json!({"contents": contents, "path": path.to_string_lossy(), "directory": directory.to_string_lossy(), "documents": read_documents(&directory)?}),
+    )
 }
 #[cfg(test)]
 mod tests {

@@ -1,8 +1,16 @@
 import { isTauri, invoke } from "@tauri-apps/api/core";
-export type MemoryFile = { contents: string | null; path: string };
+import type { MemoryDocument } from "./company-memory";
+export type MemoryFile = {
+  contents: string | null;
+  path: string;
+  directory: string;
+  documents: MemoryDocument[];
+};
 export async function memoryFile(save?: {
   expected: string | null;
   contents: string;
+  expectedDocuments: MemoryDocument[];
+  documents: MemoryDocument[];
 }): Promise<MemoryFile> {
   if (isTauri())
     return invoke<MemoryFile>(

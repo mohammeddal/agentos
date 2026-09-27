@@ -139,16 +139,16 @@ Discovery follows the documented formats for [Codex configuration](https://learn
 
 ### Company memory
 
-Open **Library → Memory** and choose a level first: **Main** for company-wide knowledge, **Offices** for one office's shared context, or **Agents** for knowledge specific to one agent. The selected office or agent filters the library and becomes the default scope for new facts, lessons, known issues, and decisions. Entries start as drafts. **Reviewed by me** requires evidence; reviewed lessons also require a prevention step. Review records a human judgment, not an automated truth guarantee. Archive outdated entries instead of deleting their history.
+Open **Library → Memory** and choose a level first: **Main** for company-wide knowledge, **Offices** for one office's shared context, or **Agents** for knowledge specific to one agent. The selected office or agent filters the Markdown file explorer and becomes the default scope for new facts, lessons, known issues, and decisions. Open a file and use **Write**, **Preview**, or **Details**. Entries start as drafts. **Reviewed by me** requires evidence; reviewed lessons also require a prevention step. Review records a human judgment, not an automated truth guarantee. Archive outdated entries instead of deleting their history.
 
 **Context preview** includes only reviewed records in the selected scope. Office preview layers Main + Office memory; agent preview layers Main + the agent's current Office + Agent memory. Conflicting statements with the same title, kind, and scope are excluded until resolved; this is not comprehensive semantic conflict detection. **Memory off** preserves the files and permits manual editing, but disables context preview and issue capture. **Learn from issues** lets you explicitly capture failed or rejected rehearsal actions as unverified drafts; rehearsal observations cannot be promoted to reviewed memory. Live failure extraction and agent context injection are not connected to this company surface yet.
 
-The library, sources, prevention steps, and on/off setting persist in an actual Markdown file:
+Memory is a local Markdown workspace. `MEMORY.md` is the generated index, and each memory is a normal editable file under `main/`, `offices/`, or `agents/`. A compatibility file retains the validated runtime index and previous revision:
 
-- Browser development preview: `.agentos/memory/company-memory.md` in this repository (ignored by Git).
-- Native macOS app: `~/Library/Application Support/com.agentos.desktop/memory/company-memory.md`.
+- Browser development preview: `.agentos/memory/` in this repository (ignored by Git).
+- Native macOS app: `~/Library/Application Support/com.agentos.desktop/memory/`.
 
-Browser and native app stores are separate. The app displays its exact active path and offers **Download .md** and **View saved Markdown**. Each save keeps the previous revision as `company-memory.previous.md`, uses atomic replacement, and rejects stale writes. Edit through the app: the Markdown contains structured metadata, and external edits are detected and left untouched rather than overwritten. This local store is not encrypted; do not save credentials. It is independent of the earlier Studio project-memory system described below.
+Browser and native app stores are separate. The app displays its exact active directory. Each save keeps the previous compatibility revision as `company-memory.previous.md`, uses atomic replacement, and rejects stale writes. Entry files can be edited in AgentOS or with another Markdown editor; **Reload from disk** imports valid changes. Protected metadata preserves identity, scope, and review state, while the visible Markdown owns the title, statement, evidence, and prevention text. Invalid files, credentials, and concurrent external changes are rejected instead of being silently trusted or overwritten. This local store is not encrypted; do not save credentials. It is independent of the earlier Studio project-memory system described below.
 
 Run the browser preview:
 
