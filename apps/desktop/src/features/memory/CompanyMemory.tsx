@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, Check, Download, FileText, Plus, RefreshCw, ShieldCheck } from "lucide-react";
-import { companyDomains, type Company } from "../company/company-model";
+import {
+  BookOpen,
+  Bot,
+  Building2,
+  Check,
+  Download,
+  FileText,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+} from "lucide-react";
+import { type Company } from "../company/company-model";
 import {
   conflictingIds,
   duplicateEntry,
@@ -108,16 +118,32 @@ export function CompanyMemory({
   ];
   const [showMarkdown, setShowMarkdown] = useState(false);
   const handledCreateRequest = useRef(0);
-  const scopes = [
-    { value: "company", label: "Company-wide" },
-    ...companyDomains(company).map((domain) => ({
-      value: `domain:${domain}`,
-      label: `Domain · ${domain}`,
+  const officeScopes = Array.from(
+    new Map(
+      company.offices.map((office) => [
+        `domain:${office.domain}`,
+        { value: `domain:${office.domain}`, label: office.name },
+      ]),
+    ).values(),
+  );
+  const agentScopes = company.offices.flatMap((office) =>
+    office.agents.map((agent) => ({
+      value: `agent:${agent.id}`,
+      label: agent.name,
+      office: office.name,
     })),
-    ...company.offices.flatMap((o) =>
-      o.agents.map((a) => ({ value: `agent:${a.id}`, label: `Agent · ${a.name} (${o.name})` })),
-    ),
+  );
+  const scopes = [
+    { value: "company", label: "Main memory" },
+    ...officeScopes.map((office) => ({ ...office, label: `Office · ${office.label}` })),
+    ...agentScopes.map((agent) => ({
+      value: agent.value,
+      label: `Agent · ${agent.label} (${agent.office})`,
+    })),
   ];
+  const scopeTier =
+    scope === "company" ? "company" : scope.startsWith("domain:") ? "office" : "agent";
+  const selectedScope = scopes.find((item) => item.value === scope);
   async function load() {
     setBusy(true);
     setError("");
@@ -141,8 +167,15 @@ export function CompanyMemory({
     handledCreateRequest.current = createRequest;
     setTab("library");
     setFilter("all");
+    setScope("company");
     setDraft(freshEntry());
   }, [library, createRequest]);
+  useEffect(() => {
+    if (!scopes.some((item) => item.value === scope)) {
+      setScope("company");
+      setDraft(null);
+    }
+  }, [company, scope]);
   async function persist(next: MemoryLibrary): Promise<boolean> {
     if (!file) return false;
     setBusy(true);
@@ -165,6 +198,7 @@ export function CompanyMemory({
   const visible =
     library?.entries.filter(
       (e) =>
+        e.scope === scope &&
         (filter === "all" || e.status === filter) &&
         `${e.title} ${e.body} ${e.evidence}`.toLowerCase().includes(query.toLowerCase()),
     ) || [];
@@ -187,6 +221,20 @@ export function CompanyMemory({
   function patch(change: Partial<MemoryEntry>) {
     setDraft((current) => (current ? { ...current, ...change } : current));
   }
+  function chooseScope(next: string) {
+    setScope(next);
+    setDraft(null);
+  }
+  function chooseTier(next: "company" | "office" | "agent") {
+    if (next === "company") chooseScope("company");
+    else if (next === "office") chooseScope(officeScopes[0]?.value || "company");
+    else chooseScope(agentScopes[0]?.value || "company");
+  }
+  const companyCount = library?.entries.filter((entry) => entry.scope === "company").length || 0;
+  const officeCount =
+    library?.entries.filter((entry) => entry.scope.startsWith("domain:")).length || 0;
+  const agentCount =
+    library?.entries.filter((entry) => entry.scope.startsWith("agent:")).length || 0;
   return (
     <section className="co-memory">
       <div className="co-memory-header">
@@ -282,6 +330,82 @@ export function CompanyMemory({
               Context preview
             </button>
           </nav>
+          <section className="co-memory-scope" aria-label="Memory scope">
+            <div className="co-memory-scope-heading">
+              <span>
+                <strong>{selectedScope?.label || "Main memory"}</strong>
+                <small>
+                  {scopeTier === "company"
+                    ? "Shared context for the whole company"
+                    : scopeTier === "office"
+                      ? "Context shared by this office"
+                      : "Context specific to this agent"}
+                </small>
+              </span>
+              <em>{visible.length} shown</em>
+            </div>
+            <nav className="co-memory-scope-levels" aria-label="Memory level">
+              <button
+                type="button"
+                aria-pressed={scopeTier === "company"}
+                onClick={() => chooseTier("company")}
+              >
+                <BookOpen size={14} />
+                <span>
+                  <strong>Main</strong>
+                  <small>{companyCount}</small>
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={scopeTier === "office"}
+                disabled={!officeScopes.length}
+                onClick={() => chooseTier("office")}
+              >
+                <Building2 size={14} />
+                <span>
+                  <strong>Offices</strong>
+                  <small>{officeCount}</small>
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={scopeTier === "agent"}
+                disabled={!agentScopes.length}
+                onClick={() => chooseTier("agent")}
+              >
+                <Bot size={14} />
+                <span>
+                  <strong>Agents</strong>
+                  <small>{agentCount}</small>
+                </span>
+              </button>
+            </nav>
+            {scopeTier === "office" && (
+              <label>
+                Office
+                <select value={scope} onChange={(event) => chooseScope(event.target.value)}>
+                  {officeScopes.map((office) => (
+                    <option key={office.value} value={office.value}>
+                      {office.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {scopeTier === "agent" && (
+              <label>
+                Agent
+                <select value={scope} onChange={(event) => chooseScope(event.target.value)}>
+                  {agentScopes.map((agent) => (
+                    <option key={agent.value} value={agent.value}>
+                      {agent.label} · {agent.office}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </section>
           {conflicts.size > 0 && (
             <div className="co-memory-warning">
               {conflicts.size} reviewed records have conflicting statements under the same title and
@@ -304,7 +428,7 @@ export function CompanyMemory({
                 <button
                   className="co-button co-button-primary"
                   disabled={busy}
-                  onClick={() => setDraft(freshEntry())}
+                  onClick={() => setDraft({ ...freshEntry(), scope })}
                 >
                   <Plus size={14} />
                   New memory
@@ -335,8 +459,8 @@ export function CompanyMemory({
                   {!visible.length && (
                     <div className="co-activity-empty">
                       <BookOpen size={26} />
-                      <h3>No matching memory yet.</h3>
-                      <p>Record a fact with its source, or a lesson with a prevention step.</p>
+                      <h3>No memory for {selectedScope?.label || "this scope"} yet.</h3>
+                      <p>Record a sourced fact, decision, issue, or lesson for this scope.</p>
                     </div>
                   )}
                 </div>
@@ -526,7 +650,7 @@ export function CompanyMemory({
                         className="co-button"
                         disabled={!library.enabled || busy}
                         onClick={() => {
-                          setDraft(entry);
+                          setDraft({ ...entry, scope });
                           setTab("library");
                         }}
                       >
@@ -566,7 +690,7 @@ export function CompanyMemory({
               </div>
               <p className="co-automation-hint">
                 {context.length} eligible records. Includes company memory and the selected scope;
-                agent scope also includes its current domain. This is a preview, not a live engine
+                agent scope also includes its current office. This is a preview, not a live engine
                 prompt. Retrieved memory is reference data, never instructions that override
                 approvals.
               </p>

@@ -69,6 +69,20 @@ describe("fact-based memory", () => {
     expect(conflictingIds(mixed).size).toBe(2);
     expect(memoryContext(mixed, [])).toHaveLength(0);
   });
+  it("layers main, office, and agent memory for an agent context", () => {
+    const scoped: MemoryLibrary = {
+      ...library,
+      entries: [
+        entry,
+        { ...entry, id: "office", title: "Office convention", scope: "domain:Finance" },
+        { ...entry, id: "agent", title: "Agent preference", scope: "agent:analyst" },
+        { ...entry, id: "other", title: "Other agent", scope: "agent:reviewer" },
+      ],
+    };
+    expect(
+      memoryContext(scoped, ["domain:Finance", "agent:analyst"]).map((item) => item.id),
+    ).toEqual(["one", "office", "agent"]);
+  });
   it("detects duplicates and obvious credentials", () => {
     expect(
       duplicateEntry(library, { ...entry, id: "two", body: " The team reviews at 9 AM. " }),

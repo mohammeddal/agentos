@@ -4,6 +4,13 @@ Branch: `codex/agentos-ux-cleanup`.
 
 This records the earlier UX-only change. For the subsequent native runtime integration, see [Live execution](LIVE-EXECUTION.md). The Codex transport passed actual reply and conversation-resume tests; Claude returned a revoked-token 401 and requires reauthentication before successful generation can be verified.
 
+## Scoped memory hierarchy follow-up
+
+- Made memory scope primary navigation instead of hiding it in the editor: **Main**, **Offices**, and **Agents** show their own record counts and filter the library before the user creates or edits a record.
+- Office and agent selectors appear only at their relevant level. New records inherit the selected scope, while the editor still exposes **Applies to** for deliberate reassignment.
+- Context preview retains layered retrieval: Main for everyone, Office for that team, and Agent for the individual. Existing `domain:` scope keys remain compatible on disk but are presented as Offices in the interface.
+- Isolated Chromium QA switched through Main, Office, and Agent levels, verified the appropriate selector and empty state at each level, and confirmed a new record inherited `Agent · Data Engineer (Data & Analytics)`. Desktop and 390 × 844 layouts remained usable, and the browser console reported no warnings or errors.
+
 ## Office hierarchy simplification follow-up
 
 - Simplified the visible company model to **Company → Offices → Agents**. Removed the separate Domains tab, domain creation action, office-domain selector, domain search results, and new Domain workflow block while preserving older domain-backed tasks and projects internally.

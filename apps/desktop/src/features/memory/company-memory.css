@@ -88,6 +88,84 @@
   resize: vertical;
   line-height: 1.6;
 }
+.co-memory-scope {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) auto minmax(190px, 280px);
+  align-items: end;
+  gap: 18px;
+  padding: 14px 0;
+  border-top: 1px solid var(--co-border);
+  border-bottom: 1px solid var(--co-border);
+}
+.co-memory-scope-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.co-memory-scope-heading > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.co-memory-scope-heading strong {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.co-memory-scope-heading small,
+.co-memory-scope-heading em {
+  color: var(--co-muted);
+  font-size: 10px;
+  font-style: normal;
+}
+.co-memory-scope-heading em {
+  flex: none;
+}
+.co-memory-scope-levels {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  background: var(--co-soft);
+  border: 1px solid var(--co-border);
+  border-radius: 7px;
+}
+.co-memory-scope-levels button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 86px;
+  border: 0;
+  border-radius: 4px;
+  padding: 7px 9px;
+  background: transparent;
+  color: var(--co-muted);
+  text-align: left;
+}
+.co-memory-scope-levels button[aria-pressed="true"] {
+  background: var(--co-card);
+  color: var(--co-text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 7%);
+}
+.co-memory-scope-levels button > span {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.co-memory-scope-levels strong {
+  font-size: 10px;
+  font-weight: 550;
+}
+.co-memory-scope-levels small {
+  color: var(--co-muted);
+  font-size: 9px;
+}
+.co-memory-scope > label {
+  min-width: 0;
+}
 .co-memory-tools {
   display: flex;
   justify-content: space-between;
@@ -207,6 +285,12 @@
   border-radius: 8px;
 }
 @media (max-width: 1000px) {
+  .co-memory-scope {
+    grid-template-columns: 1fr auto;
+  }
+  .co-memory-scope > label {
+    grid-column: 1 / -1;
+  }
   .co-memory-layout.editing {
     grid-template-columns: 1fr;
   }
@@ -215,6 +299,21 @@
   }
 }
 @media (max-width: 580px) {
+  .co-memory-scope {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .co-memory-scope-levels {
+    width: 100%;
+  }
+  .co-memory-scope-levels button {
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+  }
+  .co-memory-scope > label {
+    grid-column: auto;
+  }
   .co-memory-storage {
     flex-wrap: wrap;
   }
