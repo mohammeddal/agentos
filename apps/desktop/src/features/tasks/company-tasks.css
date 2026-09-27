@@ -20,6 +20,11 @@
 .co-task-form .tc {
   margin-inline: -28px;
 }
+.co-workflow-legacy-basics {
+  display: grid;
+  gap: 16px;
+  padding: 20px 24px 0;
+}
 .co-workflow-migration {
   display: flex;
   align-items: center;

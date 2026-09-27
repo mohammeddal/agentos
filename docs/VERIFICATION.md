@@ -4,6 +4,15 @@ Branch: `codex/agentos-ux-cleanup`.
 
 This records the earlier UX-only change. For the subsequent native runtime integration, see [Live execution](LIVE-EXECUTION.md). The Codex transport passed actual reply and conversation-resume tests; Claude returned a revoked-token 401 and requires reauthentication before successful generation can be verified.
 
+## Workflow-only task editor follow-up
+
+- Removed the duplicated **Task & team** editor. New and ordinary existing tasks open directly in the expanded **Workflow map**, with **Schedule** as the only secondary tab.
+- The root Task block now owns task name, outcome, project, attachments, and the start approval. Office, Domain, and Agent blocks derive the persisted task team, while each work block retains its own model/effort and scoped resources.
+- Older assignment-only tasks are represented as connected visual blocks without changing saved data until **Save task**. Older conditional handoff tasks retain an explicit migration boundary so routes are never discarded silently.
+- Chromium QA created a task entirely through the map, configured and connected a real agent, switched through Schedule, saved, reopened Edit, and confirmed it returned directly to the two-block map. Desktop and 390 × 844 layouts were visually inspected; console errors were zero. This browser-only record is isolated from native company data and no provider run was started.
+- All 189 Vitest tests and 16 offline native tests passed (four account-backed tests remain ignored by default), together with TypeScript, formatting, production build, whitespace, and source reachability checks.
+- The macOS `.app` bundle built, replaced `/Applications/AgentOS.app`, and reopened with saved chats intact. Its executable hash matches the packaged bundle, and it is the only AgentOS installation found in the checked system and user Applications folders. The optional DMG presentation-image helper failed, so this pass produced the installed `.app` but not a new `.dmg`.
+
 ## Native execution follow-up
 
 ### Professional terminal follow-up
@@ -76,7 +85,7 @@ This records the earlier UX-only change. For the subsequent native runtime integ
 
 ### First-class task workflow follow-up
 
-- **Workflow map** is now a peer of **Task & team** and **Schedule** in new and existing task editors. A user can build the map before creating the task; the expanded canvas no longer requires save → reopen → task details. New tasks use one visual workflow system, while older handoff tasks retain their editor and expose an explicit unsaved migration choice.
+- This entry documents the earlier intermediate design where **Workflow map** was a peer of **Task & team** and **Schedule**. The newer workflow-only follow-up above supersedes that editor layout. The expanded canvas still supports building before save, while older handoff tasks retain an explicit migration choice.
 - Selecting a task/office/domain/agent/prompt block exposes compact **Inputs & capabilities** actions. Context, MCP, skill, and connector blocks are created already connected to that exact step; **Approval next** adds the following checkpoint. The embedded editor removes the duplicate Overview/Workflow switch.
 - Context blocks accept notes, a source label/path, and selected task files. Tests verify that a file attached to one visual step is absent from the next step. Discovered non-disabled capabilities compile only on a matching provider and produce an exact required-capability instruction; manual/unverified, disabled, provider-mismatched, and unenforceable restriction configurations fail closed.
 - Chromium QA created a task through the new visual route, added scoped context, saved it, reopened its Overview, and confirmed the compiled step plan. Desktop light and 390 × 844 light/dark layouts were visually inspected; console errors were zero. The temporary browser task was moved to Removed items and no native provider run was started.

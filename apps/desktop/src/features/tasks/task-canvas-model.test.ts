@@ -9,6 +9,8 @@ import {
   isTaskCanvas,
   newCanvasNode,
   removeCanvasNode,
+  taskCanvasAssignment,
+  taskCanvasFromAssignment,
   type TaskCanvasGraph,
 } from "./task-canvas-model";
 
@@ -51,6 +53,27 @@ describe("visual task blueprints", () => {
     expect(isTaskCanvas(graph)).toBe(true);
     expect(initialTaskCanvas({ ...task, canvas: graph })).toBe(graph);
     expect(task.assignment.targets).toEqual(["analyst"]);
+  });
+  it("turns saved assignments into visible workflow blocks and derives the team back", () => {
+    const graph = taskCanvasFromAssignment(starterCompany, task);
+    expect(graph.nodes.map((node) => node.kind)).toEqual(["task", "agent"]);
+    expect(graph.edges).toMatchObject([{ from: "task-root", to: "assignment-1" }]);
+    expect(taskCanvasAssignment(starterCompany, graph)).toEqual({
+      kind: "agents",
+      targets: ["analyst"],
+    });
+
+    const domainGraph = taskCanvasFromAssignment(starterCompany, {
+      ...task,
+      assignment: { kind: "domains", targets: ["Data & Analytics"] },
+    });
+    expect(taskCanvasAssignment(starterCompany, domainGraph).targets).toEqual([
+      "data-engineer",
+      "analyst",
+      "investigator",
+    ]);
+
+    expect(taskCanvasAssignment(starterCompany, sample()).targets).toEqual([]);
   });
   it("connects flow, resources and approval checkpoints with correct defaults", () => {
     let g = connectCanvas(sample(), "task-root", "agent");

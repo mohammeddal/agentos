@@ -1,4 +1,9 @@
-import { companyDomains, type Company, type CompanyTask } from "../company/company-model";
+import {
+  companyDomains,
+  type Company,
+  type CompanyTask,
+  type TaskAssignment,
+} from "../company/company-model";
 
 export const blockNames = {
   task: "Task",
@@ -85,6 +90,71 @@ export function initialTaskCanvas(task: CompanyTask): TaskCanvasGraph {
       edges: [],
     }
   );
+}
+
+/** Convert the older task-level team into visible, connected workflow blocks. */
+export function taskCanvasFromAssignment(company: Company, task: CompanyTask): TaskCanvasGraph {
+  if (task.canvas) return task.canvas;
+  const graph = initialTaskCanvas(task);
+  const nodes = task.assignment.targets.map((reference, index) => {
+    const kind = task.assignment.kind === "domains" ? "domain" : "agent";
+    const title =
+      kind === "domain"
+        ? reference
+        : company.offices.flatMap((office) => office.agents).find((agent) => agent.id === reference)
+            ?.name || "Unavailable agent";
+    return {
+      ...newCanvasNode(kind, 360 + index * 270, 180, `assignment-${index + 1}`),
+      title,
+      reference,
+    };
+  });
+  return {
+    ...graph,
+    nodes: [...graph.nodes, ...nodes],
+    edges: nodes.map((node, index) => ({
+      id: `assignment-edge-${index + 1}`,
+      from: index ? nodes[index - 1]!.id : graph.nodes[0]!.id,
+      to: node.id,
+      kind: "flow" as const,
+      condition: "success" as const,
+    })),
+  };
+}
+
+/** Canvas work blocks are the source of truth for the saved task team. */
+export function taskCanvasAssignment(company: Company, graph: TaskCanvasGraph): TaskAssignment {
+  const ids = new Set<string>();
+  const root = graph.nodes.find((node) => node.kind === "task");
+  const reachable = new Set(root ? [root.id] : []);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const edge of graph.edges) {
+      if (edge.kind === "flow" && reachable.has(edge.from) && !reachable.has(edge.to)) {
+        reachable.add(edge.to);
+        changed = true;
+      }
+    }
+  }
+  for (const node of graph.nodes.filter((candidate) => reachable.has(candidate.id))) {
+    if (node.kind === "agent") {
+      if (
+        company.offices.some((office) => office.agents.some((agent) => agent.id === node.reference))
+      )
+        ids.add(node.reference);
+    } else if (node.kind === "office") {
+      company.offices
+        .find((office) => office.id === node.reference)
+        ?.agents.forEach((agent) => ids.add(agent.id));
+    } else if (node.kind === "domain") {
+      company.offices
+        .filter((office) => office.domain === node.reference)
+        .flatMap((office) => office.agents)
+        .forEach((agent) => ids.add(agent.id));
+    }
+  }
+  return { kind: "agents", targets: [...ids] };
 }
 export function connectionError(
   graph: TaskCanvasGraph,

@@ -336,6 +336,23 @@
   padding: 14px 10px;
   margin: 0 0 18px;
 }
+.tc-root-files {
+  display: grid;
+  gap: 8px;
+  padding: 13px 0 18px;
+  margin-bottom: 18px;
+  border-block: 1px solid var(--co-border);
+}
+.tc-root-files > strong {
+  font-size: 11px;
+  font-weight: 550;
+}
+.tc-root-files .co-attachment-editor {
+  min-width: 0;
+}
+.tc-root-files .co-attachment-list {
+  grid-template-columns: 1fr;
+}
 .tc-step-inputs {
   border: 1px solid var(--co-border);
   border-radius: 10px;

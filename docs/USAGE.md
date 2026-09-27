@@ -62,11 +62,10 @@ To permanently delete company structure:
 
 The confirmation shows the number of affected offices, agents, and project memberships. Deletion is blocked while affected agents have live work, or while any saved task uses the domain/agents as an owner, reviewer, handoff, or canvas block. Reassign those tasks first; archived or removed tasks must be restored before editing. Project memberships are cleaned automatically. Company structure deletion is permanent, but historical Activity, memory records, attachment copies, and project files remain on disk.
 
-Use **New task** to assign a plan to one or more domains, or hand-pick agents across offices. Reopen saved plans from **Tasks**. The editor has three sections:
+Use **New task** to build a plan from offices, domains, or individual agents. Reopen saved plans from **Tasks**. The editor has two sections:
 
-- **Task & team:** the outcome, brief, and starting team. Domain assignments follow current membership; direct assignments follow agent IDs.
+- **Workflow map:** the primary task editor. Select the root Task block to set its name, outcome, company project, files, and start approval. Office, Domain, and Agent blocks define the saved team. Select each work step to attach only the context, files, MCPs, skills, connectors, model/effort, and approval path it needs.
 - **Schedule:** manual or a five-field numeric cron expression, an IANA time zone, presets, validation, and the next three planned occurrences. Preview calculation uses [cron-parser](https://github.com/harrisiirak/cron-parser), including time-zone/DST handling. Restricted day-of-month and weekday fields use OR semantics. Mac sleep, missed runs, and overlap policies are not implemented.
-- **Workflow map:** build the chain visually before or after saving the task. Select a work step to attach the context, files, MCPs, skills, connectors, model/effort, and approval path needed by that step. The task-level assignment remains the fallback team.
 
 Older saved tasks that use the compact handoff editor remain editable. The editor offers an explicit **Use visual canvas** migration action; it changes only the unsaved edit draft until **Save task** is selected. A task never executes both a visual map and legacy handoffs.
 
@@ -78,13 +77,13 @@ Drag or click blocks for offices, domains, agents, MCPs, context, skills, connec
 
 The palette groups blocks into Work, Resources, and Control; expand Resources for context, MCPs, skills, and connectors. **Fit view** brings the whole plan into view. Selecting a task, office, domain, agent, or prompt block reveals **Inputs & capabilities**: one-click additions create and connect the chosen resource to that exact step. **Approval next** creates the following review checkpoint. The normal canvas ports remain available for branches and less common layouts.
 
-A Context block accepts source notes, a source label/path, and any subset of the files already attached under **Task & team**. If at least one canvas context block scopes files, only its selected files are sent to its target step; a context attached to the root applies to all resulting work. Context edges are reference data, not permission. Keep credentials out of these unencrypted drafts.
+A Context block accepts source notes, a source label/path, and any subset of the files attached from the root Task block. If at least one canvas context block scopes files, only its selected files are sent to its target step; a context attached to the root applies to all resulting work. Context edges are reference data, not permission. Keep credentials out of these unencrypted drafts.
 
 MCP/skill/connector discovery reads the existing local inventory on request and never installs, enables, authenticates, or starts a capability. A discovered non-disabled capability can be attached only to a step using the same provider. The compiler adds an explicit required-capability instruction and tells the provider to stop with `capability_unavailable` instead of pretending if it is missing or unauthenticated. Manual references, disabled records, provider mismatches, and capabilities with no work step block live execution.
 
 Canvas edits remain in the task editor until **Create task** or **Save task**. Saved maps survive reloads and support 50-step undo/redo during the current editor session. The builder rejects loops, duplicate edges, missing endpoints, attachments to approval blocks, and invalid resource directions. Incomplete references remain editable with configuration warnings. Limits: 80 blocks, 160 connections, 6,000 characters per prompt, and 40 compiled execution steps.
 
-Visual agent, office, domain, prompt, context, file, condition, and approval blocks compile into the native execution plan. Task assignment supplies the fallback team, the saved schedule still controls when the plan starts, and provider tool calls still use the native approval boundary. Restriction blocks remain design-only because AgentOS cannot yet enforce their requested policy; including one blocks the run rather than silently weakening it.
+Visual agent, office, domain, prompt, context, file, condition, and approval blocks compile into the native execution plan. The visible Office, Domain, and Agent blocks are also the source of truth for the saved task team; older non-canvas assignments are converted into connected blocks when opened. The saved schedule still controls when the plan starts, and provider tool calls still use the native approval boundary. Restriction blocks remain design-only because AgentOS cannot yet enforce their requested policy; including one blocks the run rather than silently weakening it.
 
 ### Company projects and directories
 

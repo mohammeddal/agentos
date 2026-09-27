@@ -20,8 +20,11 @@ import {
   Trash2,
 } from "lucide-react";
 import { companyDomains, type Company, type CompanyTask } from "../company/company-model";
+import { AttachmentEditor } from "../attachments/Attachments";
+import type { Attachment } from "../attachments/attachment-model";
 import { compileTask, type LiveStep } from "../engines/live-runtime";
 import { TaskModels } from "../engines/TaskModels";
+import type { ApprovalRule } from "./task-approvals";
 import {
   discoverEngine,
   engineNames,
@@ -80,6 +83,10 @@ export function TaskCanvas({
   back,
   storageError,
   saveModels,
+  changeProject,
+  changeAttachments,
+  onAttachmentsBusy,
+  changeApproval,
   embedded = false,
 }: {
   company: Company;
@@ -88,6 +95,10 @@ export function TaskCanvas({
   back: () => void;
   storageError: boolean;
   saveModels: (task: CompanyTask) => void;
+  changeProject?: (projectId: string) => void;
+  changeAttachments?: (attachments: Attachment[]) => void;
+  onAttachmentsBusy?: (busy: boolean) => void;
+  changeApproval?: (rule: ApprovalRule) => void;
   embedded?: boolean;
 }) {
   const [graph, setGraph] = useState(() => initialTaskCanvas(task));
@@ -120,6 +131,7 @@ export function TaskCanvas({
   const node = graph.nodes.find((n) => n.id === selected),
     edge = graph.edges.find((e) => e.id === edgeId);
   const agents = company.offices.flatMap((o) => o.agents);
+  const taskApprovalAgentId = task.approval?.kind === "agent" ? task.approval.agentId : "";
   const scopedFileIds = new Set(graph.nodes.flatMap((candidate) => candidate.attachmentIds || []));
   const warnings = [
     ...canvasWarnings(company, graph),
@@ -709,7 +721,7 @@ export function TaskCanvas({
             <>
               <h3>{blockNames[node.kind]}</h3>
               <label>
-                Block name
+                {node.kind === "task" ? "Task name" : "Block name"}
                 <input
                   maxLength={120}
                   value={node.title}
@@ -768,6 +780,77 @@ export function TaskCanvas({
                         : companyDomains(company).map((d) => <option key={d}>{d}</option>)}
                   </select>
                 </label>
+              )}
+              {node.kind === "task" && changeProject && (
+                <label>
+                  Company project
+                  <select
+                    value={task.projectId || ""}
+                    onChange={(e) => changeProject(e.target.value)}
+                  >
+                    <option value="">No project · Company-wide</option>
+                    {task.projectId &&
+                      !company.projects?.some((project) => project.id === task.projectId) && (
+                        <option value={task.projectId}>Unavailable project (retained)</option>
+                      )}
+                    {(company.projects || []).map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {node.kind === "task" && changeApproval && (
+                <label>
+                  Before this task starts
+                  <select
+                    value={
+                      task.approval?.kind === "agent"
+                        ? `agent:${task.approval.agentId}`
+                        : task.approval?.kind || "none"
+                    }
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      changeApproval(
+                        value === "human"
+                          ? { kind: "human" }
+                          : value.startsWith("agent:")
+                            ? { kind: "agent", agentId: value.slice(6) }
+                            : { kind: "none" },
+                      );
+                    }}
+                  >
+                    <option value="human">My approval</option>
+                    <option value="none">No approval</option>
+                    <optgroup label="Agent approval">
+                      {agents.map((agent) => (
+                        <option key={agent.id} value={`agent:${agent.id}`}>
+                          {agent.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    {taskApprovalAgentId &&
+                      !agents.some((agent) => agent.id === taskApprovalAgentId) && (
+                        <option value={`agent:${taskApprovalAgentId}`}>Unavailable reviewer</option>
+                      )}
+                  </select>
+                  <small>Step-specific reviews can still be added as Approval blocks.</small>
+                </label>
+              )}
+              {node.kind === "task" && changeAttachments && onAttachmentsBusy && (
+                <section className="tc-root-files">
+                  <strong>Task files</strong>
+                  <AttachmentEditor
+                    compact
+                    value={task.attachments || []}
+                    onChange={changeAttachments}
+                    onBusy={onAttachmentsBusy}
+                  >
+                    {null}
+                  </AttachmentEditor>
+                  <small>Attach here, then scope files to individual Context blocks.</small>
+                </section>
               )}
               {executionSteps.some((s) => s.id.startsWith(`canvas-${node.id}-`)) && (
                 <TaskModels
@@ -834,14 +917,20 @@ export function TaskCanvas({
                 </label>
               )}
               <label>
-                {node.kind === "context" ? "Context / source notes" : "Custom prompt"}
+                {node.kind === "task"
+                  ? "Task outcome"
+                  : node.kind === "context"
+                    ? "Context / source notes"
+                    : "Custom prompt"}
                 <textarea
                   rows={6}
                   maxLength={6000}
                   placeholder={
-                    node.kind === "context"
-                      ? "Add relevant facts, paths, or source notes…"
-                      : "What should this block do? Include the expected result…"
+                    node.kind === "task"
+                      ? "Describe the outcome, context, and what done looks like…"
+                      : node.kind === "context"
+                        ? "Add relevant facts, paths, or source notes…"
+                        : "What should this block do? Include the expected result…"
                   }
                   value={node.prompt}
                   onChange={(e) => update(node.id, { prompt: e.target.value })}
@@ -870,7 +959,7 @@ export function TaskCanvas({
                       </label>
                     ))
                   ) : (
-                    <small>Add files under Task & team, then return here to scope them.</small>
+                    <small>Attach files from the Task block, then return here to scope them.</small>
                   )}
                 </fieldset>
               )}
@@ -1032,7 +1121,8 @@ export function TaskCanvas({
               )}
               {node.kind === "task" && (
                 <small>
-                  This is the canvas entry, not a replacement for your task title or assignment.
+                  This block defines the task. Connected office, domain, and agent blocks define who
+                  does the work.
                 </small>
               )}
             </>

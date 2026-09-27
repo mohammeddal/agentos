@@ -1,18 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, CalendarClock, ClipboardList, GitBranch, Layers3, Users } from "lucide-react";
 import {
-  ArrowRight,
-  Bot,
-  CalendarClock,
-  Check,
-  ClipboardList,
-  GitBranch,
-  Layers3,
-  Pencil,
-  Plus,
-  Users,
-} from "lucide-react";
-import {
-  companyDomains,
   taskParticipants,
   type Company,
   type CompanyTask,
@@ -20,17 +8,17 @@ import {
 } from "../company/company-model";
 import "./company-tasks.css";
 import { useLiveRuntime } from "../engines/live-runtime";
-import { engineId } from "../engines/live-runtime";
-import { ModelPicker } from "../engines/ModelPicker";
-import { AttachmentEditor } from "../attachments/Attachments";
 import { latestRun, matchesRunFilter, runLabel, type RunFilter } from "../engines/run-presentation";
 import type { ModelChoice } from "../engines/model-choice";
 import type { StepModelChoice } from "../engines/model-choice";
-import { ApprovalPicker } from "./ApprovalPicker";
 import { approvalError, type ApprovalRule } from "./task-approvals";
 import { ScheduleEditor, WorkflowEditor } from "./TaskAutomation";
 import { TaskCanvas } from "./TaskCanvas";
-import { initialTaskCanvas, type TaskCanvasGraph } from "./task-canvas-model";
+import {
+  taskCanvasAssignment,
+  taskCanvasFromAssignment,
+  type TaskCanvasGraph,
+} from "./task-canvas-model";
 import {
   schedulePreview,
   workflowError,
@@ -39,23 +27,6 @@ import {
 } from "./task-workflow";
 
 const countLabel = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
-
-const templates = [
-  {
-    title: "Investigate an incident",
-    brief: "Find the root cause, gather evidence, and propose a fix with a verification plan.",
-  },
-  {
-    title: "Plan a product launch",
-    brief:
-      "Prepare a coordinated launch plan, including deliverables, owners, risks, and success measures.",
-  },
-  {
-    title: "Research an opportunity",
-    brief:
-      "Research the opportunity, compare options, and deliver an evidence-backed recommendation.",
-  },
-];
 
 export function CompanyTasks({
   company,
@@ -215,7 +186,6 @@ export function TaskForm({
   initialAgentId,
   save,
   storageError,
-  onVisualChange,
 }: {
   company: Company;
   existing: CompanyTask | undefined;
@@ -224,10 +194,11 @@ export function TaskForm({
   initialAgentId?: string | undefined;
   save: (task: CompanyTask) => void;
   storageError: boolean;
-  onVisualChange?: (visual: boolean) => void;
 }) {
   const [taskId] = useState(() => existing?.id || crypto.randomUUID());
   const [createdAt] = useState(() => existing?.createdAt || new Date().toISOString());
+  const [title, setTitle] = useState(existing?.title || "");
+  const [brief, setBrief] = useState(existing?.brief || "");
   const [attachments, setAttachments] = useState(existing?.attachments || []);
   const [attaching, setAttaching] = useState(false);
   const [modelDefaults, setModelDefaults] = useState<Record<string, ModelChoice>>(
@@ -237,13 +208,33 @@ export function TaskForm({
     existing?.stepModels || {},
   );
   const [projectId, setProjectId] = useState(existing?.projectId || initialProjectId || "");
-  const [panel, setPanel] = useState<"task" | "schedule" | "workflow">("task");
+  const [panel, setPanel] = useState<"schedule" | "workflow">("workflow");
   const [approval, setApproval] = useState<ApprovalRule>(
     existing?.approval || (existing ? { kind: "none" } : { kind: "human" }),
   );
   const [schedule, setSchedule] = useState<TaskSchedule>(existing?.schedule || { kind: "manual" });
   const [handoffs, setHandoffs] = useState<HandoffStep[]>(existing?.handoffs || []);
-  const [canvas, setCanvas] = useState<TaskCanvasGraph | undefined>(existing?.canvas);
+  const [seedAssignment] = useState<TaskAssignment>(() =>
+    existing?.assignment
+      ? existing.assignment
+      : initialAgentId
+        ? { kind: "agents", targets: [initialAgentId] }
+        : initialDomain
+          ? { kind: "domains", targets: [initialDomain] }
+          : { kind: "agents", targets: [] },
+  );
+  const [canvas, setCanvas] = useState<TaskCanvasGraph | undefined>(() => {
+    if (existing?.canvas) return existing.canvas;
+    if (existing?.handoffs?.length) return undefined;
+    return taskCanvasFromAssignment(company, {
+      id: taskId,
+      title,
+      brief,
+      assignment: seedAssignment,
+      status: "planned",
+      createdAt,
+    });
+  });
   const [previewTime, setPreviewTime] = useState(() => new Date());
   useEffect(() => {
     const timer = window.setInterval(() => setPreviewTime(new Date()), 60_000);
@@ -254,96 +245,23 @@ export function TaskForm({
     [schedule, previewTime],
   );
   const handoffError = canvas ? null : workflowError(company, taskId, handoffs);
-  const [title, setTitle] = useState(existing?.title || "");
-  const [brief, setBrief] = useState(existing?.brief || "");
-  const [kind, setKind] = useState<TaskAssignment["kind"]>(
-    existing?.assignment.kind || (initialAgentId ? "agents" : "domains"),
-  );
-  const [selectedDomains, setSelectedDomains] = useState<string[]>(
-    existing?.assignment.kind === "domains"
-      ? existing.assignment.targets
-      : initialDomain
-        ? [initialDomain]
-        : [],
-  );
-  const [selectedAgents, setSelectedAgents] = useState<string[]>(
-    existing?.assignment.kind === "agents"
-      ? existing.assignment.targets
-      : initialAgentId
-        ? [initialAgentId]
-        : [],
-  );
-  const [search, setSearch] = useState("");
-  const assignment = { kind, targets: kind === "domains" ? selectedDomains : selectedAgents };
+  const assignment = canvas ? taskCanvasAssignment(company, canvas) : seedAssignment;
   const team = taskParticipants(company, assignment);
-  const domains = companyDomains(company);
-  const allAgents = company.offices.flatMap((office) =>
-    office.agents.map((agent) => ({ ...agent, office })),
-  );
-  const options =
-    kind === "domains"
-      ? domains.map((domain) => ({
-          id: domain,
-          name: domain,
-          detail: `${countLabel(company.offices.filter((o) => o.domain === domain).length, "office")} · ${countLabel(allAgents.filter((a) => a.office.domain === domain).length, "agent")}`,
-        }))
-      : allAgents.map((a) => ({ id: a.id, name: a.name, detail: `${a.office.name} · ${a.role}` }));
-  const visibleOptions = options.filter((option) =>
-    `${option.name} ${option.detail}`.toLowerCase().includes(search.toLowerCase()),
-  );
-  const missing = assignment.targets.filter((id) => !options.some((option) => option.id === id));
-  const emptyDomains =
-    kind === "domains"
-      ? selectedDomains.filter((domain) => !team.some((a) => a.office.domain === domain))
-      : [];
-  const assignmentValid = !!title.trim() && assignment.targets.length > 0 && !missing.length;
+  const assignmentValid = !!title.trim() && assignment.targets.length > 0;
   const gateError = approvalError(
     company,
     approval,
     team.map((a) => a.id),
   );
   const canSave = assignmentValid && !scheduleResult.error && !handoffError && !gateError;
-  function toggle(id: string) {
-    const update = (values: string[]) =>
-      values.includes(id) ? values.filter((value) => value !== id) : [...values, id];
-    if (kind === "domains") setSelectedDomains(update);
-    else setSelectedAgents(update);
+  function changeCanvas(next: TaskCanvasGraph) {
+    const root = next.nodes.find((node) => node.kind === "task");
+    setCanvas(next);
+    if (root) {
+      setTitle(root.title);
+      setBrief(root.prompt);
+    }
   }
-  function changeTitle(next: string) {
-    setCanvas((current) =>
-      current
-        ? {
-            ...current,
-            nodes: current.nodes.map((node) =>
-              node.kind === "task" && [title, "Task", "Untitled task"].includes(node.title)
-                ? { ...node, title: next || "Untitled task" }
-                : node,
-            ),
-          }
-        : current,
-    );
-    setTitle(next);
-  }
-  function changeBrief(next: string) {
-    setCanvas((current) =>
-      current
-        ? {
-            ...current,
-            nodes: current.nodes.map((node) =>
-              node.kind === "task" && node.prompt === brief ? { ...node, prompt: next } : node,
-            ),
-          }
-        : current,
-    );
-    setBrief(next);
-  }
-  const canvasRoot = canvas?.nodes.find((node) => node.kind === "task");
-  const canvasMeaningful =
-    !!canvas &&
-    (canvas.nodes.length > 1 ||
-      canvas.edges.length > 0 ||
-      canvasRoot?.title !== (title.trim() || "Untitled task") ||
-      canvasRoot?.prompt !== brief.trim());
   const draftTask: CompanyTask = {
     id: taskId,
     title: title.trim() || "Untitled task",
@@ -360,11 +278,6 @@ export function TaskForm({
     approval,
     ...(canvas ? { canvas } : {}),
   };
-  function selectPanel(next: "task" | "schedule" | "workflow") {
-    if (next === "workflow" && !canvas && !handoffs.length) setCanvas(initialTaskCanvas(draftTask));
-    setPanel(next);
-    onVisualChange?.(next === "workflow" && (!handoffs.length || !!canvas));
-  }
   return (
     <form
       className="co-form co-task-form"
@@ -378,7 +291,7 @@ export function TaskForm({
           save({
             id: taskId,
             attachments,
-            ...(canvasMeaningful && canvas ? { canvas } : {}),
+            ...(canvas ? { canvas } : {}),
             modelDefaults,
             stepModels,
             ...(projectId ? { projectId } : {}),
@@ -396,27 +309,9 @@ export function TaskForm({
       <nav className="co-task-editor-nav" aria-label="Task editor">
         <button
           type="button"
-          aria-label="Task and team"
-          aria-pressed={panel === "task"}
-          onClick={() => selectPanel("task")}
-        >
-          <ClipboardList size={14} />
-          Task & team
-        </button>
-        <button
-          type="button"
-          aria-label="Schedule"
-          aria-pressed={panel === "schedule"}
-          onClick={() => selectPanel("schedule")}
-        >
-          <CalendarClock size={14} />
-          Schedule{schedule.kind === "cron" && <em>CRON</em>}
-        </button>
-        <button
-          type="button"
           aria-label="Workflow map"
           aria-pressed={panel === "workflow"}
-          onClick={() => selectPanel("workflow")}
+          onClick={() => setPanel("workflow")}
         >
           <GitBranch size={14} />
           Workflow map
@@ -424,220 +319,16 @@ export function TaskForm({
             <em>{canvas?.nodes.length || handoffs.length}</em>
           )}
         </button>
+        <button
+          type="button"
+          aria-label="Schedule"
+          aria-pressed={panel === "schedule"}
+          onClick={() => setPanel("schedule")}
+        >
+          <CalendarClock size={14} />
+          Schedule{schedule.kind === "cron" && <em>CRON</em>}
+        </button>
       </nav>
-      <div className="co-task-panel" hidden={panel !== "task"}>
-        <p className="co-automation-hint">
-          Define the outcome. Bring in one specialist or a team across your company.
-        </p>
-        {!existing && (
-          <label>
-            <span>
-              Start from a template <span className="co-field-optional">Optional</span>
-            </span>
-            <select
-              defaultValue=""
-              onChange={(event) => {
-                const template = templates[Number(event.target.value)];
-                if (event.target.value && template) {
-                  changeTitle(template.title);
-                  changeBrief(template.brief);
-                }
-              }}
-            >
-              <option value="">Write your own task</option>
-              {templates.map((template, index) => (
-                <option key={template.title} value={index}>
-                  {template.title}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <label>
-          Task name
-          <input
-            required
-            maxLength={120}
-            placeholder="What would you like your team to accomplish?"
-            value={title}
-            onChange={(event) => changeTitle(event.target.value)}
-          />
-        </label>
-        <label>
-          Company project
-          <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-            <option value="">No project · Company-wide task</option>
-            {projectId && !company.projects?.some((p) => p.id === projectId) && (
-              <option value={projectId}>Unavailable project (retained)</option>
-            )}
-            {(company.projects || []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <small>
-            Task owners also appear in this project’s directory tree. Assignment and approval rules
-            stay independent.
-          </small>
-        </label>
-        <label>
-          <span>
-            Task brief <span className="co-field-optional">Optional</span>
-          </span>
-          <textarea
-            rows={3}
-            maxLength={3000}
-            placeholder="Describe the outcome, context, and what done looks like…"
-            value={brief}
-            onChange={(event) => changeBrief(event.target.value)}
-          />
-        </label>
-        <AttachmentEditor value={attachments} onChange={setAttachments} onBusy={setAttaching}>
-          {null}
-        </AttachmentEditor>
-        <fieldset className="co-assignment-field">
-          <legend>Assign to</legend>
-          <div className="co-assignment-modes">
-            {(["domains", "agents"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                aria-pressed={kind === mode}
-                onClick={() => {
-                  setKind(mode);
-                  setSearch("");
-                }}
-              >
-                {mode === "domains" ? <Layers3 size={17} /> : <Bot size={17} />}
-                <span>
-                  <strong>{mode === "domains" ? "Domain teams" : "Specific agents"}</strong>
-                  <small>
-                    {mode === "domains"
-                      ? "One or more areas of expertise"
-                      : "Hand-pick across any office"}
-                  </small>
-                </span>
-                {kind === mode && <Check size={15} />}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-        <div className="co-assignee-picker">
-          <div className="co-assignee-heading">
-            <strong>Select {kind}</strong>
-            <span>{assignment.targets.length} selected</span>
-          </div>
-          <input
-            aria-label="Filter assignees"
-            placeholder={`Find ${kind}…`}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <div className="co-assignee-options">
-            {visibleOptions.map((option) => (
-              <label
-                key={option.id}
-                className={assignment.targets.includes(option.id) ? "is-selected" : ""}
-              >
-                <input
-                  type="checkbox"
-                  checked={assignment.targets.includes(option.id)}
-                  onChange={() => toggle(option.id)}
-                />
-                <span>
-                  <strong>{option.name}</strong>
-                  <small>{option.detail}</small>
-                </span>
-              </label>
-            ))}
-            {!visibleOptions.length && (
-              <p>
-                {options.length
-                  ? "No matches. Try a different search."
-                  : "Add an agent to an office to assign them directly."}
-              </p>
-            )}
-          </div>
-        </div>
-        {missing.length > 0 && (
-          <div className="co-form-error" role="alert">
-            Some assignees are no longer available.{" "}
-            <button
-              type="button"
-              onClick={() => {
-                if (kind === "domains")
-                  setSelectedDomains(selectedDomains.filter((id) => !missing.includes(id)));
-                else setSelectedAgents(selectedAgents.filter((id) => !missing.includes(id)));
-              }}
-            >
-              Remove unavailable assignees
-            </button>
-          </div>
-        )}
-        <section className="co-task-team" aria-label="Assignment preview" aria-live="polite">
-          <div>
-            <Users size={16} />
-            <strong>
-              {team.length
-                ? `${team.length} ${team.length === 1 ? "agent" : "agents"} on this task`
-                : "Build your task team"}
-            </strong>
-            <span>
-              {countLabel(
-                kind === "domains"
-                  ? selectedDomains.length
-                  : new Set(team.map((a) => a.office.domain)).size,
-                "domain",
-              )}
-            </span>
-          </div>
-          {team.length > 0 && (
-            <div className="co-task-team-members">
-              {team.map((agent) => (
-                <span key={agent.id} title={`${agent.office.domain} · ${agent.office.name}`}>
-                  <Bot size={12} />
-                  {agent.name}
-                  <small>{agent.office.name}</small>
-                </span>
-              ))}
-            </div>
-          )}
-          <p>
-            {kind === "domains"
-              ? "Includes every agent in the selected domains. Membership updates when your office teams change."
-              : "Only the selected agents are assigned, even if they move to another office."}
-          </p>
-          {emptyDomains.length > 0 && (
-            <p className="co-task-warning">
-              No agents yet in {emptyDomains.join(", ")}. You can save the plan and staff these
-              domains later.
-            </p>
-          )}
-        </section>
-        {[...new Set(team.map((a) => a.engine))]
-          .filter((e) => ["Codex", "Claude Code"].includes(e))
-          .map((engine) => (
-            <div key={engine}>
-              <strong>{engine} · Task default</strong>
-              <ModelPicker
-                engine={engineId(engine)}
-                value={modelDefaults[engineId(engine)]}
-                label={`${engine} task default`}
-                onChange={(choice) =>
-                  setModelDefaults((current) => ({ ...current, [engineId(engine)]: choice }))
-                }
-              />
-            </div>
-          ))}
-        <ApprovalPicker
-          company={company}
-          rule={approval}
-          change={setApproval}
-          executorIds={team.map((a) => a.id)}
-          label="Before this task starts"
-        />
-      </div>
       <div className="co-task-panel" hidden={panel !== "schedule"}>
         <ScheduleEditor schedule={schedule} change={setSchedule} preview={scheduleResult} />
       </div>
@@ -648,9 +339,13 @@ export function TaskForm({
               embedded
               company={company}
               task={{ ...draftTask, canvas }}
-              save={setCanvas}
-              back={() => selectPanel("task")}
+              save={changeCanvas}
+              back={() => setPanel("workflow")}
               storageError={storageError}
+              changeProject={setProjectId}
+              changeAttachments={setAttachments}
+              onAttachmentsBusy={setAttaching}
+              changeApproval={setApproval}
               saveModels={(next) => {
                 setModelDefaults(next.modelDefaults || {});
                 setStepModels(next.stepModels || {});
@@ -660,10 +355,10 @@ export function TaskForm({
             <>
               <section className="co-workflow-migration">
                 <div>
-                  <strong>Existing step workflow</strong>
+                  <strong>Move this task to the workflow map</strong>
                   <p>
-                    Keep editing these {handoffs.length} handoffs, or replace the unsaved draft with
-                    the visual canvas for per-step context and capabilities.
+                    This older task has {handoffs.length} step handoffs. Convert it when you are
+                    ready to rebuild those routes visually.
                   </p>
                 </div>
                 <button
@@ -671,13 +366,32 @@ export function TaskForm({
                   className="co-button"
                   onClick={() => {
                     setHandoffs([]);
-                    setCanvas(initialTaskCanvas({ ...draftTask, handoffs: [] }));
-                    onVisualChange?.(true);
+                    setCanvas(taskCanvasFromAssignment(company, { ...draftTask, handoffs: [] }));
                   }}
                 >
                   <GitBranch size={13} /> Use visual canvas
                 </button>
               </section>
+              <div className="co-workflow-legacy-basics">
+                <label>
+                  Task name
+                  <input
+                    required
+                    maxLength={120}
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                  />
+                </label>
+                <label>
+                  Task outcome
+                  <textarea
+                    rows={3}
+                    maxLength={3000}
+                    value={brief}
+                    onChange={(event) => setBrief(event.target.value)}
+                  />
+                </label>
+              </div>
               <WorkflowEditor
                 company={company}
                 taskId={taskId}
@@ -692,19 +406,19 @@ export function TaskForm({
       {!canSave && (
         <div className="co-task-save-errors">
           {!assignmentValid ? (
-            <button type="button" onClick={() => selectPanel("task")}>
-              Add a task name and valid team to save.
+            <button type="button" onClick={() => setPanel("workflow")}>
+              Add a task name and connect an office, domain, or agent to save.
             </button>
           ) : gateError ? (
-            <button type="button" onClick={() => selectPanel("task")}>
+            <button type="button" onClick={() => setPanel("workflow")}>
               {gateError}
             </button>
           ) : scheduleResult.error ? (
-            <button type="button" onClick={() => selectPanel("schedule")}>
+            <button type="button" onClick={() => setPanel("schedule")}>
               Fix the schedule to save.
             </button>
           ) : (
-            <button type="button" onClick={() => selectPanel("workflow")}>
+            <button type="button" onClick={() => setPanel("workflow")}>
               Complete the workflow to save: {handoffError}
             </button>
           )}
