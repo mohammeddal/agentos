@@ -4,6 +4,14 @@ Branch: `codex/agentos-ux-cleanup`.
 
 This records the earlier UX-only change. For the subsequent native runtime integration, see [Live execution](LIVE-EXECUTION.md). The Codex transport passed actual reply and conversation-resume tests; Claude returned a revoked-token 401 and requires reauthentication before successful generation can be verified.
 
+## Operational company map follow-up
+
+- Simplified the floor-plan material with lighter walls, quieter surfaces, and a wider operational inspector while retaining the top-down office identity.
+- Added one consistent status language across the top strip, office summaries, desks, legend, roster, and inspector: Working, Needs approval, Idle, and Not connected. Approval no longer falls through to the disconnected workstation visual.
+- Selecting an agent now resolves attributed live runs and shows the current/latest task, step, update time, pending approval detail, and latest output or provider event directly in the side inspector. Full activity remains one action away.
+- Preview mode now includes a clearly labeled approval state without changing saved data or starting work. Narrow-screen selection scrolls the inspector into view.
+- Isolated Chromium QA confirmed the real disconnected state, the labeled preview mix of three working / one approval / one idle, the approval workstation and office summary, and the selected PR Reviewer inspector at desktop and 390 × 844. The browser console reported no warnings or errors. Three focused map-state tests cover approval precedence, completed-to-idle behavior, offline fallback, attribution, and newest-first run selection; all 196 repository tests passed.
+
 ## Scoped memory hierarchy follow-up
 
 - Made memory scope primary navigation instead of hiding it in the editor: **Main**, **Offices**, and **Agents** show their own record counts and filter the library before the user creates or edits a record.

@@ -1,12 +1,24 @@
-import { useRef, useState } from "react";
-import { ArrowRight, Bot, Focus, Minus, MousePointer2, Plus, Users, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Activity,
+  ArrowRight,
+  Bot,
+  Focus,
+  Minus,
+  MousePointer2,
+  Plus,
+  ShieldAlert,
+  Users,
+  X,
+} from "lucide-react";
 import type { Company, CompanyAgent, Office } from "./company-model";
 import "./company-floorplan.css";
 import { isActiveRun, useLiveRuntime } from "../engines/live-runtime";
+import { agentMapRuns, agentMapState, type AgentMapState } from "./company-map-state";
 
-type AgentState = "working" | "idle" | "offline" | "approval";
 const initialWorkers = new Set(["data-engineer", "investigator", "developer"]);
-const stateLabel: Record<AgentState, string> = {
+const initialApprovals = new Set(["reviewer"]);
+const stateLabel: Record<AgentMapState, string> = {
   working: "Working",
   idle: "Idle",
   offline: "Not connected",
@@ -40,36 +52,54 @@ export function CompanyFloorplan({
 }: Props) {
   const [preview, setPreview] = useState(false);
   const live = useLiveRuntime();
-  const [overrides, setOverrides] = useState<Record<string, "working" | "idle">>({});
+  const [overrides, setOverrides] = useState<Record<string, "working" | "approval" | "idle">>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const mapScroll = useRef<HTMLDivElement>(null);
+  const inspector = useRef<HTMLElement>(null);
   const agents = company.offices.flatMap((office) =>
     office.agents.map((agent) => ({ ...agent, office })),
   );
   const selected = agents.find((a) => a.id === selectedId);
-  const status = (agent: CompanyAgent): AgentState =>
+  const status = (agent: CompanyAgent): AgentMapState =>
     !preview
-      ? live.runs.some((r) => r.currentAgentId === agent.id && r.status === "awaiting_approval")
-        ? "approval"
-        : live.runs.some((r) => isActiveRun(r) && r.currentAgentId === agent.id)
-          ? "working"
-          : live.runs.some((r) =>
-                r.results.some(
-                  (result) =>
-                    result.status === "completed" &&
-                    r.request.steps.some((s) => s.id === result.id && s.agentId === agent.id),
-                ),
-              )
-            ? "idle"
-            : "offline"
-      : overrides[agent.id] || (initialWorkers.has(agent.id) ? "working" : "idle");
+      ? agentMapState(live.runs, agent.id)
+      : overrides[agent.id] ||
+        (initialApprovals.has(agent.id)
+          ? "approval"
+          : initialWorkers.has(agent.id)
+            ? "working"
+            : "idle");
   const working = agents.filter((a) => status(a) === "working").length;
+  const approvals = agents.filter((a) => status(a) === "approval").length;
+  const idle = agents.filter((a) => status(a) === "idle").length;
+  const offline = agents.filter((a) => status(a) === "offline").length;
+  const selectedRuns = selected ? agentMapRuns(live.runs, selected.id) : [];
+  const selectedRun =
+    selectedRuns.find((run) => isActiveRun(run) && run.currentAgentId === selected?.id) ||
+    selectedRuns[0];
+  const selectedStep = selectedRun?.request.steps.find(
+    (step) =>
+      step.agentId === selected?.id &&
+      (!selectedRun.currentAgentId || step.agentId === selectedRun.currentAgentId),
+  );
+  const selectedResult = selectedRun?.results.find((result) => result.id === selectedStep?.id);
+  const selectedEvent = selectedRun?.events.at(-1);
+  const selectedApproval = selectedRun?.approvals[0];
+  useEffect(() => {
+    if (selectedId && window.matchMedia("(max-width: 680px)").matches)
+      inspector.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selectedId]);
   const matches = (office: Office, agent?: CompanyAgent) =>
     !query ||
     `${office.name} ${office.domain} ${agent ? `${agent.name} ${agent.role}` : office.agents.map((a) => a.name).join(" ")}`
       .toLowerCase()
       .includes(query.toLowerCase());
+  const officeStatus = (office: Office) => {
+    const active = office.agents.filter((agent) => status(agent) === "working").length;
+    const waiting = office.agents.filter((agent) => status(agent) === "approval").length;
+    return `${office.agents.length} ${office.agents.length === 1 ? "agent" : "agents"} · ${active} working${waiting ? ` · ${waiting} approval` : ""}`;
+  };
   const rooms: Array<{ office: Office | null; x: number; y: number; height: number }> = [];
   let y = 100;
   for (let i = 0; i < company.offices.length + 1; i += 2) {
@@ -93,6 +123,22 @@ export function CompanyFloorplan({
   return (
     <section className="fp-shell" aria-label="Top-down company map">
       <header className="fp-toolbar" aria-label="Map controls">
+        <div className="fp-live-summary" aria-label="Live team status">
+          <span className="working">
+            <i /> {working} working
+          </span>
+          <span className="approval">
+            <i /> {approvals} approval
+          </span>
+          <span className="idle">
+            <i /> {idle} idle
+          </span>
+          {!preview && (
+            <span className="offline">
+              <i /> {offline} offline
+            </span>
+          )}
+        </div>
         <div className="fp-toolbar-right">
           <span className="fp-demo-label">Preview activity</span>
           <button
@@ -199,7 +245,7 @@ export function CompanyFloorplan({
                   rx="7"
                   fill="var(--fp-hall)"
                   stroke="var(--fp-wall)"
-                  strokeWidth="8"
+                  strokeWidth="4"
                   filter="url(#fp-building-shadow)"
                 />
                 <rect x="30" y="33" width="860" height={height - 63} fill="url(#fp-floor-grain)" />
@@ -244,7 +290,7 @@ export function CompanyFloorplan({
                         }
                         fill="none"
                         stroke="var(--fp-wall)"
-                        strokeWidth="7"
+                        strokeWidth="3"
                         strokeLinejoin="round"
                       />
                       <path
@@ -290,9 +336,7 @@ export function CompanyFloorplan({
                           {office.name.length > 20 ? `${office.name.slice(0, 19)}…` : office.name}
                         </text>
                         <text x={x + 36} y={y + 44} className="fp-office-meta">
-                          {office.agents.length} {office.agents.length === 1 ? "agent" : "agents"} ·{" "}
-                          {office.agents.filter((a) => status(a) === "working").length} working
-                          {!preview ? " · live status" : ""}
+                          {officeStatus(office)}
                         </text>
                       </g>
                       <g
@@ -468,12 +512,13 @@ export function CompanyFloorplan({
             </span>
             <div>
               <span className="fp-legend working">Working</span>
+              <span className="fp-legend approval">Approval</span>
               <span className="fp-legend idle">Idle</span>
               <span className="fp-legend offline">Not connected</span>
             </div>
           </footer>
         </div>
-        <aside className="fp-inspector" aria-label="Map activity">
+        <aside className="fp-inspector" aria-label="Map activity" ref={inspector}>
           <header>
             <span>{selected ? "AGENT DETAILS" : "AT A GLANCE"}</span>
             {selected && (
@@ -503,18 +548,69 @@ export function CompanyFloorplan({
                   <dd>{selected.engine}</dd>
                 </div>
               </dl>
-              <div className="fp-state-description">
-                {!preview
-                  ? "Status comes from this agent’s live task history. Open logs for progress, output, and approval requests."
-                  : status(selected) === "working"
-                    ? "At their desk, focused on a task. This is a preview of how active agents will appear."
-                    : "Available for the next task. Idle agents have a quiet desk and a resting indicator."}
-              </div>
+              {!preview && selectedRun && (
+                <section className="fp-current-work" aria-label="Current agent work">
+                  <header>
+                    <span>
+                      <Activity size={13} />{" "}
+                      {isActiveRun(selectedRun) ? "Current task" : "Latest task"}
+                    </span>
+                    <em className={status(selected)}>{stateLabel[status(selected)]}</em>
+                  </header>
+                  <h4>{selectedRun.request.title}</h4>
+                  <dl>
+                    <div>
+                      <dt>Step</dt>
+                      <dd>{selectedStep?.label || "Preparing work"}</dd>
+                    </div>
+                    <div>
+                      <dt>Updated</dt>
+                      <dd>{new Date(selectedRun.updatedAt).toLocaleTimeString()}</dd>
+                    </div>
+                  </dl>
+                  {selectedApproval && (
+                    <div className="fp-approval-callout">
+                      <ShieldAlert size={15} />
+                      <span>
+                        <strong>{selectedApproval.title}</strong>
+                        <small>{selectedApproval.detail}</small>
+                      </span>
+                    </div>
+                  )}
+                  {(selectedResult?.output || selectedRun.output) && (
+                    <div className="fp-work-output">
+                      <span>Latest output</span>
+                      <p>{(selectedResult?.output || selectedRun.output).slice(0, 280)}</p>
+                    </div>
+                  )}
+                  {!selectedResult?.output && !selectedRun.output && selectedEvent && (
+                    <div className="fp-work-output">
+                      <span>Latest update</span>
+                      <p>{selectedEvent.text.slice(0, 280)}</p>
+                    </div>
+                  )}
+                </section>
+              )}
+              {!preview && !selectedRun && (
+                <div className="fp-state-description">
+                  No attributed task yet. This agent will show current work, recent output, and
+                  approval requests here after a live run starts.
+                </div>
+              )}
+              {preview && (
+                <div className="fp-state-description">
+                  {status(selected) === "working"
+                    ? "Focused on a task. Live runs show the task, step, and latest update here."
+                    : status(selected) === "approval"
+                      ? "Waiting at an approval checkpoint. The live inspector shows the request and reviewer action."
+                      : "Available for the next task."}
+                </div>
+              )}
               {preview && (
                 <div className="fp-state-controls">
                   <span>TRY A PREVIEW STATE</span>
                   <div>
-                    {(["working", "idle"] as const).map((s) => (
+                    {(["working", "approval", "idle"] as const).map((s) => (
                       <button
                         key={s}
                         aria-pressed={status(selected) === s}
@@ -530,7 +626,8 @@ export function CompanyFloorplan({
                 className="fp-inspector-action"
                 onClick={() => inspectAgent(selected.office.id, selected)}
               >
-                Logs & output <ArrowRight size={13} />
+                {selectedApproval ? "Review approval" : "Open full activity"}{" "}
+                <ArrowRight size={13} />
               </button>
               <button
                 className="fp-inspector-secondary"
@@ -561,13 +658,17 @@ export function CompanyFloorplan({
                   <strong>{working}</strong>
                 </div>
                 <div>
+                  <span className="fp-legend approval">Needs approval</span>
+                  <strong>{approvals}</strong>
+                </div>
+                <div>
                   <span className="fp-legend idle">Idle</span>
-                  <strong>{agents.filter((a) => status(a) === "idle").length}</strong>
+                  <strong>{idle}</strong>
                 </div>
                 {!preview && (
                   <div>
                     <span className="fp-legend offline">Not connected</span>
-                    <strong>{agents.filter((a) => status(a) === "offline").length}</strong>
+                    <strong>{offline}</strong>
                   </div>
                 )}
               </div>
@@ -623,7 +724,7 @@ function Workstation({
   x: number;
   y: number;
   color: string;
-  state: AgentState;
+  state: AgentMapState;
   selected: boolean;
   dim: boolean;
   onSelect: () => void;
@@ -675,7 +776,13 @@ function Workstation({
         height="3"
         rx="1"
         className="fp-screen"
-        fill={state === "working" ? "#7fb5a0" : "var(--fp-screen-off)"}
+        fill={
+          state === "working"
+            ? "#7fb5a0"
+            : state === "approval"
+              ? "#d9a07b"
+              : "var(--fp-screen-off)"
+        }
       />
       <path d="M1 5V11M-5 11H7" stroke="var(--fp-monitor)" strokeWidth="2" />
       <rect x="-13" y="15" width="27" height="8" rx="2" fill="var(--fp-keyboard)" />
@@ -725,13 +832,27 @@ function Workstation({
         cx="53"
         cy="-7"
         r="4"
-        fill={state === "working" ? "#4b9b72" : state === "idle" ? "#c49d5d" : "#8d9790"}
+        fill={
+          state === "working"
+            ? "#4b9b72"
+            : state === "approval"
+              ? "#d07a55"
+              : state === "idle"
+                ? "#c49d5d"
+                : "#8d9790"
+        }
       />
       <text x="4" y="72" textAnchor="middle" className="fp-person-name">
         {agent.name.length > 24 ? `${agent.name.slice(0, 23)}…` : agent.name}
       </text>
       <text x="4" y="86" textAnchor="middle" className={`fp-person-status ${state}`}>
-        {state === "working" ? "● WORKING" : state === "idle" ? "◌ IDLE" : "○ NOT CONNECTED"}
+        {state === "working"
+          ? "● WORKING"
+          : state === "approval"
+            ? "◆ APPROVAL"
+            : state === "idle"
+              ? "◌ IDLE"
+              : "○ NOT CONNECTED"}
       </text>
     </g>
   );
