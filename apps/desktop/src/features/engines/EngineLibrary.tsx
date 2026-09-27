@@ -4,11 +4,13 @@ import {
   Bot,
   BookOpen,
   Cable,
+  CircleCheck,
   ChevronRight,
   FileSearch,
   Plug,
   RefreshCw,
-  ShieldCheck,
+  Settings2,
+  X,
 } from "lucide-react";
 import {
   capabilityNames,
@@ -20,7 +22,9 @@ import {
   type Inventory,
 } from "./engine-inventory";
 import "./engine-library.css";
-import { EngineSetup } from "./LiveExecution";
+import { NotificationSettings } from "./live-notifications";
+import { refreshEngines, useLiveRuntime } from "./live-runtime";
+import { HelpTip } from "../../shared/HelpTip";
 
 const icons = { mcp: Cable, skill: BookOpen, agent: Bot, connector: Plug, plugin: Blocks };
 const statusNames = {
@@ -30,10 +34,11 @@ const statusNames = {
   cached: "Cached · not verified",
 };
 export function EngineLibrary({ query }: { query: string }) {
+  const live = useLiveRuntime();
   const [engine, setEngine] = useState<Engine>(() => {
     try {
       const saved = localStorage.getItem("agentos:inventory-engine");
-      return saved === "claude" || saved === "gemini" ? saved : "codex";
+      return saved === "claude" ? saved : "codex";
     } catch {
       return "codex";
     }
@@ -45,7 +50,7 @@ export function EngineLibrary({ query }: { query: string }) {
   const [kind, setKind] = useState<CapabilityKind | "all">("all"),
     [scope, setScope] = useState("all");
   const [selected, setSelected] = useState<Capability | null>(null);
-  const [sources, setSources] = useState(false);
+  const [settings, setSettings] = useState(false);
   const [limit, setLimit] = useState(30);
   useEffect(() => {
     setLimit(30);
@@ -88,16 +93,17 @@ export function EngineLibrary({ query }: { query: string }) {
         .includes(query.toLowerCase()),
   );
   const errors = inventory?.sources.filter((s) => s.status === "error").length || 0;
+  const readyEngines = live.engines.filter((item) => item.installed).length;
   return (
     <section className="co-engines">
-      <EngineSetup />
       <div className="co-engine-bar">
         <div className="co-engine-picker" role="group" aria-label="Engine">
           {Object.entries(engineNames).map(([id, name]) => (
             <button
               key={id}
-              disabled={busy}
+              disabled={busy || id === "gemini"}
               aria-pressed={engine === id}
+              title={id === "gemini" ? "Gemini support is coming later" : undefined}
               onClick={() => {
                 setEngine(id as Engine);
                 setScope("all");
@@ -105,47 +111,155 @@ export function EngineLibrary({ query }: { query: string }) {
               }}
             >
               {name}
-              <span>{id === "gemini" ? "Soon" : "Local"}</span>
+              {id === "gemini" && <span>Soon</span>}
             </button>
           ))}
         </div>
-        <button className="co-button" disabled={busy} onClick={() => void refresh()}>
-          <RefreshCw size={14} />
-          {busy ? "Discovering…" : "Refresh inventory"}
-        </button>
-      </div>
-      <form
-        className="co-engine-workspace"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void refresh();
-        }}
-      >
-        <label htmlFor="inventory-workspace">
-          Workspace folder <span>optional</span>
-        </label>
-        <input
-          id="inventory-workspace"
-          value={workspace}
-          onChange={(e) => setWorkspace(e.target.value)}
-          placeholder="Default: current preview project; personal sources in the Mac app"
-          disabled={busy}
-        />
-        <button className="co-button" disabled={busy}>
-          Scan folder
-        </button>
-      </form>
-      <div className="co-engine-proof">
-        <ShieldCheck size={18} />
-        <div>
-          <strong>Your engine’s library. No duplicate setup.</strong>
-          <p>
-            Read-only discovery. No MCP servers are launched, permissions changed, or credentials
-            displayed. These are source records, not a live session’s effective tool list.
-          </p>
+        <div className="co-engine-actions">
+          <span className="co-engine-runtime-state">
+            <i aria-hidden="true" data-ready={live.native && readyEngines > 0} />
+            {live.native
+              ? `${readyEngines} engine${readyEngines === 1 ? "" : "s"} ready`
+              : "Preview"}
+          </span>
+          <button
+            className="co-button"
+            aria-expanded={settings}
+            aria-controls="engine-settings"
+            onClick={() => setSettings((open) => !open)}
+          >
+            <Settings2 size={14} />
+            Settings
+          </button>
+          <button className="co-button" disabled={busy} onClick={() => void refresh()}>
+            <RefreshCw size={14} />
+            {busy ? "Scanning…" : "Refresh"}
+          </button>
         </div>
-        <span>{busy ? "Scanning" : inventory ? "Local snapshot" : "No snapshot"}</span>
       </div>
+      {settings && (
+        <section id="engine-settings" className="co-engine-settings" aria-label="Engine settings">
+          <header>
+            <div>
+              <strong>Engine settings</strong>
+              <p>Connections, inventory location, and notifications.</p>
+            </div>
+            <button
+              className="co-icon-button"
+              aria-label="Close engine settings"
+              onClick={() => setSettings(false)}
+            >
+              <X size={16} />
+            </button>
+          </header>
+          <div className="co-engine-settings-grid">
+            <section>
+              <div className="co-engine-setting-heading">
+                <div>
+                  <h3>Execution engines</h3>
+                  <p>
+                    {live.native
+                      ? "AgentOS uses your existing CLI sign-ins."
+                      : "Connection checks are available in the Mac app."}
+                  </p>
+                </div>
+                <button
+                  className="co-button"
+                  disabled={!live.native}
+                  onClick={() => void refreshEngines()}
+                >
+                  Check
+                </button>
+              </div>
+              <div className="co-engine-connections">
+                {live.native && !live.engines.length && <small>Checking local engines…</small>}
+                {live.engines.map((item) => (
+                  <details key={item.engine}>
+                    <summary>
+                      <span>
+                        <i aria-hidden="true" data-ready={item.installed} />
+                        <strong>{item.engine === "codex" ? "Codex" : "Claude Code"}</strong>
+                      </span>
+                      <small>{item.installed ? "Ready to try" : "Not found"}</small>
+                    </summary>
+                    <p>{item.installed ? item.path : item.detail}</p>
+                    <p>
+                      Sign in from Terminal with{" "}
+                      <code>{item.engine === "codex" ? "codex login" : "claude auth login"}</code>.
+                    </p>
+                  </details>
+                ))}
+                {!live.native && (
+                  <small>Open the installed app to check Codex and Claude Code.</small>
+                )}
+              </div>
+            </section>
+            <section>
+              <h3>Inventory location</h3>
+              <p>Add a project folder only when you need its project-level capabilities.</p>
+              <form
+                className="co-engine-workspace"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void refresh();
+                }}
+              >
+                <label htmlFor="inventory-workspace">Workspace folder</label>
+                <div>
+                  <input
+                    id="inventory-workspace"
+                    value={workspace}
+                    onChange={(e) => setWorkspace(e.target.value)}
+                    placeholder="Optional absolute path"
+                    disabled={busy}
+                  />
+                  <button className="co-button" disabled={busy}>
+                    Scan
+                  </button>
+                </div>
+              </form>
+            </section>
+            <section className="co-engine-notifications">
+              <h3>Notifications</h3>
+              <NotificationSettings />
+            </section>
+          </div>
+          {live.error && (
+            <p role="alert" className="co-form-error">
+              {live.error}
+            </p>
+          )}
+          <details className="co-engine-diagnostics">
+            <summary>Privacy and discovery details</summary>
+            <p>
+              Discovery is read-only. AgentOS does not start MCP servers, change permissions, copy
+              credentials, or confirm that a capability is available to a live session.
+            </p>
+            {inventory && (
+              <>
+                <h4>Coverage</h4>
+                <ul>
+                  {inventory.limitations.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+                <details className="co-engine-sources-disclosure">
+                  <summary>Source paths · {inventory.sources.length}</summary>
+                  <div className="co-engine-sources">
+                    {inventory.sources.map((source, i) => (
+                      <div key={`${source.path}:${i}`}>
+                        <span>{source.status}</span>
+                        <code>{source.path}</code>
+                        {source.note && <small>{source.note}</small>}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              </>
+            )}
+          </details>
+        </section>
+      )}
       {error && (
         <div role="alert" className="co-form-error">
           {error} No previous results are shown as current. Try Refresh inventory.
@@ -154,13 +268,23 @@ export function EngineLibrary({ query }: { query: string }) {
       {busy && <p role="status">Reading capability metadata from local engine folders…</p>}
       {inventory && (
         <>
-          <div className="co-engine-meta">
+          <div className="co-engine-inventory-summary">
             <span>
-              {inventory.workspace
-                ? `Project: ${inventory.workspace}`
-                : "Personal sources only · enter a workspace to include project capabilities"}
+              <CircleCheck size={14} />
+              <strong>{entries.length} capabilities</strong>
+              <small>
+                {inventory.workspace ? "Project and personal sources" : "Personal sources"} ·
+                updated{" "}
+                {new Date(inventory.scannedAt).toLocaleTimeString([], {
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </small>
             </span>
-            <span>Scanned {new Date(inventory.scannedAt).toLocaleTimeString()}</span>
+            <HelpTip label="About this inventory" align="end">
+              This is a read-only snapshot of local source records. It does not prove live access or
+              authentication.
+            </HelpTip>
           </div>
           <nav className="co-engine-tabs" aria-label="Capability type">
             <button
@@ -289,28 +413,6 @@ export function EngineLibrary({ query }: { query: string }) {
             <button className="co-button" onClick={() => setLimit((n) => n + 30)}>
               Show more · {Math.min(limit, visible.length)} of {visible.length}
             </button>
-          )}
-          <details className="co-engine-coverage">
-            <summary>Discovery coverage & limitations</summary>
-            <ul>
-              {inventory.limitations.map((note) => (
-                <li key={note}>{note}</li>
-              ))}
-            </ul>
-          </details>
-          <button className="co-engine-source-toggle" onClick={() => setSources(!sources)}>
-            {sources ? "Hide" : "Inspect"} discovery sources · {inventory.sources.length}
-          </button>
-          {sources && (
-            <div className="co-engine-sources">
-              {inventory.sources.map((source, i) => (
-                <div key={`${source.path}:${i}`}>
-                  <span>{source.status}</span>
-                  <code>{source.path}</code>
-                  {source.note && <small>{source.note}</small>}
-                </div>
-              ))}
-            </div>
           )}
         </>
       )}

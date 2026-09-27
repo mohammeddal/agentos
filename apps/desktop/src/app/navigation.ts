@@ -24,7 +24,7 @@ export const destinations = [
   { view: "projects", label: "Projects", description: "Project teams, tasks, and directories" },
   { view: "map", label: "Company", description: "Offices, agents, and domains" },
   { view: "activity", label: "Activity", description: "Status, approvals, and rehearsals" },
-  { view: "memory", label: "Library", description: "Memory and engine capabilities" },
+  { view: "memory", label: "Library", description: "Memory and local capabilities" },
 ] as const;
 export function primaryView(view: WorkspaceView): WorkspaceView {
   return ["map", "offices", "agents", "domains"].includes(view)
@@ -43,7 +43,7 @@ export const viewLabels: Record<WorkspaceView, string> = {
   domains: "Domains",
   activity: "Activity",
   memory: "Memory",
-  engines: "Engine capabilities",
+  engines: "Capabilities",
 };
 const paths: Record<WorkspaceView, string> = {
   start: "start",

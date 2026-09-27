@@ -17,7 +17,7 @@ Open [the local app](http://127.0.0.1:4173). Requires Node.js 22+ and pnpm 9.15.
 - **Tasks / Projects** — plan work and keep it organized.
 - **Company** — offices, agents, domains, and the office map.
 - **Activity** — live runs, approvals, output, and separately labeled rehearsals.
-- **Library** — memory and engine capabilities.
+- **Library** — memory and local capabilities.
 
 Use **Find anything** (Cmd/Ctrl+K) to jump to a page, task, project, agent, office, or domain. Creation controls are contextual; **Create…** holds the other options.
 
@@ -30,7 +30,7 @@ pnpm build:mac
 
 Requires Rust/Cargo and Xcode Command Line Tools. Bundles are generated in `apps/desktop/src-tauri/target/release/bundle/`. Local builds are unsigned; public distribution needs Apple signing and notarization. Browser and native app data stores are separate.
 
-Install/sign in to **Codex CLI** (`codex login`) or **Claude Code** (`claude auth login`). In AgentOS, Library → Engine capabilities shows setup and notification settings. Pick an engine under Start → Options and send a message. The app does not collect credentials or silently install providers.
+Install/sign in to **Codex CLI** (`codex login`) or **Claude Code** (`claude auth login`). In AgentOS, Library → Capabilities lists what each engine exposes; open **Settings** there for connection checks, project inventory, and notifications. Pick an engine under Start → Options and send a message. The app does not collect credentials or silently install providers.
 
 ## Documentation
 

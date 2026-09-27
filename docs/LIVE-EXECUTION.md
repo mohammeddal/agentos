@@ -5,7 +5,7 @@ This guide supersedes draft-only statements in the earlier UX verification and u
 ## First run
 
 1. Install the official Codex CLI or Claude Code. Sign in in Terminal with `codex login` or `claude auth login`.
-2. Open AgentOS. Library → Engine capabilities shows executable discovery and notification preferences. “Installed” means a CLI was found, not that its token is valid.
+2. Open AgentOS. Library → Capabilities lists discovered records; its **Settings** panel holds connection checks and notification preferences. “Installed” means a CLI was found, not that its token is valid.
 3. In Start → Options choose Codex or Claude Code, a model, and its reasoning effort, then Send message. Chat history resumes the provider session on subsequent turns. You can change model/effort for the next message without losing the conversation. Old unsent drafts are preserved, not automatically transmitted.
 4. Create a task, choose its agents/domains and project, then open its details and choose Run task. Review any pending approval in task details or Activity.
 

@@ -17,7 +17,7 @@ Choose the quiet workspace. The IDE direction is the fallback for expert-only to
 ## Navigation
 
 - Six stable destinations: Start, Tasks, Projects, Company, Activity, Library.
-- Company owns Office map, Offices, Agents, Domains. Library owns Memory and Engine capabilities.
+- Company owns Office map, Offices, Agents, Domains. Library owns Memory and Capabilities.
 - One relevant primary create action per page. Other creation actions live under Create….
 - Cmd/Ctrl+K opens Find anything. Page search filters only the current destination.
 - Cmd/Ctrl+J opens a global bottom terminal dock. It is an expert tool, not another primary destination, and stays closed until requested.

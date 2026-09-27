@@ -6,6 +6,14 @@ This records the earlier UX-only change. For the subsequent native runtime integ
 
 ## Native execution follow-up
 
+### Library hierarchy follow-up
+
+- Reframed Library → Engine capabilities as the shorter **Capabilities** surface. The inventory, engine switcher, search, type filters, scope filter, and record inspection remain primary; connection checks, optional workspace scanning, notifications, privacy notes, limitations, and raw source paths now live in one explicit **Settings** panel.
+- Disabled the unfinished Gemini selector instead of presenting a non-working inventory choice. Codex and Claude Code still refresh independently, and the compact status line distinguishes browser preview from locally ready execution engines.
+- Isolated Chromium checks covered the collapsed inventory and expanded Settings panel at 1200 × 800 and 390 × 844 in light and dark appearances. The settings toggle, Codex/Claude switch, responsive stacking, category navigation, and zero-warning console state were verified.
+- Visual artifacts: `library-capabilities-clean.png`, `library-capabilities-mobile.png`, `library-engine-settings-mobile.png`, `library-engine-settings-desktop.png`, and `library-engine-settings-dark.png` under ignored `output/playwright/`.
+- All 187 Vitest tests across 29 files passed. Typecheck, formatting, whitespace checks, the 131-file source audit, production build, and final `.app`/`.dmg` packaging passed.
+
 ### Local terminal follow-up
 
 - Added a global bottom terminal dock, toggled from the top toolbar or Cmd/Ctrl+J, without adding another primary navigation destination. It supports multiple sessions, explicit working directories, command history, stdout/stderr, exit status, Clear, Stop, and session removal.

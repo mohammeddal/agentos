@@ -4,7 +4,7 @@
 
 The default desktop surface is the AgentOS company workspace. A company contains offices (domains), and each office contains agents. Create and rename offices, choose a domain and color, add or edit agents, move them between offices, and switch between light and dark themes. The company structure and engine preferences persist on this device using versioned local storage. The initial offices are editable starter examples.
 
-The six primary destinations are **Start**, **Tasks**, **Projects**, **Company**, **Activity**, and **Library**. Company contains Office map, Offices, Agents, and Domains. Library contains Memory and Engine capabilities. Page URLs use hashes so reload and browser Back/Forward retain your destination. The mobile navigation button opens the same six destinations.
+The six primary destinations are **Start**, **Tasks**, **Projects**, **Company**, **Activity**, and **Library**. Company contains Office map, Offices, Agents, and Domains. Library contains Memory and Capabilities. Page URLs use hashes so reload and browser Back/Forward retain your destination. The mobile navigation button opens the same six destinations.
 
 AgentOS uses a **Codex-inspired shell**: compact navigation, quiet graphite surfaces, restrained borders, and a focused composer in both light and dark appearances. Color is deliberately reserved for AgentOS meaning—office identity, agent status, approvals, warnings, and the interactive company map—so the product stays familiar without hiding its own operational model. The map, workflow canvas, and company structure remain AgentOS-specific surfaces rather than visual copies of another product.
 
@@ -52,7 +52,7 @@ When creating or configuring an agent, **Custom agent prompt** records that spec
 
 The saved prompt and skill references appear in the agent's Activity inspector. During a native task or reviewer step, AgentOS includes the prompt and requests each selected skill by its exact discovered name. This follows the provider's normal skill activation behavior; AgentOS does not copy, install, enable, or promise that a skill will load. The engine verifies availability at runtime and is instructed to disclose a missing skill rather than pretend it was used. Prompts and skill references are local configuration, not a security boundary; task approvals and restrictions remain separate.
 
-In the browser preview, discovery includes this repository and personal sources. The installed Mac app starts with personal sources; use **Library → Engine capabilities** with a workspace path to inspect project-scoped records. Skill metadata is saved with the agent, while instruction bodies and credentials are not copied into company storage.
+In the browser preview, discovery includes this repository and personal sources. The installed Mac app starts with personal sources; use **Library → Capabilities → Settings** with a workspace path to inspect project-scoped records. Skill metadata is saved with the agent, while instruction bodies and credentials are not copied into company storage.
 
 To permanently delete company structure:
 
@@ -127,7 +127,7 @@ This company surface still has no live engine session attached. Rehearsal logs a
 
 ### Engine library
 
-Open **Library → Engine capabilities** to inspect existing local **Codex** and **Claude Code** capabilities. Filter by MCP servers, skills, agents, connectors, or plugins; search by name/description/source; filter by scope; and open a record to inspect its source path. Refresh after editing configuration in the engine. The browser defaults to this repository; the native app starts with personal sources. Enter an absolute workspace folder to include project records. Gemini explicitly reports that discovery is not implemented.
+Open **Library → Capabilities** to inspect existing local **Codex** and **Claude Code** capabilities. Filter by MCP servers, skills, agents, connectors, or plugins; search by name/description/source; filter by scope; and open a record to inspect its source path. Open **Settings** for engine connection checks, an optional workspace folder, notifications, discovery limits, and raw source paths. Refresh after editing configuration in the engine. The browser defaults to this repository; the native app starts with personal sources. Gemini is visibly unavailable until its adapter is implemented.
 
 Discovery is read-only and does not start engine processes, MCP servers, or hooks. It reads bounded metadata files, not credential stores, and does not return commands, arguments, environment variables, server URLs, headers, or instruction bodies. There is no installation, enablement, permission change, or automatic assignment to company agents. Source records are deliberately not merged into a claimed effective runtime configuration.
 
@@ -172,6 +172,6 @@ Unsigned local builds can be opened on the same Mac. Public distribution require
 
 ## Find anything
 
-Press **Cmd/Ctrl+K**, click Find anything in the sidebar, or use the search icon in the top bar. Search saved task titles/briefs, project names/briefs, agent names/roles/engines, offices, domains, and pages. Use Up/Down and Enter to open a result; Escape closes the dialog. Results are capped at 40; refine the query for larger companies. This does not index file contents, secrets, chat messages, memory Markdown, or external capability inventories. Use the dedicated search inside Chats, Memory, or Engine capabilities for those records.
+Press **Cmd/Ctrl+K**, click Find anything in the sidebar, or use the search icon in the top bar. Search saved task titles/briefs, project names/briefs, agent names/roles/engines, offices, domains, and pages. Use Up/Down and Enter to open a result; Escape closes the dialog. Results are capped at 40; refine the query for larger companies. This does not index file contents, secrets, chat messages, memory Markdown, or external capability inventories. Use the dedicated search inside Chats, Memory, or Capabilities for those records.
 
 Open forms and task details retain their modal focus; Cmd/Ctrl+K does not replace an open editor. Close it first. Mouse, keyboard and narrow-screen navigation all expose the same destinations.
