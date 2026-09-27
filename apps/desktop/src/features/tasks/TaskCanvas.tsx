@@ -501,7 +501,9 @@ export function TaskCanvas({
             </button>
           </nav>
         )}
-        <span className="tc-draft">Workflow · {graph.nodes.length} blocks</span>
+        <span className="tc-draft">
+          Workflow · {graph.nodes.length} {graph.nodes.length === 1 ? "block" : "blocks"}
+        </span>
         <div className="tc-tools">
           <button
             type="button"
@@ -564,11 +566,7 @@ export function TaskCanvas({
       <div className="tc-layout">
         <aside className="tc-palette">
           <span className="co-section-kicker">BUILDING BLOCKS</span>
-          <p>
-            Drag onto the canvas
-            <br />
-            or click to add.
-          </p>
+          <p>Drag onto the canvas or click to add.</p>
           {node && stepKinds.includes(node.kind) ? (
             <section className="tc-palette-inputs" aria-label={`Inputs for ${node.title}`}>
               <div className="tc-palette-inputs-heading">
@@ -1496,7 +1494,7 @@ export function TaskCanvas({
         <details>
           <summary>
             {warnings.length
-              ? `${warnings.length} things to configure`
+              ? `${warnings.length} ${warnings.length === 1 ? "thing" : "things"} to configure`
               : "No configuration warnings"}
           </summary>
           {warnings.map((warning, i) => (

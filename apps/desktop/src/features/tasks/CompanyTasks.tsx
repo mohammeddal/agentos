@@ -439,8 +439,8 @@ export function TaskForm({
       )}
       <div className="co-task-submit">
         <p>
-          Saved locally as <strong>Planned</strong>.<br />
-          Schedules and workflows run only after you enable or start them.
+          Saved locally as <strong>Planned</strong>.<br /> Schedules and workflows run only after
+          you enable or start them.
         </p>
         <button
           type="submit"

@@ -647,9 +647,8 @@ export function CompanyFloorplan({
               <div className="fp-summary">
                 <strong>{agents.length}</strong>
                 <span>
-                  teammates
-                  <br />
-                  across {company.offices.length} offices
+                  {agents.length === 1 ? "teammate" : "teammates"} across {company.offices.length}{" "}
+                  {company.offices.length === 1 ? "office" : "offices"}
                 </span>
               </div>
               <div className="fp-status-totals">

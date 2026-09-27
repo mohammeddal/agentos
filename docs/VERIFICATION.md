@@ -1,8 +1,17 @@
-# UX cleanup verification — 2026-09-27
+# AgentOS product verification — 2026-09-27
 
-Branch: `codex/agentos-ux-cleanup`.
+Current audit branch: `codex/task-workflow-audit`.
 
-This records the earlier UX-only change. For the subsequent native runtime integration, see [Live execution](LIVE-EXECUTION.md). The Codex transport passed actual reply and conversation-resume tests; Claude returned a revoked-token 401 and requires reauthentication before successful generation can be verified.
+This log records product, workflow, and native-runtime verification passes, newest first. For the native runtime architecture and provider boundaries, see [Live execution](LIVE-EXECUTION.md).
+
+## End-to-end quality audit follow-up
+
+- Walked the primary user journeys in an isolated browser store: clean Start composer; chat/task mode and provider settings; task creation from the workflow map; direct agent assignment; per-step model and approval configuration; task detail; approval rehearsal; compact Activity; scoped Markdown memory; the office map and agent inspector; and the browser-safe terminal boundary.
+- Rechecked the important truth boundaries. Browser execution stays disabled and points to the installed Mac app, rehearsals remain labeled simulated, disconnected agents remain visibly disconnected, restrictions fail closed, and only reviewed non-conflicting memory can enter matching context.
+- Corrected singular counts in the workflow summary, configuration warnings, model overrides, and map summary. Rephrased the palette instruction and task-save note so assistive technology reads complete sentences instead of concatenating text around visual line breaks.
+- Visually checked Start, Tasks, the workflow canvas, Activity, Memory, and the company map at desktop and 390 × 844. The final browser console reported zero warnings or errors. Temporary browser-only QA data was removed through the normal recoverable directory flow.
+- All 200 Vitest tests, 16 offline native tests, TypeScript, formatting, the 133-file source reachability audit, and the production web build passed. Four account-backed provider tests remain intentionally opt-in because they make real requests. Native packaging produced `AgentOS.app`; it replaced the previous `/Applications/AgentOS.app`, its executable hash matches the package, and no second AgentOS installation was found in the checked system or user Applications directories.
+- macOS was locked during the final pass, so the reopened native window could not be visually driven. Native terminal execution, working-directory validation, memory persistence, capability discovery, attachment delivery, approval cancellation, and interrupted-run recovery were still exercised by the passing offline native suite.
 
 ## Operational company map follow-up
 

@@ -47,7 +47,9 @@ export function TaskModels({
           </div>
         ))}
       <details open={compact || undefined}>
-        <summary>Per-step overrides · {all.length} steps</summary>
+        <summary>
+          Per-step overrides · {all.length} {all.length === 1 ? "step" : "steps"}
+        </summary>
         {all.map(({ step, title }) => {
           const saved = task.stepModels?.[step.id];
           const overridden =
