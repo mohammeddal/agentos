@@ -18,6 +18,14 @@ This records the earlier UX-only change. For the subsequent native runtime integ
 - Added a permanent dashed **Add office** room after the current offices. It opens the office creator directly; after an office is saved, the room becomes part of the company and the map creates the next expansion room.
 - Isolated browser QA created a fourth office from the expansion room, confirmed the map count changed to four, and verified a fresh expansion room appeared on the next row. No console warnings or errors were reported; the browser-only test did not change native company data.
 
+## Workflow resource picker follow-up
+
+- Replaced manual-reference-first MCP, skill, and connector inspectors with an automatic local-inventory picker: engine, search, discovered records, status, selection, refresh, and **Set up new…** are visible together. Manual IDs remain under an Advanced disclosure and still cannot run until discovered.
+- Context blocks now show available task files, support direct file attachment, and link **Create reusable context** to a new Memory record. A valid unsaved task is saved before leaving for resource settings so its workflow is not lost.
+- Resource setup opens Capabilities with the matching engine/filter and Settings expanded. AgentOS continues to treat engine configuration as provider-managed and never copies credentials or silently enables capabilities.
+- Isolated Chromium QA created a valid workflow, loaded the real Codex MCP inventory, selected the configured `node_repl` record, and confirmed the block updated with its engine, status, and source. **Set up new MCP** preserved the task and opened Capabilities on Codex with MCP selected and Settings expanded; **Create reusable context** preserved the edited workflow and opened a fresh Memory draft.
+- Desktop and 390 × 844 layouts were checked, and the browser console reported no warnings or errors. All 192 Vitest tests passed together with TypeScript, formatting, production build, whitespace, and the 131-file source reachability audit.
+
 ## Workflow input-placement follow-up
 
 - Moved the selected step's **Inputs & capabilities** actions from Block settings into the top of the left building-block palette beside Work, Resources, and Control.

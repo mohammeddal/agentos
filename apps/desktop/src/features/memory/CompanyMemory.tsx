@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BookOpen, Check, Download, FileText, Plus, RefreshCw, ShieldCheck } from "lucide-react";
 import { companyDomains, type Company } from "../company/company-model";
 import {
@@ -64,7 +64,15 @@ function freshEntry(): MemoryEntry {
   };
 }
 
-export function CompanyMemory({ company, query }: { company: Company; query: string }) {
+export function CompanyMemory({
+  company,
+  query,
+  createRequest,
+}: {
+  company: Company;
+  query: string;
+  createRequest?: number;
+}) {
   const live = useLiveRuntime();
   const [library, setLibrary] = useState<MemoryLibrary | null>(null);
   const [file, setFile] = useState<MemoryFile | null>(null);
@@ -99,6 +107,7 @@ export function CompanyMemory({ company, query }: { company: Company; query: str
     ...rehearsalCandidates,
   ];
   const [showMarkdown, setShowMarkdown] = useState(false);
+  const handledCreateRequest = useRef(0);
   const scopes = [
     { value: "company", label: "Company-wide" },
     ...companyDomains(company).map((domain) => ({
@@ -127,6 +136,13 @@ export function CompanyMemory({ company, query }: { company: Company; query: str
   useEffect(() => {
     void load();
   }, []);
+  useEffect(() => {
+    if (!library || !createRequest || handledCreateRequest.current === createRequest) return;
+    handledCreateRequest.current = createRequest;
+    setTab("library");
+    setFilter("all");
+    setDraft(freshEntry());
+  }, [library, createRequest]);
   async function persist(next: MemoryLibrary): Promise<boolean> {
     if (!file) return false;
     setBusy(true);

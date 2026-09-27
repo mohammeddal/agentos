@@ -13,7 +13,8 @@ import type { ModelChoice } from "../engines/model-choice";
 import type { StepModelChoice } from "../engines/model-choice";
 import { approvalError, type ApprovalRule } from "./task-approvals";
 import { ScheduleEditor, WorkflowEditor } from "./TaskAutomation";
-import { TaskCanvas } from "./TaskCanvas";
+import { TaskCanvas, type ResourceSetupKind } from "./TaskCanvas";
+import type { Engine } from "../engines/engine-inventory";
 import {
   taskCanvasAssignment,
   taskCanvasFromAssignment,
@@ -186,6 +187,7 @@ export function TaskForm({
   initialAgentId,
   save,
   storageError,
+  openResourceSettings,
 }: {
   company: Company;
   existing: CompanyTask | undefined;
@@ -194,6 +196,7 @@ export function TaskForm({
   initialAgentId?: string | undefined;
   save: (task: CompanyTask) => void;
   storageError: boolean;
+  openResourceSettings?: (task: CompanyTask, kind: ResourceSetupKind, engine: Engine) => void;
 }) {
   const [taskId] = useState(() => existing?.id || crypto.randomUUID());
   const [createdAt] = useState(() => existing?.createdAt || new Date().toISOString());
@@ -346,6 +349,12 @@ export function TaskForm({
               changeAttachments={setAttachments}
               onAttachmentsBusy={setAttaching}
               changeApproval={setApproval}
+              {...(canSave && openResourceSettings
+                ? {
+                    openResourceSettings: (kind: ResourceSetupKind, engine: Engine) =>
+                      openResourceSettings(draftTask, kind, engine),
+                  }
+                : {})}
               changeTaskDetails={({ title: nextTitle, brief: nextBrief }) => {
                 setTitle(nextTitle);
                 setBrief(nextBrief);

@@ -33,7 +33,13 @@ const statusNames = {
   disabled: "Disabled in source",
   cached: "Cached · not verified",
 };
-export function EngineLibrary({ query }: { query: string }) {
+export type LibraryFocus = {
+  id: number;
+  kind: CapabilityKind;
+  engine: Engine;
+  openSettings: boolean;
+};
+export function EngineLibrary({ query, focus }: { query: string; focus?: LibraryFocus | null }) {
   const live = useLiveRuntime();
   const [engine, setEngine] = useState<Engine>(() => {
     try {
@@ -52,6 +58,13 @@ export function EngineLibrary({ query }: { query: string }) {
   const [selected, setSelected] = useState<Capability | null>(null);
   const [settings, setSettings] = useState(false);
   const [limit, setLimit] = useState(30);
+  useEffect(() => {
+    if (!focus) return;
+    setEngine(focus.engine);
+    setKind(focus.kind);
+    setScope("all");
+    setSettings(focus.openSettings);
+  }, [focus?.id]);
   useEffect(() => {
     setLimit(30);
     setSelected(null);
@@ -141,8 +154,12 @@ export function EngineLibrary({ query }: { query: string }) {
         <section id="engine-settings" className="co-engine-settings" aria-label="Engine settings">
           <header>
             <div>
-              <strong>Engine settings</strong>
-              <p>Connections, inventory location, and notifications.</p>
+              <strong>{focus ? `Set up ${capabilityNames[focus.kind]}` : "Engine settings"}</strong>
+              <p>
+                {focus
+                  ? `Configure it for ${engineNames[engine]}, then refresh the inventory.`
+                  : "Connections, inventory location, and notifications."}
+              </p>
             </div>
             <button
               className="co-icon-button"
@@ -152,6 +169,16 @@ export function EngineLibrary({ query }: { query: string }) {
               <X size={16} />
             </button>
           </header>
+          {focus && (
+            <div className="co-engine-setup-note">
+              <strong>Provider-managed setup</strong>
+              <p>
+                AgentOS reads your existing local configuration but does not copy credentials or
+                silently enable capabilities. Complete setup in the selected engine, then choose
+                Refresh to make it available to the workflow picker.
+              </p>
+            </div>
+          )}
           <div className="co-engine-settings-grid">
             <section>
               <div className="co-engine-setting-heading">

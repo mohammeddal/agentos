@@ -35,12 +35,13 @@ import { HelpTip } from "../shared/HelpTip";
 import { CompanyTasks, TaskForm } from "../features/tasks/CompanyTasks";
 import { CompanyActivity } from "../features/activity/CompanyActivity";
 import { CompanyMemory } from "../features/memory/CompanyMemory";
-import { EngineLibrary } from "../features/engines/EngineLibrary";
+import { EngineLibrary, type LibraryFocus } from "../features/engines/EngineLibrary";
 import { AgentActivity } from "../features/activity/AgentActivity";
 import { CompanyProjects, ProjectForm } from "../features/projects/CompanyProjects";
 import { CompanyStart } from "../features/start/CompanyStart";
 import { emptyPrompt, PROMPT_STORAGE } from "../features/start/prompt-composer";
-import { TaskCanvas } from "../features/tasks/TaskCanvas";
+import { TaskCanvas, type ResourceSetupKind } from "../features/tasks/TaskCanvas";
+import type { Engine } from "../features/engines/engine-inventory";
 import { WorkDetail } from "../features/tasks/WorkDetail";
 import { WorkspaceNavigation } from "./WorkspaceNavigation";
 import { QuickFind } from "./QuickFind";
@@ -126,6 +127,8 @@ export function CompanyWorkspace() {
   const [composerVersion, setComposerVersion] = useState(0);
   const [theme, setTheme] = useState(initialTheme);
   const [terminalOpen, setTerminalOpen] = useState(false);
+  const [libraryFocus, setLibraryFocus] = useState<LibraryFocus | null>(null);
+  const [memoryCreateRequest, setMemoryCreateRequest] = useState(0);
   const { route, go } = useWorkspaceRoute();
   const view = route.view,
     selectedOffice = route.officeId || null,
@@ -187,6 +190,30 @@ export function CompanyWorkspace() {
     setActivityKey(runKey);
     setDialog(null);
     setView("activity");
+  }
+  function upsertTask(task: CompanyTask) {
+    setCompany((current) => ({
+      ...current,
+      tasks: current.tasks?.some((candidate) => candidate.id === task.id)
+        ? current.tasks.map((candidate) => (candidate.id === task.id ? task : candidate))
+        : [task, ...(current.tasks || [])],
+    }));
+  }
+  function openResourceSettings(kind: ResourceSetupKind, engine: Engine) {
+    setQuery("");
+    setDialog(null);
+    if (kind === "context") {
+      setMemoryCreateRequest((request) => request + 1);
+      go({ view: "memory" });
+      return;
+    }
+    setLibraryFocus((current) => ({
+      id: (current?.id || 0) + 1,
+      kind,
+      engine,
+      openSettings: true,
+    }));
+    go({ view: "engines" });
   }
   function openDirectoryEntry(entry: DirectoryEntry) {
     setDialog(null);
@@ -626,9 +653,9 @@ export function CompanyWorkspace() {
               }}
             />
           ) : !office && view === "engines" ? (
-            <EngineLibrary query={query} />
+            <EngineLibrary query={query} focus={libraryFocus} />
           ) : !office && view === "memory" ? (
-            <CompanyMemory company={company} query={query} />
+            <CompanyMemory company={company} query={query} createRequest={memoryCreateRequest} />
           ) : !office && view === "activity" ? (
             <CompanyActivity
               runKey={activityKey}
@@ -935,6 +962,7 @@ export function CompanyWorkspace() {
                     ),
                   }))
                 }
+                openResourceSettings={openResourceSettings}
                 changeAttachments={(attachments) =>
                   setCompany((c) => ({
                     ...c,
@@ -979,13 +1007,12 @@ export function CompanyWorkspace() {
               initialProjectId={dialog.projectId}
               initialAgentId={dialog.agentId}
               storageError={storageError}
+              openResourceSettings={(task, kind, engine) => {
+                upsertTask(task);
+                openResourceSettings(kind, engine);
+              }}
               save={(task) => {
-                setCompany((c) => ({
-                  ...c,
-                  tasks: c.tasks?.some((t) => t.id === task.id)
-                    ? c.tasks.map((t) => (t.id === task.id ? task : t))
-                    : [task, ...(c.tasks || [])],
-                }));
+                upsertTask(task);
                 setDialog({ type: "inspect-task", taskId: task.id });
               }}
             />

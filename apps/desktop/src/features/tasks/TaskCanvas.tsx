@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  ArrowRight,
   Bot,
   Building2,
   Layers3,
@@ -17,6 +18,9 @@ import {
   Plus,
   Minus,
   Paperclip,
+  RefreshCw,
+  Search,
+  Settings2,
   Trash2,
 } from "lucide-react";
 import { companyDomains, type Company, type CompanyTask } from "../company/company-model";
@@ -77,6 +81,7 @@ const descriptions = {
 };
 const clamp = (n: number, max: number) => Math.max(0, Math.min(max, n));
 const stepKinds: BlockKind[] = ["task", "office", "agent", "domain", "prompt"];
+export type ResourceSetupKind = "context" | "mcp" | "skill" | "connector";
 
 export function TaskCanvas({
   company,
@@ -90,6 +95,7 @@ export function TaskCanvas({
   onAttachmentsBusy,
   changeApproval,
   changeTaskDetails,
+  openResourceSettings,
   embedded = false,
 }: {
   company: Company;
@@ -103,6 +109,7 @@ export function TaskCanvas({
   onAttachmentsBusy?: (busy: boolean) => void;
   changeApproval?: (rule: ApprovalRule) => void;
   changeTaskDetails?: (details: { title: string; brief: string }) => void;
+  openResourceSettings?: (kind: ResourceSetupKind, engine: Engine) => void;
   embedded?: boolean;
 }) {
   const [graph, setGraph] = useState(() => initialTaskCanvas(task));
@@ -133,6 +140,8 @@ export function TaskCanvas({
   const [inventory, setInventory] = useState<Inventory | null>(null),
     [discovering, setDiscovering] = useState(false),
     [discoveryError, setDiscoveryError] = useState("");
+  const [capabilityQuery, setCapabilityQuery] = useState("");
+  const discoveryRequest = useRef(0);
   const node = graph.nodes.find((n) => n.id === selected),
     edge = graph.edges.find((e) => e.id === edgeId);
   const agents = company.offices.flatMap((o) => o.agents);
@@ -302,16 +311,31 @@ export function TaskCanvas({
     return { x: (clientX - rect.left) / zoom, y: (clientY - rect.top) / zoom };
   }
   async function discover() {
+    const request = ++discoveryRequest.current;
     setDiscovering(true);
     setDiscoveryError("");
+    setInventory(null);
     try {
-      setInventory(await discoverEngine(engine, workspace.trim()));
+      const next = await discoverEngine(engine, workspace.trim());
+      if (discoveryRequest.current === request) setInventory(next);
     } catch (e) {
-      setDiscoveryError((e as Error).message);
+      if (discoveryRequest.current === request) setDiscoveryError((e as Error).message);
     } finally {
-      setDiscovering(false);
+      if (discoveryRequest.current === request) setDiscovering(false);
     }
   }
+  useEffect(() => {
+    if (!node || !["mcp", "skill", "connector"].includes(node.kind)) return;
+    setCapabilityQuery("");
+    if (["codex", "claude"].includes(node.engine) && node.engine !== engine) {
+      setEngine(node.engine as Engine);
+      return;
+    }
+    void discover();
+    return () => {
+      discoveryRequest.current++;
+    };
+  }, [selected, engine]);
   let executionIssue = "";
   let executionSteps: LiveStep[] = [];
   try {
@@ -1087,7 +1111,7 @@ export function TaskCanvas({
               {node.kind === "context" && (
                 <fieldset className="tc-context-files">
                   <legend>
-                    <Paperclip size={11} /> Task files for this step
+                    <Paperclip size={11} /> Available context
                   </legend>
                   {(task.attachments || []).length ? (
                     (task.attachments || []).map((file) => (
@@ -1107,8 +1131,30 @@ export function TaskCanvas({
                       </label>
                     ))
                   ) : (
-                    <small>Attach files from Task settings, then return here to scope them.</small>
+                    <small>No task files yet.</small>
                   )}
+                  {changeAttachments && onAttachmentsBusy && (
+                    <AttachmentEditor
+                      compact
+                      hideList
+                      value={task.attachments || []}
+                      onChange={changeAttachments}
+                      onBusy={onAttachmentsBusy}
+                    >
+                      {null}
+                    </AttachmentEditor>
+                  )}
+                  <button
+                    type="button"
+                    className="tc-resource-create"
+                    disabled={!openResourceSettings}
+                    onClick={() => openResourceSettings?.("context", engine)}
+                  >
+                    <Settings2 size={13} />
+                    Create reusable context
+                    <ArrowRight size={13} />
+                  </button>
+                  <small>Reusable facts and lessons are managed in company Memory.</small>
                 </fieldset>
               )}
               {node.kind === "approval" && (
@@ -1166,29 +1212,23 @@ export function TaskCanvas({
                 </fieldset>
               )}
               {["mcp", "skill", "connector"].includes(node.kind) && (
-                <>
-                  <label>
-                    Capability reference
-                    <input
-                      maxLength={6000}
-                      value={node.reference}
-                      onChange={(e) =>
-                        update(node.id, {
-                          reference: e.target.value,
-                          source: "",
-                          engine: "",
-                          capabilityStatus: "",
-                        })
-                      }
-                    />
-                    <small>
-                      {node.source
-                        ? `${node.capabilityStatus} in ${node.engine} · ${node.source}`
-                        : "Manual reference · saved as a draft but blocked from live execution"}
-                    </small>
-                  </label>
-                  <details className="tc-discovery">
-                    <summary>Discover local capabilities</summary>
+                <section className="tc-resource-picker">
+                  <div className="tc-resource-picker-heading">
+                    <span>
+                      <strong>Choose {blockNames[node.kind]}</strong>
+                      <small>Available to the selected engine</small>
+                    </span>
+                    <button
+                      type="button"
+                      className="co-icon-button"
+                      aria-label="Refresh available capabilities"
+                      disabled={discovering}
+                      onClick={() => void discover()}
+                    >
+                      <RefreshCw size={13} />
+                    </button>
+                  </div>
+                  <div className="tc-resource-picker-tools">
                     <label>
                       Engine
                       <select
@@ -1205,61 +1245,99 @@ export function TaskCanvas({
                         ))}
                       </select>
                     </label>
-                    <label>
-                      Workspace path (optional)
+                    <label className="tc-resource-search">
+                      <Search size={13} />
                       <input
-                        value={workspace}
-                        onChange={(e) => {
-                          setWorkspace(e.target.value);
-                          setInventory(null);
-                        }}
-                        placeholder="/absolute/project/path"
+                        aria-label={`Search available ${blockNames[node.kind]}`}
+                        value={capabilityQuery}
+                        onChange={(event) => setCapabilityQuery(event.target.value)}
+                        placeholder="Search available…"
                       />
                     </label>
-                    <button
-                      type="button"
-                      className="co-button"
-                      disabled={discovering}
-                      onClick={() => void discover()}
-                    >
-                      {discovering ? "Reading…" : "Discover references"}
-                    </button>
-                    <small>Read-only inventory; this does not install or enable anything.</small>
-                    {discoveryError && <p role="alert">{discoveryError}</p>}
-                    {inventory && (
-                      <>
-                        <p>
-                          {inventory.entries.filter((e) => e.kind === node.kind).length} matching
-                          references
-                        </p>
-                        {inventory.entries
-                          .filter((e) => e.kind === node.kind)
-                          .map((entry) => (
-                            <button
-                              type="button"
-                              className="tc-capability"
-                              key={entry.id}
-                              onClick={() =>
-                                update(node.id, {
-                                  reference: entry.id,
-                                  title: entry.name.slice(0, 120),
-                                  source: entry.source,
-                                  engine: inventory.engine,
-                                  capabilityStatus: entry.status,
-                                })
-                              }
-                            >
+                  </div>
+                  {discovering && <p role="status">Reading available capabilities…</p>}
+                  {discoveryError && <p role="alert">{discoveryError}</p>}
+                  {inventory && (
+                    <div className="tc-resource-options">
+                      {inventory.entries
+                        .filter(
+                          (entry) =>
+                            entry.kind === node.kind &&
+                            `${entry.name} ${entry.description} ${entry.scope}`
+                              .toLowerCase()
+                              .includes(capabilityQuery.toLowerCase()),
+                        )
+                        .map((entry) => (
+                          <button
+                            type="button"
+                            className={node.reference === entry.id ? "selected" : ""}
+                            aria-pressed={node.reference === entry.id}
+                            disabled={entry.status === "disabled"}
+                            key={entry.id}
+                            onClick={() =>
+                              update(node.id, {
+                                reference: entry.id,
+                                title: entry.name.slice(0, 120),
+                                source: entry.source,
+                                engine: inventory.engine,
+                                capabilityStatus: entry.status,
+                              })
+                            }
+                          >
+                            <span>
                               <strong>{entry.name}</strong>
-                              <small>
-                                {entry.status} · {entry.scope}
-                              </small>
-                            </button>
-                          ))}
-                        <small>{inventory.limitations.join(" ")}</small>
-                      </>
-                    )}
+                              <small>{entry.description || entry.source}</small>
+                            </span>
+                            <em>{entry.status}</em>
+                          </button>
+                        ))}
+                      {!inventory.entries.some(
+                        (entry) =>
+                          entry.kind === node.kind &&
+                          `${entry.name} ${entry.description} ${entry.scope}`
+                            .toLowerCase()
+                            .includes(capabilityQuery.toLowerCase()),
+                      ) && <small>No matching {blockNames[node.kind].toLowerCase()} found.</small>}
+                    </div>
+                  )}
+                  {node.source && (
+                    <small className="tc-resource-selected">
+                      Selected · {node.capabilityStatus} in {node.engine} · {node.source}
+                    </small>
+                  )}
+                  <button
+                    type="button"
+                    className="tc-resource-create"
+                    disabled={!openResourceSettings}
+                    onClick={() => openResourceSettings?.(node.kind as ResourceSetupKind, engine)}
+                  >
+                    <Settings2 size={13} />
+                    Set up new {blockNames[node.kind]}
+                    <ArrowRight size={13} />
+                  </button>
+                  {!openResourceSettings && (
+                    <small>Finish the task name and assignment before opening settings.</small>
+                  )}
+                  <details className="tc-manual-reference">
+                    <summary>Advanced · manual reference</summary>
+                    <label>
+                      Reference ID
+                      <input
+                        maxLength={6000}
+                        value={node.reference}
+                        onChange={(e) =>
+                          update(node.id, {
+                            reference: e.target.value,
+                            source: "",
+                            engine: "",
+                            capabilityStatus: "",
+                          })
+                        }
+                      />
+                    </label>
+                    <small>Manual references remain drafts and cannot run until discovered.</small>
                   </details>
-                </>
+                </section>
               )}
               <button type="button" className="co-button tc-delete" onClick={remove}>
                 <Trash2 size={13} />

@@ -151,6 +151,7 @@ export function AttachmentEditor({
   onBusy,
   disabled,
   compact = false,
+  hideList = false,
   actions,
   children,
 }: {
@@ -159,6 +160,7 @@ export function AttachmentEditor({
   onBusy: (busy: boolean) => void;
   disabled?: boolean;
   compact?: boolean;
+  hideList?: boolean;
   actions?: ReactNode;
   children: ReactNode;
 }) {
@@ -239,11 +241,13 @@ export function AttachmentEditor({
     >
       {dragging && <div className="co-attachment-drop-label">Drop files to attach</div>}
       {children}
-      <AttachmentList
-        value={value}
-        disabled={disabled || busy}
-        remove={(id) => onChange(value.filter((a) => a.id !== id))}
-      />
+      {!hideList && (
+        <AttachmentList
+          value={value}
+          disabled={disabled || busy}
+          remove={(id) => onChange(value.filter((a) => a.id !== id))}
+        />
+      )}
       <div className="co-attachment-toolbar">
         <input
           ref={input}

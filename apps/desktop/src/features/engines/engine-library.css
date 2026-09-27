@@ -91,6 +91,24 @@
   font-size: 15px;
   font-weight: 600;
 }
+.co-engine-setup-note {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--co-border);
+  border-radius: 7px;
+  background: var(--co-soft);
+}
+.co-engine-setup-note strong {
+  flex: none;
+  font-size: 10px;
+  font-weight: 600;
+}
+.co-engine-setup-note p {
+  margin: 0;
+}
 .co-engine-settings p {
   margin: 5px 0 0;
   color: var(--co-muted);
