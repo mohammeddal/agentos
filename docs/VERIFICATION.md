@@ -4,6 +4,12 @@ Branch: `codex/agentos-ux-cleanup`.
 
 This records the earlier UX-only change. For the subsequent native runtime integration, see [Live execution](LIVE-EXECUTION.md). The Codex transport passed actual reply and conversation-resume tests; Claude returned a revoked-token 401 and requires reauthentication before successful generation can be verified.
 
+## Workflow input-placement follow-up
+
+- Moved the selected step's **Inputs & capabilities** actions from Block settings into the top of the left building-block palette beside Work, Resources, and Control.
+- The palette now shows the selected step, attachment count, compact two-column actions, Approval next, and any attached resources. The right inspector contains only configuration fields for the selected block or connection.
+- Desktop browser QA confirmed the new hierarchy and empty console; no task was saved and no provider run was started. All 192 Vitest tests and TypeScript checks passed.
+
 ## Removable workflow entry follow-up
 
 - The initial Task block is now an optional convenience instead of a permanent graph root. It can be removed from its inspector or with Delete/Backspace and restored from the Work palette.

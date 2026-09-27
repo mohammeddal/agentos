@@ -51,8 +51,10 @@
 .tc-palette {
   padding: 22px 12px;
   border-right: 1px solid var(--co-border);
+  max-height: 610px;
+  overflow: auto;
 }
-.tc-palette > p {
+.tc-palette > p:not(.tc-palette-input-empty) {
   font-size: 11px;
   line-height: 1.6;
   color: var(--co-muted);
@@ -353,63 +355,90 @@
 .tc-root-files .co-attachment-list {
   grid-template-columns: 1fr;
 }
-.tc-step-inputs {
-  border: 1px solid var(--co-border);
-  border-radius: 10px;
-  padding: 12px;
-  margin: 0 0 18px;
-  background: var(--co-soft);
+.tc-palette-inputs {
+  display: grid;
+  gap: 7px;
+  margin: 16px 6px 0;
+  padding-top: 15px;
+  border-top: 1px solid var(--co-border);
 }
-.tc-step-inputs > div:first-child {
+.tc-palette-inputs-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 10px;
-  font-size: 11px;
+  color: var(--co-secondary);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
-.tc-step-inputs > div:first-child span {
+.tc-palette-inputs-heading em {
   color: var(--co-muted);
   font-size: 9px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0;
 }
-.tc-quick-add {
+.tc-palette-inputs > strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 550;
+}
+.tc-palette-inputs > small,
+.tc-palette-input-empty {
+  color: var(--co-muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+.tc-palette-input-empty {
+  margin: 16px 6px 0;
+  padding-top: 15px;
+  border-top: 1px solid var(--co-border);
+}
+.tc-palette-input-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 3px;
+}
+.tc-palette-input-actions button,
+.tc-palette-attached {
+  width: 100%;
+  min-width: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 9px;
-}
-.tc-quick-add button,
-.tc-attached-resource {
+  align-items: center;
+  gap: 7px;
+  padding: 7px 8px;
   border: 1px solid var(--co-border);
   border-radius: 6px;
   background: var(--co-card);
   color: var(--co-secondary);
   cursor: pointer;
   font: inherit;
-}
-.tc-quick-add button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 7px;
   font-size: 9px;
+  text-align: left;
 }
-.tc-quick-add button:hover,
-.tc-attached-resource:hover {
+.tc-palette-input-actions button:last-child {
+  grid-column: 1 / -1;
+}
+.tc-palette-input-actions button:hover,
+.tc-palette-attached:hover {
   border-color: var(--co-accent);
   color: var(--co-text);
 }
-.tc-attached-resource {
-  display: flex;
-  width: 100%;
+.tc-palette-attached {
   justify-content: space-between;
-  gap: 8px;
-  padding: 7px 8px;
-  margin: 5px 0;
-  text-align: left;
-  font-size: 9px;
+  background: var(--co-soft);
 }
-.tc-attached-resource strong {
+.tc-palette-attached span {
+  color: var(--co-muted);
+}
+.tc-palette-attached strong {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -622,9 +651,11 @@
     padding: 12px;
     border-right: 0;
     border-bottom: 1px solid var(--co-border);
+    max-height: none;
+    overflow: visible;
   }
   .tc-palette > .co-section-kicker,
-  .tc-palette > p,
+  .tc-palette > p:not(.tc-palette-input-empty),
   .tc-legend {
     display: none;
   }
@@ -638,6 +669,14 @@
   }
   .tc-palette-block strong {
     font-size: 10px;
+  }
+  .tc-palette-inputs,
+  .tc-palette-input-empty {
+    width: 100%;
+    margin: 8px 0 0;
+  }
+  .tc-palette-input-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .tc-canvas {
     height: 380px;

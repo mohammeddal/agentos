@@ -504,6 +504,55 @@ export function TaskCanvas({
             <br />
             or click to add.
           </p>
+          {node && stepKinds.includes(node.kind) ? (
+            <section className="tc-palette-inputs" aria-label={`Inputs for ${node.title}`}>
+              <div className="tc-palette-inputs-heading">
+                <span>Inputs & capabilities</span>
+                <em>
+                  {
+                    graph.edges.filter((item) => item.kind === "attachment" && item.to === node.id)
+                      .length
+                  }
+                </em>
+              </div>
+              <strong>{node.title || blockNames[node.kind]}</strong>
+              <small>Add directly to this step.</small>
+              <div className="tc-palette-input-actions">
+                {(["context", "mcp", "skill", "connector"] as const).map((kind) => {
+                  const Icon = icons[kind];
+                  return (
+                    <button type="button" key={kind} onClick={() => attach(kind, node)}>
+                      <Icon size={13} />
+                      {blockNames[kind]}
+                    </button>
+                  );
+                })}
+                <button type="button" onClick={() => addApprovalAfter(node)}>
+                  <ShieldCheck size={13} />
+                  Approval next
+                </button>
+              </div>
+              {graph.edges
+                .filter((item) => item.kind === "attachment" && item.to === node.id)
+                .map((item) => graph.nodes.find((candidate) => candidate.id === item.from)!)
+                .map((resource) => (
+                  <button
+                    type="button"
+                    className="tc-palette-attached"
+                    key={resource.id}
+                    onClick={() => {
+                      setSelected(resource.id);
+                      setEdgeId("");
+                    }}
+                  >
+                    <span>{blockNames[resource.kind]}</span>
+                    <strong>{resource.title}</strong>
+                  </button>
+                ))}
+            </section>
+          ) : (
+            <p className="tc-palette-input-empty">Select a work block to add its inputs.</p>
+          )}
           {(
             [
               { label: "Work", kinds: ["task", "office", "domain", "agent", "prompt"] },
@@ -1003,51 +1052,6 @@ export function TaskCanvas({
                   steps={executionSteps.filter((s) => s.id.startsWith(`canvas-${node.id}-`))}
                   save={saveModels}
                 />
-              )}
-              {stepKinds.includes(node.kind) && (
-                <section className="tc-step-inputs" aria-label={`Inputs for ${node.title}`}>
-                  <div>
-                    <strong>Inputs & capabilities</strong>
-                    <span>
-                      {
-                        graph.edges.filter(
-                          (item) => item.kind === "attachment" && item.to === node.id,
-                        ).length
-                      }{" "}
-                      attached
-                    </span>
-                  </div>
-                  <div className="tc-quick-add">
-                    {(["context", "mcp", "skill", "connector"] as const).map((kind) => (
-                      <button type="button" key={kind} onClick={() => attach(kind, node)}>
-                        <Plus size={11} /> {blockNames[kind]}
-                      </button>
-                    ))}
-                    <button type="button" onClick={() => addApprovalAfter(node)}>
-                      <ShieldCheck size={11} /> Approval next
-                    </button>
-                  </div>
-                  {graph.edges
-                    .filter((item) => item.kind === "attachment" && item.to === node.id)
-                    .map((item) => graph.nodes.find((candidate) => candidate.id === item.from)!)
-                    .map((resource) => (
-                      <button
-                        type="button"
-                        className="tc-attached-resource"
-                        key={resource.id}
-                        onClick={() => {
-                          setSelected(resource.id);
-                          setEdgeId("");
-                        }}
-                      >
-                        {blockNames[resource.kind]} <strong>{resource.title}</strong>
-                      </button>
-                    ))}
-                  <small>
-                    Attach only what this step needs. Files and context stay scoped to this step;
-                    required provider capabilities are checked when the plan compiles.
-                  </small>
-                </section>
               )}
               {node.kind === "context" && (
                 <label>
