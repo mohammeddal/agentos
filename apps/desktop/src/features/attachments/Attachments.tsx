@@ -150,12 +150,16 @@ export function AttachmentEditor({
   onChange,
   onBusy,
   disabled,
+  compact = false,
+  actions,
   children,
 }: {
   value: Attachment[];
   onChange: (value: Attachment[]) => void;
   onBusy: (busy: boolean) => void;
   disabled?: boolean;
+  compact?: boolean;
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   const input = useRef<HTMLInputElement>(null);
@@ -209,7 +213,7 @@ export function AttachmentEditor({
   }
   return (
     <div
-      className={`co-attachment-editor ${dragging ? "is-dragging" : ""}`}
+      className={`co-attachment-editor ${compact ? "is-compact" : ""} ${dragging ? "is-dragging" : ""}`}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes("Files")) {
           e.preventDefault();
@@ -255,24 +259,29 @@ export function AttachmentEditor({
         <button
           type="button"
           className="co-attach-button"
+          aria-label={busy ? "Adding files" : "Attach files"}
+          title={busy ? "Adding files…" : "Attach files"}
           disabled={disabled || busy}
           onClick={() => input.current?.click()}
         >
           <Paperclip size={15} />
-          {busy ? "Adding files…" : "Attach files"}
+          {!compact && (busy ? "Adding files…" : "Attach files")}
         </button>
-        <span>or drop files / paste images</span>
+        {!compact && <span>or drop files / paste images</span>}
+        {actions && <div className="co-attachment-actions">{actions}</div>}
       </div>
-      <details className="co-attachment-help">
-        <summary>Supported files & privacy</summary>
-        <p>
-          PNG, JPEG, WebP, GIF, text PDFs, and UTF-8 text/code. Up to 8 files, 5 MB each, 20 MB
-          total. Documents: up to 100 KB of text each, 200 KB combined. Scanned PDFs: attach page
-          images instead. Files are copied locally; sending shares their contents with the selected
-          provider. Task attachments are shared with its participating agents when run.
-        </p>
-      </details>
-      {value.length > 0 && (
+      {!compact && (
+        <details className="co-attachment-help">
+          <summary>Supported files & privacy</summary>
+          <p>
+            PNG, JPEG, WebP, GIF, text PDFs, and UTF-8 text/code. Up to 8 files, 5 MB each, 20 MB
+            total. Documents: up to 100 KB of text each, 200 KB combined. Scanned PDFs: attach page
+            images instead. Files are copied locally; sending shares their contents with the
+            selected provider. Task attachments are shared with its participating agents when run.
+          </p>
+        </details>
+      )}
+      {!compact && value.length > 0 && (
         <p className="co-attachment-sharing">
           {value.length} {value.length === 1 ? "file" : "files"} attached · Shared with the selected
           engine when sent or run.

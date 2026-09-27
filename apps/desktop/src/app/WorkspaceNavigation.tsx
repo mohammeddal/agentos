@@ -98,7 +98,7 @@ export function WorkspaceNavigation({
           );
         })}
       </nav>
-      <WorkspaceDirectory {...directory} />
+      {primaryView(view) !== "start" && <WorkspaceDirectory {...directory} />}
       <div className="co-sidebar-bottom">
         {(pending > 0 || active > 0 || !live.native) && (
           <button

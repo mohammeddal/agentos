@@ -6,6 +6,13 @@ This records the earlier UX-only change. For the subsequent native runtime integ
 
 ## Native execution follow-up
 
+### Clean Start composer follow-up
+
+- Rebuilt Start as a chat-first surface: a quiet centered invitation, an auto-growing composer anchored to the bottom, an attachment control, compact engine/settings disclosure, and one send arrow. Enter sends; Shift+Enter inserts a newline.
+- Removed the projects/chats/tasks directory from Start in both the desktop sidebar and compact navigation drawer. Tasks and Projects retain the directory where it is useful. Model, effort, engine, project association, task conversion, assignee choice, provider setup, and privacy details remain available inside the upward-opening settings panel.
+- Isolated Chromium checks covered desktop and 390 × 844 layouts, closed/open settings states, Escape dismissal, Shift+Enter multiline input, mobile navigation without recents, and zero console errors. No native provider request or saved native record was changed.
+- 180 Vitest tests across 28 files passed. Typecheck, formatting, whitespace checks, the 127-file source audit, and final `.app`/`.dmg` packaging passed.
+
 ### Interface restraint follow-up
 
 - Consolidated creation so Tasks, Projects, Offices, Agents, and Domains each have one visible page-level action. The Company map has one **Create…** menu; the duplicate expansion-room action, empty-state CTAs, add cards, office-open footer buttons, and sidebar project-plus button were removed. The sidebar’s three-dot menu remains its single global creation path.

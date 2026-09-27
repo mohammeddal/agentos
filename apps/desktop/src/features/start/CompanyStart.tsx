@@ -22,7 +22,6 @@ import { EngineSetup } from "../engines/LiveExecution";
 import { ModelPicker } from "../engines/ModelPicker";
 import { engineId } from "../engines/live-runtime";
 import { AttachmentEditor } from "../attachments/Attachments";
-import { HelpTip } from "../../shared/HelpTip";
 
 export function CompanyStart({
   company,
@@ -86,6 +85,7 @@ export function CompanyStart({
   const [notice, setNotice] = useState("");
   const [sending, setSending] = useState(false);
   const [attaching, setAttaching] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const live = useLiveRuntime();
   const [createdTaskId, setCreatedTaskId] = useState("");
   const input = useRef<HTMLTextAreaElement>(null);
@@ -120,6 +120,11 @@ export function CompanyStart({
       );
     }
   }, [draft, initial.error, storageKey]);
+  useEffect(() => {
+    if (!input.current) return;
+    input.current.style.height = "auto";
+    input.current.style.height = `${Math.min(input.current.scrollHeight, 220)}px`;
+  }, [draft.text]);
   const update = (values: Partial<PromptDraft>) => {
     setDraft((d) => ({ ...d, ...values }));
     setNotice("");
@@ -230,14 +235,7 @@ export function CompanyStart({
           <h1>
             {chat ? chat.messages[0]?.text || "Conversation" : "What would you like to work on?"}
           </h1>
-          {chat && <p>Continue here. Steps, approvals, and logs are in Activity.</p>}
         </div>
-        {!live.native || live.engines.some((e) => !e.installed) ? (
-          <details className="co-start-setup">
-            <summary>Engine setup</summary>
-            <EngineSetup />
-          </details>
-        ) : null}
         {selectedChatId && !selectedChat && (
           <p role="alert">
             This chat is archived, removed, or unavailable. Restore it from the sidebar directory.
@@ -256,216 +254,6 @@ export function CompanyStart({
             </div>
           </>
         )}
-        <form
-          className="co-prompt-box"
-          onKeyDown={(e) => {
-            // A native select's Enter key must not trigger implicit form submission.
-            if (e.key === "Enter" && e.target instanceof HTMLSelectElement) e.preventDefault();
-          }}
-          onSubmit={(e) => {
-            e.preventDefault();
-            submit();
-          }}
-        >
-          <div className="co-prompt-label-row">
-            <label className="co-prompt-label" htmlFor="company-prompt">
-              {draft.makeTask
-                ? "Describe the task"
-                : chat
-                  ? "Continue the conversation"
-                  : "Your prompt"}
-            </label>
-            <HelpTip label="About prompts and privacy" align="end">
-              History stays on this Mac. Sending shares this prompt and its attachments with the
-              selected provider.
-            </HelpTip>
-          </div>
-          <AttachmentEditor
-            value={draft.attachments || []}
-            onChange={(attachments) => update({ attachments })}
-            onBusy={setAttaching}
-            disabled={sending || running}
-          >
-            <textarea
-              ref={input}
-              id="company-prompt"
-              rows={3}
-              maxLength={3000}
-              placeholder={
-                draft.makeTask
-                  ? "What should get done?"
-                  : "Ask a question or describe what you want to do…"
-              }
-              value={draft.text}
-              disabled={sending}
-              onChange={(e) => update({ text: e.target.value })}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  submit();
-                }
-              }}
-            />
-          </AttachmentEditor>
-          <div className="co-prompt-controls">
-            <label className="co-prompt-task-toggle">
-              <input
-                type="checkbox"
-                checked={draft.makeTask}
-                onChange={(e) =>
-                  update({
-                    makeTask: e.target.checked,
-                    ...(!e.target.checked && chat ? { projectId: chat.projectId || "" } : {}),
-                  })
-                }
-              />
-              <ClipboardList size={14} />
-              Make this a task
-            </label>
-            {!!company.projects?.length || projectMissing ? (
-              <label>
-                Project
-                <select
-                  aria-label="Prompt project"
-                  disabled={!!chat && !draft.makeTask}
-                  value={draft.projectId}
-                  onChange={(e) => update({ projectId: e.target.value })}
-                >
-                  <option value="">Company-wide</option>
-                  {projectMissing && <option value={draft.projectId}>Unavailable project</option>}
-                  {(company.projects || []).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-          </div>
-          {draft.makeTask ? (
-            <div className="co-prompt-task-options">
-              <label>
-                Assign to
-                <select
-                  aria-label="Quick task assignee"
-                  value={draft.target}
-                  onChange={(e) => update({ target: e.target.value })}
-                >
-                  <option value="">Choose a domain or agent</option>
-                  <optgroup label="Domains">
-                    {companyDomains(company).map((d) => (
-                      <option key={d} value={`d:${d}`}>
-                        {d}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Agents">
-                    {company.offices.flatMap((o) =>
-                      o.agents.map((a) => (
-                        <option key={a.id} value={`a:${a.id}`}>
-                          {a.name} · {o.name}
-                        </option>
-                      )),
-                    )}
-                  </optgroup>
-                </select>
-              </label>
-              <span>
-                <ShieldCheck size={13} />
-                Your approval required
-              </span>
-              <HelpTip label="About quick tasks" align="end">
-                Create the task first, then use its editor or Workflow map for more assignees,
-                schedules, and handoffs.
-              </HelpTip>
-            </div>
-          ) : (
-            <div className="co-prompt-provider">
-              <div className="co-prompt-engine">
-                <label>
-                  Engine
-                  <select
-                    aria-label="Chat engine preference"
-                    disabled={!!chat}
-                    value={draft.engine}
-                    onChange={(e) => update({ engine: e.target.value, modelChoice: {} })}
-                  >
-                    {[...new Set(["Codex", "Claude Code", draft.engine])].map((engine) => (
-                      <option key={engine}>{engine}</option>
-                    ))}
-                  </select>
-                </label>
-                <span>{live.native ? "Read-only chat" : "Mac app required to send"}</span>
-              </div>
-              <details className="co-prompt-options">
-                <summary>
-                  <SlidersHorizontal size={14} /> Model & effort{" "}
-                  <span>
-                    {draft.modelChoice?.model || "Recommended model"} ·{" "}
-                    {draft.modelChoice?.effort || "Default effort"}
-                  </span>
-                </summary>
-                {["Codex", "Claude Code"].includes(draft.engine) && (
-                  <ModelPicker
-                    engine={engineId(draft.engine)}
-                    value={draft.modelChoice}
-                    onChange={(modelChoice) => update({ modelChoice })}
-                    label="Chat"
-                    disabled={sending || running}
-                  />
-                )}
-              </details>
-            </div>
-          )}
-          {draft.makeTask &&
-            taskEngines
-              .filter((e) => ["Codex", "Claude Code"].includes(e))
-              .map((engine) => (
-                <div key={engine} className="co-prompt-options">
-                  <small>{engine} · Task default</small>
-                  <ModelPicker
-                    engine={engineId(engine)}
-                    value={draft.modelDefaults?.[engineId(engine)]}
-                    label={`${engine} task default`}
-                    onChange={(choice) =>
-                      update({
-                        modelDefaults: { ...draft.modelDefaults, [engineId(engine)]: choice },
-                      })
-                    }
-                  />
-                </div>
-              ))}
-          <footer>
-            <small>
-              {draft.makeTask
-                ? "Saved as a plan · Won’t run until you start it"
-                : "⌘ / Ctrl + Enter to send"}
-              {draft.text.length > 2700 ? ` · ${draft.text.length}/3,000` : ""}
-            </small>
-            <button
-              className="co-button co-button-primary"
-              disabled={
-                (!!selectedChatId && !selectedChat) ||
-                sending ||
-                attaching ||
-                running ||
-                (!draft.makeTask && !live.native) ||
-                !draft.text.trim() ||
-                !!error ||
-                (draft.makeTask && !!linkedTask)
-              }
-            >
-              {sending
-                ? "Starting…"
-                : running
-                  ? "Engine working…"
-                  : draft.makeTask
-                    ? "Create task"
-                    : "Send message"}
-              <ArrowUp size={16} />
-            </button>
-          </footer>
-        </form>
         {draft.makeTask && linkedTask && (
           <p className="co-form-note">
             This chat already has a task. Open its linked task to edit it, or start a new prompt.
@@ -492,6 +280,243 @@ export function CompanyStart({
             {storageError}
           </p>
         )}
+        <form
+          className="co-prompt-box"
+          onKeyDown={(e) => {
+            // A native select's Enter key must not trigger implicit form submission.
+            if (e.key === "Enter" && e.target instanceof HTMLSelectElement) e.preventDefault();
+          }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
+        >
+          <AttachmentEditor
+            value={draft.attachments || []}
+            onChange={(attachments) => update({ attachments })}
+            onBusy={setAttaching}
+            disabled={sending || running}
+            compact
+            actions={
+              <>
+                <details
+                  className="co-composer-settings"
+                  open={settingsOpen}
+                  onToggle={(event) => setSettingsOpen(event.currentTarget.open)}
+                  onBlur={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget)) {
+                      setSettingsOpen(false);
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.stopPropagation();
+                      setSettingsOpen(false);
+                      event.currentTarget.querySelector("summary")?.focus();
+                    }
+                  }}
+                >
+                  <summary
+                    aria-label="Chat settings"
+                    title="Chat settings"
+                    onClick={(event) => {
+                      if (settingsOpen) return;
+                      const root = event.currentTarget.parentElement;
+                      requestAnimationFrame(() =>
+                        root?.querySelector<HTMLSelectElement>("select")?.focus(),
+                      );
+                    }}
+                  >
+                    <SlidersHorizontal size={15} />
+                    <span>{draft.engine}</span>
+                  </summary>
+                  {settingsOpen && (
+                    <div className="co-composer-settings-panel">
+                      <header>
+                        <strong>Chat settings</strong>
+                        <small>
+                          {draft.modelChoice?.model || "Recommended model"} ·{" "}
+                          {draft.modelChoice?.effort || "Default effort"}
+                        </small>
+                      </header>
+                      <label>
+                        Engine
+                        <select
+                          aria-label="Chat engine preference"
+                          disabled={!!chat}
+                          value={draft.engine}
+                          onChange={(e) => update({ engine: e.target.value, modelChoice: {} })}
+                        >
+                          {[...new Set(["Codex", "Claude Code", draft.engine])].map((engine) => (
+                            <option key={engine}>{engine}</option>
+                          ))}
+                        </select>
+                      </label>
+                      {!draft.makeTask && ["Codex", "Claude Code"].includes(draft.engine) && (
+                        <ModelPicker
+                          engine={engineId(draft.engine)}
+                          value={draft.modelChoice}
+                          onChange={(modelChoice) => update({ modelChoice })}
+                          label="Chat"
+                          disabled={sending || running}
+                        />
+                      )}
+                      <label className="co-prompt-task-toggle">
+                        <input
+                          type="checkbox"
+                          checked={draft.makeTask}
+                          onChange={(e) =>
+                            update({
+                              makeTask: e.target.checked,
+                              ...(!e.target.checked && chat
+                                ? { projectId: chat.projectId || "" }
+                                : {}),
+                            })
+                          }
+                        />
+                        <ClipboardList size={14} />
+                        Create as a task
+                      </label>
+                      {!!company.projects?.length || projectMissing ? (
+                        <label>
+                          Project
+                          <select
+                            aria-label="Prompt project"
+                            disabled={!!chat && !draft.makeTask}
+                            value={draft.projectId}
+                            onChange={(e) => update({ projectId: e.target.value })}
+                          >
+                            <option value="">Company-wide</option>
+                            {projectMissing && (
+                              <option value={draft.projectId}>Unavailable project</option>
+                            )}
+                            {(company.projects || []).map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                      {draft.makeTask && (
+                        <div className="co-prompt-task-options">
+                          <label>
+                            Assign to
+                            <select
+                              aria-label="Quick task assignee"
+                              value={draft.target}
+                              onChange={(e) => update({ target: e.target.value })}
+                            >
+                              <option value="">Choose a domain or agent</option>
+                              <optgroup label="Domains">
+                                {companyDomains(company).map((d) => (
+                                  <option key={d} value={`d:${d}`}>
+                                    {d}
+                                  </option>
+                                ))}
+                              </optgroup>
+                              <optgroup label="Agents">
+                                {company.offices.flatMap((o) =>
+                                  o.agents.map((a) => (
+                                    <option key={a.id} value={`a:${a.id}`}>
+                                      {a.name} · {o.name}
+                                    </option>
+                                  )),
+                                )}
+                              </optgroup>
+                            </select>
+                          </label>
+                          <span>
+                            <ShieldCheck size={13} />
+                            Your approval is required before execution
+                          </span>
+                        </div>
+                      )}
+                      {draft.makeTask &&
+                        taskEngines
+                          .filter((engine) => ["Codex", "Claude Code"].includes(engine))
+                          .map((engine) => (
+                            <div key={engine} className="co-prompt-options">
+                              <small>{engine} · Task default</small>
+                              <ModelPicker
+                                engine={engineId(engine)}
+                                value={draft.modelDefaults?.[engineId(engine)]}
+                                label={`${engine} task default`}
+                                onChange={(choice) =>
+                                  update({
+                                    modelDefaults: {
+                                      ...draft.modelDefaults,
+                                      [engineId(engine)]: choice,
+                                    },
+                                  })
+                                }
+                              />
+                            </div>
+                          ))}
+                      {!live.native || live.engines.some((engine) => !engine.installed) ? (
+                        <details className="co-start-setup">
+                          <summary>Engine setup</summary>
+                          <EngineSetup />
+                        </details>
+                      ) : null}
+                      <p className="co-composer-privacy">
+                        History stays on this Mac. Sending shares this prompt and its attachments
+                        with the selected provider.
+                      </p>
+                    </div>
+                  )}
+                </details>
+                {draft.text.length > 2700 && (
+                  <span className="co-composer-count">{draft.text.length}/3,000</span>
+                )}
+                <button
+                  className="co-composer-send"
+                  aria-label={draft.makeTask ? "Create task" : "Send message"}
+                  title={
+                    sending
+                      ? "Starting…"
+                      : running
+                        ? "Engine working…"
+                        : draft.makeTask
+                          ? "Create task"
+                          : "Send · Enter"
+                  }
+                  disabled={
+                    (!!selectedChatId && !selectedChat) ||
+                    sending ||
+                    attaching ||
+                    running ||
+                    (!draft.makeTask && !live.native) ||
+                    !draft.text.trim() ||
+                    !!error ||
+                    (draft.makeTask && !!linkedTask)
+                  }
+                >
+                  <ArrowUp size={16} />
+                </button>
+              </>
+            }
+          >
+            <textarea
+              ref={input}
+              id="company-prompt"
+              rows={1}
+              maxLength={3000}
+              placeholder={
+                draft.makeTask ? "Describe the task…" : chat ? "Reply…" : "Ask AgentOS anything…"
+              }
+              value={draft.text}
+              disabled={sending}
+              onChange={(e) => update({ text: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+            />
+          </AttachmentEditor>
+        </form>
       </div>
     </section>
   );
