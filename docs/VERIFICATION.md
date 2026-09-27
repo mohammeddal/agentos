@@ -4,6 +4,13 @@ Branch: `codex/agentos-ux-cleanup`.
 
 This records the earlier UX-only change. For the subsequent native runtime integration, see [Live execution](LIVE-EXECUTION.md). The Codex transport passed actual reply and conversation-resume tests; Claude returned a revoked-token 401 and requires reauthentication before successful generation can be verified.
 
+## Activity progressive-disclosure follow-up
+
+- Replaced the oversized Activity view selector with compact **Runs / Rehearsals** controls and converted live history into a scannable status inbox.
+- Completed runs now default to collapsed rows containing title, engine, timestamp, step count, status, and a sanitized one-line output summary. Selecting the header or summary reveals the full response; technical steps, workspace, and event logs remain under a separate disclosure. Approval and failure filters remain unchanged.
+- Native WebKit verification used the three existing saved Codex runs: all rendered as compact summaries, the first expanded on click, and its eight-event technical disclosure remained collapsed. No provider request or saved activity was changed during inspection.
+- All 190 Vitest tests passed together with TypeScript, formatting, production build, whitespace, and source reachability checks. The final macOS app bundle was installed and reopened for the native inspection.
+
 ## Workflow-only task editor follow-up
 
 - Removed the duplicated **Task & team** editor. New and ordinary existing tasks open directly in the expanded **Workflow map**, with **Schedule** as the only secondary tab.

@@ -105,7 +105,7 @@ Tasks and individual handoffs can require **My approval** or **Reviewer agent ap
 
 **Activity** separates two surfaces:
 
-- **Live status** reports the current disconnected integration state, planned tasks, and configured restrictions. It does not claim that disconnected agents are idle or running. The office map now defaults to disconnected status too; sample activity remains opt-in.
+- **Runs** is a compact, newest-first inbox of real local engine activity. Each row shows title, engine, time, step count, status, and a one-line result summary. Select a row to reveal its complete response or error; **Steps & activity** remains a second disclosure for workspace, per-step output, and provider-published events. Pending approvals and failures stay visible through status and filters without expanding every completed response.
 - **Approval rehearsal** runs a deterministic, local-only simulation from a frozen plan snapshot. Review queues separate human and designated-agent gates. Decisions apply to one action in one rehearsal; all applicable gates must pass. Rejection requires a reason and skips dependent steps. Canceling closes pending requests. Manual sample outcomes advance branches; a decision history and run state persist under `agentos:rehearsals:v1`. Agent decisions are explicitly simulated by the user, not produced by a real reviewer engine. Linked tasks are opaque simulated actions and retain their own start gate; their internal workflows are not expanded.
 
 Live enforcement must be connected to a trusted execution dispatcher, verified reviewer identities, and action-scoped approval records before any engine or external tool is allowed to run. Local browser state and rehearsal decisions are not authorization for real execution.

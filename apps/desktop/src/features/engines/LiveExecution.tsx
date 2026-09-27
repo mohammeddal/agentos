@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useId, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { isTauri } from "@tauri-apps/api/core";
 import type { Company, CompanyTask } from "../company/company-model";
 import {
@@ -17,7 +18,13 @@ import { NotificationSettings } from "./live-notifications";
 import { pauseSchedule, setSchedule, useScheduleState } from "./live-schedules";
 import { TaskModels } from "./TaskModels";
 import { AssistantMessage } from "../../shared/AssistantMessage";
-import { matchesRunFilter, runFilters, type RunFilter } from "./run-presentation";
+import {
+  matchesRunFilter,
+  runFilters,
+  runLabel,
+  runSummary,
+  type RunFilter,
+} from "./run-presentation";
 
 export function EngineSetup() {
   const { engines, native, error } = useLiveRuntime();
@@ -77,9 +84,11 @@ export function EngineSetup() {
     </section>
   );
 }
-export function LiveRunCard({ run }: { run: LiveRun }) {
+export function LiveRunCard({ run, collapsible = false }: { run: LiveRun; collapsible?: boolean }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(!collapsible);
+  const detailId = useId();
   async function control(approvalId?: string, allow?: boolean) {
     setBusy(true);
     setError("");
@@ -91,23 +100,8 @@ export function LiveRunCard({ run }: { run: LiveRun }) {
       setBusy(false);
     }
   }
-  return (
-    <article className="co-live-run" aria-label={`Run ${run.request.title}`}>
-      <header>
-        <div>
-          <strong>{run.request.title}</strong>
-          <small>
-            {run.engine === "codex" ? "Codex" : "Claude Code"} ·{" "}
-            {new Date(run.createdAt).toLocaleString()}
-          </small>
-        </div>
-        <span className={`co-live-status ${run.status}`}>{run.status.replaceAll("_", " ")}</span>
-        {isActiveRun(run) && (
-          <button className="co-button" disabled={busy} onClick={() => void control()}>
-            Stop
-          </button>
-        )}
-      </header>
+  const details = (
+    <div className="co-live-run-details" id={detailId}>
       {run.approvals.map((approval) => (
         <section className="co-live-approval" key={approval.id}>
           <strong>{approval.title}</strong>
@@ -146,8 +140,10 @@ export function LiveRunCard({ run }: { run: LiveRun }) {
           {error}
         </p>
       )}
-      <details>
-        <summary>Steps & activity · {run.events.length} events</summary>
+      <details className="co-live-evidence">
+        <summary>
+          Steps & activity <span>{run.events.length} events</span>
+        </summary>
         <p>
           Workspace: <code>{run.cwd}</code>
         </p>
@@ -173,6 +169,73 @@ export function LiveRunCard({ run }: { run: LiveRun }) {
           Provider-published activity only. Private internal reasoning is not displayed.
         </small>
       </details>
+    </div>
+  );
+  return (
+    <article
+      className={`co-live-run ${collapsible ? "is-collapsible" : ""} ${expanded ? "is-expanded" : ""}`}
+      aria-label={`Run ${run.request.title}`}
+    >
+      {collapsible ? (
+        <>
+          <header className="co-live-run-summary">
+            <button
+              type="button"
+              className="co-live-run-toggle"
+              aria-expanded={expanded}
+              aria-controls={detailId}
+              onClick={() => setExpanded((value) => !value)}
+            >
+              <span className={`co-live-state-dot ${run.status}`} aria-hidden="true" />
+              <span className="co-live-run-title">
+                <strong>{run.request.title}</strong>
+                <small>
+                  {run.engine === "codex" ? "Codex" : "Claude Code"} ·{" "}
+                  {new Date(run.createdAt).toLocaleString()} · {run.request.steps.length}{" "}
+                  {run.request.steps.length === 1 ? "step" : "steps"}
+                </small>
+              </span>
+              <span className={`co-live-status ${run.status}`}>{runLabel(run)}</span>
+              <ChevronDown size={16} aria-hidden="true" />
+            </button>
+            {isActiveRun(run) && (
+              <button className="co-button" disabled={busy} onClick={() => void control()}>
+                Stop
+              </button>
+            )}
+          </header>
+          {!expanded && (
+            <button
+              type="button"
+              className="co-live-run-preview"
+              aria-label={`Expand ${run.request.title}`}
+              onClick={() => setExpanded(true)}
+            >
+              {runSummary(run)}
+            </button>
+          )}
+          {expanded && details}
+        </>
+      ) : (
+        <>
+          <header>
+            <div>
+              <strong>{run.request.title}</strong>
+              <small>
+                {run.engine === "codex" ? "Codex" : "Claude Code"} ·{" "}
+                {new Date(run.createdAt).toLocaleString()}
+              </small>
+            </div>
+            <span className={`co-live-status ${run.status}`}>{runLabel(run)}</span>
+            {isActiveRun(run) && (
+              <button className="co-button" disabled={busy} onClick={() => void control()}>
+                Stop
+              </button>
+            )}
+          </header>
+          {details}
+        </>
+      )}
     </article>
   );
 }
@@ -180,10 +243,12 @@ export function LiveHistory({
   runKey,
   agentId,
   query = "",
+  summaryView = false,
 }: {
   runKey?: string;
   agentId?: string;
   query?: string;
+  summaryView?: boolean;
 }) {
   const { runs, error, native } = useLiveRuntime();
   const [filter, setFilter] = useState<RunFilter>("all");
@@ -199,7 +264,10 @@ export function LiveHistory({
     )
     .sort((a, b) => b.createdAt - a.createdAt);
   return (
-    <section className="co-live-history" aria-label="Live execution history">
+    <section
+      className={`co-live-history ${summaryView ? "is-summary-view" : ""}`}
+      aria-label="Live execution history"
+    >
       {!runKey && (
         <header>
           <div className="co-work-filters" role="group" aria-label="Filter live runs">
@@ -250,7 +318,7 @@ export function LiveHistory({
         </p>
       )}
       {matched.slice(0, limit).map((run) => (
-        <LiveRunCard key={run.request.id} run={run} />
+        <LiveRunCard key={run.request.id} run={run} collapsible={summaryView} />
       ))}
       {matched.length > limit && (
         <button className="co-button" onClick={() => setLimit((n) => n + 10)}>

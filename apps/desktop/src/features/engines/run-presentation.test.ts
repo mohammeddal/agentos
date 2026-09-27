@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LiveRun } from "./live-runtime";
-import { latestRun, matchesRunFilter, runLabel } from "./run-presentation";
+import { latestRun, matchesRunFilter, runLabel, runSummary } from "./run-presentation";
 
 const run = (values: Partial<LiveRun> = {}): LiveRun => ({
   request: {
@@ -66,5 +66,17 @@ describe("work status presentation", () => {
     expect(matchesRunFilter(canceled, "finished")).toBe(true);
     expect(runLabel(canceled)).toBe("Canceled");
     expect(matchesRunFilter(run({ status: "interrupted" }), "attention")).toBe(true);
+  });
+  it("creates a concise plain-text summary while preserving status fallbacks", () => {
+    expect(
+      runSummary(
+        run({ output: "## Result\n- **First** item with [evidence](https://example.com)." }),
+      ),
+    ).toBe("Result First item with evidence.");
+    expect(runSummary(run({ output: "123456789", status: "completed" }), 6)).toBe("12345…");
+    expect(runSummary(run({ status: "running" }))).toBe("Work is in progress.");
+    expect(
+      runSummary(run({ approvals: [{ id: "1", title: "Allow command", detail: "ls" }] })),
+    ).toBe("Waiting for approval: Allow command.");
   });
 });

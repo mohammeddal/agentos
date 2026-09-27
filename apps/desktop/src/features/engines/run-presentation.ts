@@ -30,3 +30,30 @@ export function runLabel(run: LiveRun | undefined): string {
   if (needsAttention(run)) return "Needs attention";
   return run.status.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
 }
+
+function plainText(value: string): string {
+  return value
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/```(?:\w+)?/g, " ")
+    .replace(/^[\s]*[-+*#>]+\s*/gm, "")
+    .replace(/[`*_~]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** A calm, single-line activity summary; full evidence remains in the expanded run. */
+export function runSummary(run: LiveRun, limit = 220): string {
+  const source =
+    run.output || run.error || [...run.results].reverse().find((result) => result.output)?.output;
+  const summary = plainText(source || "");
+  if (summary)
+    return summary.length > limit ? `${summary.slice(0, limit - 1).trimEnd()}…` : summary;
+  if (run.approvals.length)
+    return `Waiting for approval: ${run.approvals[0]?.title || "review required"}.`;
+  if (["starting", "running"].includes(run.status)) return "Work is in progress.";
+  if (run.status === "awaiting_approval") return "Waiting for approval.";
+  if (["canceled", "cancelled", "rejected"].includes(run.status))
+    return "Stopped before completion.";
+  return run.status === "completed" ? "Completed without a text response." : "No output yet.";
+}

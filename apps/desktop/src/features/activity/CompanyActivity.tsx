@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, Check, Play, ShieldCheck, Square, Unplug, X } from "lucide-react";
+import { Bot, Check, Play, ShieldCheck, Square, X } from "lucide-react";
 import type { Company, CompanyTask } from "../company/company-model";
 import {
   cancelRehearsal,
@@ -101,29 +101,18 @@ export function CompanyActivity({
           </button>
         </p>
       )}
-      <div className="co-activity-modes">
-        <label>
-          View{" "}
-          <select
-            aria-label="Activity view"
-            value={mode}
-            onChange={(e) => setMode(e.target.value as "live" | "rehearsal")}
-          >
-            <option value="live">Live activity</option>
-            <option value="rehearsal">Approval rehearsal · Simulation</option>
-          </select>
-        </label>
-        <span>
-          {mode === "live"
-            ? live.native
-              ? "Recorded engine activity"
-              : "Browser preview"
-            : "SIMULATION · NO EXTERNAL ACTIONS"}
-        </span>
-      </div>
+      <nav className="co-activity-modes" aria-label="Activity view">
+        <button aria-pressed={mode === "live"} onClick={() => setMode("live")}>
+          Runs
+        </button>
+        <button aria-pressed={mode === "rehearsal"} onClick={() => setMode("rehearsal")}>
+          Rehearsals
+          <small>Simulated</small>
+        </button>
+      </nav>
       {mode === "live" ? (
         <>
-          <LiveHistory query={query} {...(runKey ? { runKey } : {})} />
+          <LiveHistory summaryView query={query} {...(runKey ? { runKey } : {})} />
           <details className="co-team-disclosure">
             <summary>
               Team & task controls{" "}

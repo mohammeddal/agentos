@@ -4,9 +4,11 @@
 }
 .co-activity-modes {
   display: flex;
-  gap: 7px;
+  gap: 4px;
   align-items: center;
   flex-wrap: wrap;
+  border-bottom: 1px solid var(--co-border);
+  padding-bottom: 12px;
 }
 .co-activity-modes button,
 .co-activity-filters button {
@@ -20,16 +22,22 @@
   font-size: 12px;
   color: var(--co-secondary);
 }
+.co-activity-modes button {
+  border-color: transparent;
+  padding: 8px 10px;
+}
 .co-activity-modes button[aria-pressed="true"],
 .co-activity-filters button[aria-pressed="true"] {
   background: var(--co-soft);
   border-color: var(--co-accent);
   color: var(--co-text);
 }
-.co-activity-modes > span {
-  margin-left: auto;
-  font-size: 10px;
+.co-activity-modes button small {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--co-soft);
   color: var(--co-muted);
+  font-size: 9px;
 }
 .co-runtime-notice {
   display: flex;
@@ -367,10 +375,6 @@
     align-items: stretch;
   }
   .co-sample-completion {
-    width: 100%;
-  }
-  .co-activity-modes > span {
-    margin: 8px 0;
     width: 100%;
   }
   .co-activity-stats > div,
