@@ -1,0 +1,36 @@
+# Security Model
+
+## Trust boundaries
+
+- Codex owns its authentication and configured MCP credentials.
+- StaffForge receives capability metadata and runtime events, never copied secrets.
+- Plugins are untrusted until validated, permission-reviewed, and enabled.
+- The user is the authority for local, external, production, and destructive writes.
+
+## Deterministic action gate
+
+Every tool request is evaluated before provider resolution:
+
+| Risk | Default |
+| --- | --- |
+| `SAFE_READ` | execute |
+| `DRAFT` | execute |
+| `LOCAL_WRITE` | request approval |
+| `EXTERNAL_WRITE` | request approval |
+| `PRODUCTION_WRITE` | strong approval |
+| `DESTRUCTIVE` | strong approval, exact target required |
+
+Policy considers action risk, requested capability, agent allow-list, plugin grants, workspace policy, environment, and target specificity. Provider execution requires a signed short-lived decision token so callers cannot skip evaluation.
+
+## Data handling
+
+- Structured logs redact common credential fields and environment values.
+- Shell parameters are structured arrays, not interpolated command strings.
+- Paths are canonicalized and checked against the selected workspace.
+- Rendered tool output is escaped and size-limited.
+- Memory has scope, provenance, timestamp, confidence, source, and deletion support.
+- No hidden API fallback is permitted.
+
+## Approval requirements
+
+An approval displays the action, reason, capability, risk, provider, exact parameters after redaction, proposed diff or effect, and expiration. Rejections are terminal for that attempt and are recorded in the audit event stream.

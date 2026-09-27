@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1",
+  "id": "com.staffforge.core-pack",
+  "name": "StaffForge Core Pack",
+  "version": "0.1.0",
+  "staffforge": { "minVersion": "0.1.0", "maxVersion": "0.x" },
+  "permissions": ["warehouse.query", "docs.read", "filesystem.read", "filesystem.write", "shell.execute"],
+  "contributes": {
+    "agents": ["builtin:commander", "builtin:detective", "builtin:builder", "builtin:reviewer", "builtin:historian", "builtin:reporter"],
+    "skills": ["builtin:incident-investigation", "builtin:metric-change-analysis"],
+    "tools": ["builtin:warehouse.query", "builtin:docs.read", "builtin:filesystem.write"],
+    "workflows": ["builtin:incident-investigation"],
+    "commands": ["investigate", "doctor"],
+    "ui": ["dashboard.widgets:team", "agent.detail.tabs:timeline", "sidebar.items:approvals"]
+  }
+}

@@ -1,0 +1,1 @@
+{"extends":"../../tsconfig.base.json","compilerOptions":{"outDir":"dist","rootDir":"src"},"include":["src"],"references":[{"path":"../schemas"},{"path":"../event-bus"},{"path":"../runtime"},{"path":"../policy-engine"},{"path":"../workflow-engine"},{"path":"../capability-registry"},{"path":"../plugin-sdk"}]}

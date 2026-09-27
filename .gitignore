@@ -1,0 +1,17 @@
+node_modules
+.staffforge/
+.agentos/
+dist
+dist-types
+.pnpm-store
+.playwright-cli
+.turbo
+target
+*.tsbuildinfo
+*.db
+*.db-shm
+*.db-wal
+.DS_Store
+coverage
+output/playwright
+apps/desktop/src-tauri/gen

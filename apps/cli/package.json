@@ -1,0 +1,6 @@
+{
+  "name": "@staffforge/cli", "version": "0.1.0", "private": true, "type": "module",
+  "bin": { "staffforge": "./dist/index.js", "sf": "./dist/index.js" },
+  "scripts": { "build": "tsc -b" },
+  "dependencies": { "@staffforge/core":"workspace:*", "@staffforge/runtime":"workspace:*", "@staffforge/codex-adapter":"workspace:*" }
+}

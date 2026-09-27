@@ -1,0 +1,24 @@
+{
+  "name": "staffforge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.2",
+  "workspaces": ["apps/*", "packages/*", "plugins/*"],
+  "scripts": {
+    "dev": "pnpm --filter @staffforge/desktop dev",
+    "dev:desktop": "pnpm --filter @staffforge/desktop tauri:dev",
+    "build": "pnpm -r --if-present build",
+    "build:mac": "pnpm --filter @staffforge/desktop tauri:build:mac",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -b --pretty false && tsc -p apps/desktop/tsconfig.server.json",
+    "staffforge": "tsx apps/cli/src/index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.3"
+  }
+}

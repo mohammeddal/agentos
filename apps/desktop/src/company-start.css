@@ -1,0 +1,42 @@
+.co-start { display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:38px; margin:12px 0 50px; }
+.co-start-main { max-width:820px; width:100%; margin:0 auto; min-width:0; }
+.co-start-intro { margin:35px 0 28px; }
+.co-start-intro h1 { font-size:30px; font-weight:550; letter-spacing:-1px; margin:12px 0; }
+.co-start-intro p { color:var(--co-secondary); }
+.co-prompt-box { border:1px solid var(--co-border); border-radius:12px; background:var(--co-card); padding:20px; }
+.co-prompt-box:focus-within { border-color:var(--co-accent); }
+.co-prompt-label { font-size:11px; color:var(--co-secondary); }
+.co-prompt-box textarea { display:block; width:100%; resize:vertical; min-height:135px; max-height:400px; color:var(--co-text); background:none; border:0; outline:none; padding:12px 0; font-size:15px; line-height:1.7; font-family:inherit; }
+.co-prompt-box textarea::placeholder { color:var(--co-muted); }
+.co-prompt-controls { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; border-top:1px solid var(--co-border); padding-top:15px; }
+.co-prompt-controls label,.co-prompt-task-options label,.co-prompt-engine label { display:flex; align-items:center; gap:8px; font-size:11px; }
+.co-prompt-task-toggle { cursor:pointer; }
+.co-prompt-task-toggle input { accent-color:var(--co-accent); width:15px; height:15px; }
+.co-prompt-box select { max-width:240px; min-width:0; padding:7px; border:1px solid var(--co-border); border-radius:5px; background:var(--co-soft); color:var(--co-text); font-size:11px; }
+.co-prompt-task-options,.co-prompt-engine { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin:16px 0; }
+.co-prompt-engine>span,.co-prompt-task-options>span { display:flex; align-items:center; gap:5px; color:var(--co-secondary); font-size:10px; }
+.co-prompt-task-options>small { flex-basis:100%; color:var(--co-muted); font-size:10px; }
+.co-prompt-box>footer { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin-top:20px; }
+.co-prompt-box>footer small { color:var(--co-muted); font-size:10px; }
+.co-prompt-hint { color:var(--co-secondary); font-size:11px; line-height:1.7; }
+.co-prompt-result { padding:14px 0; color:var(--co-accent); font-size:12px; }
+.co-start-history { padding:24px 0 0 24px; border-left:1px solid var(--co-border); min-width:0; }
+.co-start-history>header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:18px; }
+.co-start-history h3 { font-size:12px; font-weight:550; margin:0; }
+.co-start-history .co-button { font-size:10px; padding:7px; }
+.co-start-history>p { color:var(--co-secondary); font-size:11px; line-height:1.8; }
+.co-chat-history-item { display:flex; align-items:flex-start; gap:9px; border:0; background:transparent; border-radius:6px; text-align:left; width:100%; padding:12px 8px; margin:5px 0; }
+.co-chat-history-item:hover,.co-chat-history-item[aria-pressed=true] { background:var(--co-hover); }
+.co-chat-history-item span { min-width:0; }
+.co-chat-history-item strong { display:block; font-size:11px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.co-chat-history-item small { color:var(--co-muted); font-size:9px; display:block; margin-top:4px; }
+.co-prompt-conversation { border:1px solid var(--co-border); border-radius:8px; margin-bottom:20px; padding:18px; max-height:390px; overflow-y:auto; }
+.co-prompt-conversation header { display:flex; gap:12px; justify-content:space-between; color:var(--co-secondary); font-size:11px; }
+.co-prompt-conversation header span { display:flex; gap:8px; align-items:center; }
+.co-prompt-conversation article { margin:20px 0; }
+.co-prompt-conversation article>span { color:var(--co-muted); font-size:10px; }
+.co-prompt-conversation article p { white-space:pre-wrap; overflow-wrap:anywhere; font-size:13px; }
+.co-content.co-start-mode>.co-page-heading { margin-bottom:8px; }
+.co-start-mode>.co-page-heading h1 { font-size:22px; }
+@media(max-width:1100px) { .co-start { grid-template-columns:1fr; gap:20px; } .co-start-history { padding:20px 0; border-left:0; border-top:1px solid var(--co-border); } }
+@media(max-width:600px) { .co-start-intro h1 { font-size:25px; } .co-prompt-box { padding:15px; } .co-prompt-controls>label { width:100%; } .co-prompt-box select { max-width:210px; } }
