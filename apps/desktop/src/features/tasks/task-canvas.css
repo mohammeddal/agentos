@@ -449,6 +449,50 @@
   align-items: center;
   gap: 5px;
 }
+.tc-context-source {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--co-border);
+}
+.tc-context-types {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+.tc-context-types button {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 9px;
+  border: 1px solid var(--co-border);
+  border-radius: 6px;
+  background: var(--co-card);
+  color: var(--co-secondary);
+  font-size: 9px;
+  text-align: left;
+}
+.tc-context-types button:hover,
+.tc-context-types button[aria-pressed="true"] {
+  border-color: var(--co-accent);
+  background: var(--co-soft);
+  color: var(--co-text);
+}
+.tc-context-types button svg {
+  flex: none;
+  color: var(--co-muted);
+}
+.tc-context-types button[aria-pressed="true"] svg {
+  color: var(--co-accent);
+}
+.tc-context-source label {
+  margin: 0;
+}
+.tc-context-hint {
+  line-height: 1.55;
+  color: var(--co-muted);
+}
 .tc-context-files .tc-check span {
   min-width: 0;
   overflow: hidden;

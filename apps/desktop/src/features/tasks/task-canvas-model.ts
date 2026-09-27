@@ -19,6 +19,16 @@ export const blockNames = {
   prompt: "Custom prompt",
 } as const;
 export type BlockKind = keyof typeof blockNames;
+export const contextTypeNames = {
+  notes: "Notes",
+  files: "Files",
+  folder: "Local folder",
+  github: "GitHub",
+  jira: "Jira",
+  url: "Web page",
+  memory: "Memory",
+} as const;
+export type ContextType = keyof typeof contextTypeNames;
 export type CanvasNode = {
   id: string;
   kind: BlockKind;
@@ -35,6 +45,8 @@ export type CanvasNode = {
   maxSteps: number;
   /** Task attachment IDs selected for this context block. Optional for older saved canvases. */
   attachmentIds?: string[];
+  /** Primary context source. Missing on older canvases and treated as notes. */
+  contextType?: ContextType;
   /** Discovery state captured when a local capability was selected. */
   capabilityStatus?: "" | "found" | "configured" | "disabled" | "cached";
 };
@@ -78,6 +90,7 @@ export function newCanvasNode(
     network: false,
     maxSteps: 20,
     attachmentIds: [],
+    ...(kind === "context" ? { contextType: "notes" as const } : {}),
     capabilityStatus: "",
   };
 }
@@ -279,6 +292,7 @@ export function isTaskCanvas(value: unknown): value is TaskCanvasGraph {
             n.attachmentIds.length <= 8 &&
             new Set(n.attachmentIds).size === n.attachmentIds.length &&
             n.attachmentIds.every((id) => typeof id === "string" && !!id))) &&
+        (n.contextType === undefined || Object.hasOwn(contextTypeNames, n.contextType)) &&
         (n.capabilityStatus === undefined ||
           ["", "found", "configured", "disabled", "cached"].includes(n.capabilityStatus)) &&
         Number.isInteger(n.maxSteps) &&
@@ -345,13 +359,15 @@ export function canvasWarnings(company: Company, graph: TaskCanvasGraph): string
       else if (n.capabilityStatus === "disabled")
         warnings.push(`${n.title}: choose a capability that is not disabled.`);
     }
-    if (
-      n.kind === "context" &&
-      !n.prompt.trim() &&
-      !n.source.trim() &&
-      !(n.attachmentIds || []).length
-    )
-      warnings.push(`${n.title}: add source notes or choose a task file.`);
+    if (n.kind === "context") {
+      const contextType = n.contextType || "notes";
+      if (["folder", "github", "jira", "url", "memory"].includes(contextType) && !n.source.trim())
+        warnings.push(
+          `${n.title}: add the ${contextTypeNames[contextType].toLowerCase()} reference.`,
+        );
+      else if (!n.prompt.trim() && !n.source.trim() && !(n.attachmentIds || []).length)
+        warnings.push(`${n.title}: add notes or choose a task file.`);
+    }
     if (n.kind === "prompt" && !n.prompt.trim())
       warnings.push(`${n.title}: add context or a custom prompt.`);
     if (n.kind === "approval" && n.reviewer !== "human" && !agents.some((a) => a.id === n.reviewer))

@@ -15,6 +15,7 @@ import {
   attachmentKinds,
   canvasEntryNodes,
   canvasWarnings,
+  contextTypeNames,
   type CanvasNode,
 } from "../tasks/task-canvas-model";
 
@@ -288,7 +289,11 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
     attachedNodes(id)
       .map((n) => {
         if (n.kind === "context") {
-          const body = [n.source.trim() ? `Source: ${n.source.trim()}` : "", n.prompt.trim()]
+          const sourceType = contextTypeNames[n.contextType || "notes"];
+          const body = [
+            n.source.trim() ? `${sourceType} reference: ${n.source.trim()}` : "",
+            n.prompt.trim(),
+          ]
             .filter(Boolean)
             .join("\n");
           return body ? `${n.title} (reference context):\n${body}` : "";
@@ -314,7 +319,9 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
         .map((n) =>
           [
             `${n.title} (reference context):`,
-            n.source.trim() ? `Source: ${n.source.trim()}` : "",
+            n.source.trim()
+              ? `${contextTypeNames[n.contextType || "notes"]} reference: ${n.source.trim()}`
+              : "",
             n.prompt.trim(),
           ]
             .filter(Boolean)

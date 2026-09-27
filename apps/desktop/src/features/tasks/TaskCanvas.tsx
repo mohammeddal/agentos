@@ -6,7 +6,10 @@ import {
   Layers3,
   Plug,
   FileText,
+  FolderOpen,
+  Github,
   GitBranch,
+  Link2,
   Sparkles,
   ShieldCheck,
   SlidersHorizontal,
@@ -21,7 +24,10 @@ import {
   RefreshCw,
   Search,
   Settings2,
+  StickyNote,
+  Ticket,
   Trash2,
+  BookOpen,
 } from "lucide-react";
 import { companyDomains, type Company, type CompanyTask } from "../company/company-model";
 import { AttachmentEditor } from "../attachments/Attachments";
@@ -43,11 +49,13 @@ import {
   canvasSize,
   canvasWarnings,
   connectCanvas,
+  contextTypeNames,
   initialTaskCanvas,
   newCanvasNode,
   removeCanvasNode,
   type BlockKind,
   type CanvasNode,
+  type ContextType,
   type TaskCanvasGraph,
   type CanvasEdge,
 } from "./task-canvas-model";
@@ -78,6 +86,38 @@ const descriptions = {
   approval: "A review checkpoint",
   restriction: "Boundaries & limits",
   prompt: "Your instructions",
+};
+const contextIcons = {
+  notes: StickyNote,
+  files: Paperclip,
+  folder: FolderOpen,
+  github: Github,
+  jira: Ticket,
+  url: Link2,
+  memory: BookOpen,
+};
+const contextSourceFields: Partial<Record<ContextType, { label: string; placeholder: string }>> = {
+  folder: { label: "Folder path", placeholder: "/Users/you/Projects/app or ./docs" },
+  github: {
+    label: "Repository, issue, PR, or file",
+    placeholder: "owner/repo, #123, or a GitHub URL",
+  },
+  jira: { label: "Jira ticket", placeholder: "ENG-123 or a Jira ticket URL" },
+  url: { label: "Web page", placeholder: "https://…" },
+  memory: {
+    label: "Memory file or scope",
+    placeholder: "MEMORY.md, Office · Engineering, or Agent · Reviewer",
+  },
+};
+const contextHints: Record<ContextType, string> = {
+  notes: "Paste the facts or instructions this step should use.",
+  files: "Choose task attachments below. Files remain scoped to this workflow step.",
+  folder: "The selected engine must have permission to read this local path.",
+  github:
+    "Attach a GitHub connector or MCP block if the engine cannot already open this reference.",
+  jira: "Attach a Jira connector or MCP block. A ticket reference alone does not prove access.",
+  url: "Opening the page depends on the engine's network access and task restrictions.",
+  memory: "Reviewed memory is scoped automatically; use this to point at a specific file or area.",
 };
 const clamp = (n: number, max: number) => Math.max(0, Math.min(max, n));
 const stepKinds: BlockKind[] = ["task", "office", "agent", "domain", "prompt"];
@@ -144,6 +184,7 @@ export function TaskCanvas({
   const discoveryRequest = useRef(0);
   const node = graph.nodes.find((n) => n.id === selected),
     edge = graph.edges.find((e) => e.id === edgeId);
+  const contextType: ContextType = node?.kind === "context" ? node.contextType || "notes" : "notes";
   const agents = company.offices.flatMap((o) => o.agents);
   const taskApprovalAgentId = task.approval?.kind === "agent" ? task.approval.agentId : "";
   const scopedFileIds = new Set(graph.nodes.flatMap((candidate) => candidate.attachmentIds || []));
@@ -803,12 +844,14 @@ export function TaskCanvas({
                             : agents.find((a) => a.id === n.reviewer)?.name || "Choose reviewer"
                           : n.kind === "restriction"
                             ? `${n.readOnly ? "Read only" : "Writes requested"} · ${n.network ? "Network requested" : "No network"}`
-                            : n.prompt ||
-                              (n.reference
-                                ? n.capabilityStatus
-                                  ? `${n.capabilityStatus} · ${n.engine}`
-                                  : "Reference selected · unverified"
-                                : "Select to configure")}
+                            : n.kind === "context"
+                              ? `${contextTypeNames[n.contextType || "notes"]} · ${n.source || n.prompt || (n.attachmentIds || []).length ? "Configured" : "Select a source"}`
+                              : n.prompt ||
+                                (n.reference
+                                  ? n.capabilityStatus
+                                    ? `${n.capabilityStatus} · ${n.engine}`
+                                    : "Reference selected · unverified"
+                                  : "Select to configure")}
                       </p>
                       {!attachmentKinds.includes(n.kind) && (
                         <button
@@ -1078,21 +1121,50 @@ export function TaskCanvas({
                 />
               )}
               {node.kind === "context" && (
-                <label>
-                  Source label or path <span className="co-field-optional">Optional</span>
-                  <input
-                    maxLength={1200}
-                    value={node.source}
-                    placeholder="Research brief, docs/plan.md, customer notes…"
-                    onChange={(e) => update(node.id, { source: e.target.value })}
-                  />
-                </label>
+                <section className="tc-context-source">
+                  <div className="tc-resource-picker-heading">
+                    <span>
+                      <strong>Context source</strong>
+                      <small>Choose what this step should read</small>
+                    </span>
+                  </div>
+                  <div className="tc-context-types">
+                    {(Object.keys(contextTypeNames) as ContextType[]).map((type) => {
+                      const Icon = contextIcons[type];
+                      return (
+                        <button
+                          type="button"
+                          key={type}
+                          aria-pressed={contextType === type}
+                          onClick={() => update(node.id, { contextType: type })}
+                        >
+                          <Icon size={13} />
+                          {contextTypeNames[type]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {contextSourceFields[contextType] && (
+                    <label>
+                      {contextSourceFields[contextType]!.label}
+                      <input
+                        maxLength={1200}
+                        value={node.source}
+                        placeholder={contextSourceFields[contextType]!.placeholder}
+                        onChange={(e) => update(node.id, { source: e.target.value })}
+                      />
+                    </label>
+                  )}
+                  <small className="tc-context-hint">{contextHints[contextType]}</small>
+                </section>
               )}
               <label>
                 {node.kind === "task"
                   ? "Task outcome"
                   : node.kind === "context"
-                    ? "Context / source notes"
+                    ? contextType === "notes"
+                      ? "Notes"
+                      : "Notes for this source"
                     : "Custom prompt"}
                 <textarea
                   rows={6}
@@ -1101,7 +1173,9 @@ export function TaskCanvas({
                     node.kind === "task"
                       ? "Describe the outcome, context, and what done looks like…"
                       : node.kind === "context"
-                        ? "Add relevant facts, paths, or source notes…"
+                        ? contextType === "notes"
+                          ? "Paste the relevant facts, instructions, or source notes…"
+                          : "Optional instructions for how this source should be used…"
                         : "What should this block do? Include the expected result…"
                   }
                   value={node.prompt}
@@ -1111,7 +1185,7 @@ export function TaskCanvas({
               {node.kind === "context" && (
                 <fieldset className="tc-context-files">
                   <legend>
-                    <Paperclip size={11} /> Available context
+                    <Paperclip size={11} /> Supporting files
                   </legend>
                   {(task.attachments || []).length ? (
                     (task.attachments || []).map((file) => (
@@ -1131,7 +1205,7 @@ export function TaskCanvas({
                       </label>
                     ))
                   ) : (
-                    <small>No task files yet.</small>
+                    <small>No task files yet. Attach a file to make it available here.</small>
                   )}
                   {changeAttachments && onAttachmentsBusy && (
                     <AttachmentEditor
@@ -1154,7 +1228,7 @@ export function TaskCanvas({
                     Create reusable context
                     <ArrowRight size={13} />
                   </button>
-                  <small>Reusable facts and lessons are managed in company Memory.</small>
+                  <small>Files are copied locally and remain scoped to this task.</small>
                 </fieldset>
               )}
               {node.kind === "approval" && (

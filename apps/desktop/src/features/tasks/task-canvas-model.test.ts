@@ -86,6 +86,27 @@ describe("visual task blueprints", () => {
     expect(isTaskCanvas(g)).toBe(true);
     expect(canvasWarnings(starterCompany, g)).toEqual([]);
   });
+  it("models distinct context sources without treating references as connected integrations", () => {
+    const github = {
+      ...newCanvasNode("context", 0, 0, "github-context"),
+      contextType: "github" as const,
+      source: "acme/storefront#123",
+    };
+    expect(isTaskCanvas({ version: 1, nodes: [github], edges: [] })).toBe(true);
+    expect(
+      canvasWarnings(starterCompany, { version: 1, nodes: [github], edges: [] }).join(" "),
+    ).toContain("not connected");
+    expect(
+      canvasWarnings(starterCompany, {
+        version: 1,
+        nodes: [{ ...github, source: "" }],
+        edges: [],
+      }).join(" "),
+    ).toContain("github reference");
+    expect(
+      isTaskCanvas({ version: 1, nodes: [{ ...github, contextType: "unknown" }], edges: [] }),
+    ).toBe(false);
+  });
   it("rejects self edges, duplicate edges, missing blocks and cycles", () => {
     let g = connectCanvas(sample(), "agent", "review");
     g = connectCanvas(g, "review", "prompt");
