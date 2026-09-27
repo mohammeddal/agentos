@@ -1,15 +1,5 @@
 import { useRef, useState } from "react";
-import {
-  ArrowRight,
-  Bot,
-  Building2,
-  Focus,
-  Minus,
-  MousePointer2,
-  Plus,
-  Users,
-  X,
-} from "lucide-react";
+import { ArrowRight, Bot, Focus, Minus, MousePointer2, Plus, Users, X } from "lucide-react";
 import type { Company, CompanyAgent, Office } from "./company-model";
 import "./company-floorplan.css";
 import { isActiveRun, useLiveRuntime } from "../engines/live-runtime";
@@ -33,6 +23,7 @@ type Props = {
   company: Company;
   query: string;
   openOffice: (id: string) => void;
+  addOffice: () => void;
   addAgent: (id: string) => void;
   editAgent: (officeId: string, agent: CompanyAgent) => void;
   inspectAgent: (officeId: string, agent: CompanyAgent) => void;
@@ -42,6 +33,7 @@ export function CompanyFloorplan({
   company,
   query,
   openOffice,
+  addOffice,
   addAgent,
   editAgent,
   inspectAgent,
@@ -100,12 +92,7 @@ export function CompanyFloorplan({
 
   return (
     <section className="fp-shell" aria-label="Top-down company map">
-      <header className="fp-toolbar">
-        <div className="fp-floor-title">
-          <Building2 size={15} />
-          <strong>Headquarters</strong>
-          <span>Floor 01</span>
-        </div>
+      <header className="fp-toolbar" aria-label="Map controls">
         <div className="fp-toolbar-right">
           <span className="fp-demo-label">Preview activity</span>
           <button
@@ -163,13 +150,13 @@ export function CompanyFloorplan({
             <span>
               <i /> {company.name}
             </span>
-            <span>COMPANY FLOOR PLAN</span>
+            <span>LIVE COMPANY MAP</span>
           </div>
           <div
             className="fp-map-scroll"
             ref={mapScroll}
             tabIndex={0}
-            aria-label="Scrollable floor plan"
+            aria-label="Scrollable company map"
           >
             <div className="fp-map-size" style={{ width: `${zoom}%` }}>
               <svg
@@ -226,7 +213,7 @@ export function CompanyFloorplan({
                   {company.name.toUpperCase()}
                 </text>
                 <text x="854" y="69" textAnchor="end" className="fp-drawing-label">
-                  01 / HEADQUARTERS
+                  {company.offices.length} {company.offices.length === 1 ? "OFFICE" : "OFFICES"}
                 </text>
                 {rooms.map(({ office, x, y, height: roomHeight }, index) =>
                   office ? (
@@ -393,7 +380,50 @@ export function CompanyFloorplan({
                         OFFICE {String(index + 1).padStart(2, "0")}
                       </text>
                     </g>
-                  ) : null,
+                  ) : (
+                    <g
+                      key="add-office"
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Add office and extend the company map"
+                      className="fp-add-office"
+                      onClick={addOffice}
+                      onKeyDown={(event) => enter(event, addOffice)}
+                    >
+                      <rect
+                        x={x}
+                        y={y}
+                        width="370"
+                        height={roomHeight}
+                        rx="5"
+                        fill="var(--fp-empty)"
+                        stroke="var(--fp-door)"
+                        strokeWidth="1.4"
+                        strokeDasharray="7 8"
+                      />
+                      <circle cx={x + 185} cy={y + roomHeight / 2 - 24} r="22" />
+                      <path
+                        d={`M${x + 175} ${y + roomHeight / 2 - 24}h20 M${x + 185} ${y + roomHeight / 2 - 34}v20`}
+                        strokeWidth="1.7"
+                      />
+                      <text
+                        x={x + 185}
+                        y={y + roomHeight / 2 + 18}
+                        textAnchor="middle"
+                        className="fp-office-name"
+                      >
+                        Add office
+                      </text>
+                      <text
+                        x={x + 185}
+                        y={y + roomHeight / 2 + 38}
+                        textAnchor="middle"
+                        className="fp-office-meta"
+                      >
+                        Expand your company
+                      </text>
+                    </g>
+                  ),
                 )}
                 <Plant x={460} y={115} />
                 <Plant x={460} y={height - 105} />

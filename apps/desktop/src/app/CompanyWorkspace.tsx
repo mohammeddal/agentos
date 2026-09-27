@@ -653,6 +653,7 @@ export function CompanyWorkspace() {
               company={company}
               query={query}
               openOffice={navigate}
+              addOffice={() => setDialog({ type: "office" })}
               addAgent={(officeId) => setDialog({ type: "agent", officeId })}
               inspectAgent={(officeId, agent) =>
                 setDialog({ type: "inspect-agent", officeId, agent })

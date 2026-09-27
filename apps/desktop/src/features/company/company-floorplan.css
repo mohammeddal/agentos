@@ -84,29 +84,10 @@
   min-height: 48px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 14px;
   padding: 9px 17px;
   border-bottom: 1px solid var(--co-border);
-}
-.fp-floor-title {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--co-accent);
-}
-.fp-floor-title strong {
-  font-size: 11px;
-  color: var(--co-text);
-  font-weight: 550;
-}
-.fp-floor-title > span {
-  font-size: 8px;
-  color: var(--co-muted);
-  border: 1px solid var(--co-border);
-  border-radius: 4px;
-  padding: 2px 6px;
-  margin-left: 3px;
 }
 .fp-toolbar-right {
   display: flex;
@@ -248,9 +229,31 @@
 .fp-room-title,
 .fp-workstation,
 .fp-add-room,
-.fp-room-add-agent {
+.fp-room-add-agent,
+.fp-add-office {
   cursor: pointer;
   outline: none;
+}
+.fp-add-office circle {
+  fill: var(--fp-desk);
+  stroke: var(--fp-desk-edge);
+}
+.fp-add-office path {
+  stroke: var(--fp-label);
+}
+.fp-add-office:hover > rect,
+.fp-add-office:focus-visible > rect {
+  fill: color-mix(in srgb, var(--fp-empty) 70%, var(--fp-desk));
+  stroke: var(--fp-label);
+}
+.fp-add-office:hover circle,
+.fp-add-office:focus-visible circle {
+  fill: var(--fp-label);
+  stroke: var(--fp-label);
+}
+.fp-add-office:hover path,
+.fp-add-office:focus-visible path {
+  stroke: var(--fp-room-floor);
 }
 .fp-room-title:hover .fp-office-name,
 .fp-room-title:focus-visible .fp-office-name {
@@ -660,7 +663,6 @@
     max-height: 230px;
   }
   .fp-toolbar {
-    flex-wrap: wrap;
     gap: 8px;
   }
   .fp-toolbar-right {

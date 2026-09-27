@@ -12,6 +12,12 @@ This records the earlier UX-only change. For the subsequent native runtime integ
 - Browser QA covered the dark desktop map, the populated-office add flow, the simplified new-office form, and a 390 × 844 layout. All actions remained accessible, and the browser console reported no warnings or errors.
 - All 192 Vitest tests passed together with TypeScript, formatting, production build, whitespace, and the 131-file source reachability audit.
 
+## Expandable company map follow-up
+
+- Removed the redundant Headquarters and Floor 01 labels from the single company map. The compact toolbar now contains only activity preview and map controls.
+- Added a permanent dashed **Add office** room after the current offices. It opens the office creator directly; after an office is saved, the room becomes part of the company and the map creates the next expansion room.
+- Isolated browser QA created a fourth office from the expansion room, confirmed the map count changed to four, and verified a fresh expansion room appeared on the next row. No console warnings or errors were reported; the browser-only test did not change native company data.
+
 ## Workflow input-placement follow-up
 
 - Moved the selected step's **Inputs & capabilities** actions from Block settings into the top of the left building-block palette beside Work, Resources, and Control.
