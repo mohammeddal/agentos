@@ -277,3 +277,17 @@
     font-size: 10px;
   }
 }
+.co-work-rehearsal-heading > div {
+  display: flex;
+  gap: 6px;
+}
+.co-rehearsal-controls {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+  justify-items: start;
+}
+.co-rehearsal-controls > .co-review-card,
+.co-rehearsal-controls > .co-run-action {
+  justify-self: stretch;
+}

@@ -412,3 +412,61 @@
     max-width: 92%;
   }
 }
+.co-chat-error {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--co-border);
+  border-left: 3px solid var(--co-danger, #c2410c);
+  border-radius: 7px;
+  background: var(--co-card);
+  color: var(--co-text);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.co-chat-log {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--co-secondary);
+}
+.co-chat-log summary {
+  cursor: pointer;
+  color: var(--co-muted);
+  width: fit-content;
+}
+.co-chat-log ol {
+  list-style: none;
+  margin: 6px 0;
+  padding: 8px 10px;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--co-border);
+  border-radius: 7px;
+  background: var(--co-card);
+}
+.co-chat-log li {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 8px;
+  padding: 3px 0;
+}
+.co-chat-log time,
+.co-chat-log li > span {
+  color: var(--co-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.co-chat-log pre {
+  margin: 0;
+  font: inherit;
+  font-size: 10.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.co-start-project-folder {
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--co-muted);
+}

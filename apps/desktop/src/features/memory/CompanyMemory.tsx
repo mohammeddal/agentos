@@ -31,6 +31,7 @@ import {
 } from "./company-memory";
 import { memoryFile, type MemoryFile } from "./memory-storage";
 import { isRehearsalRun } from "../activity/task-rehearsal";
+import "../activity/company-activity.css";
 import "./company-memory.css";
 import { useLiveRuntime } from "../engines/live-runtime";
 
@@ -122,7 +123,7 @@ export function CompanyMemory({
           status: "draft",
           title: `Review: ${run.request.title}`.slice(0, 120),
           body: run.error.slice(0, 5500),
-          evidence: `Live run ${run.request.id}; engine: ${run.engine}; recorded ${new Date(run.updatedAt).toISOString()}. Inspect Activity for full execution evidence.`,
+          evidence: `Live run ${run.request.id}; engine: ${run.engine}; recorded ${new Date(run.updatedAt).toISOString()}. Open the chat or workflow for full execution evidence.`,
           prevention: "",
           scope: "company",
           source: "manual",

@@ -82,6 +82,11 @@ pub struct RunRequest {
     pub mode: String,
     #[serde(default)]
     pub folder: String,
+    /// A user-chosen project folder (absolute), which takes precedence over `folder`.
+    #[serde(default)]
+    pub directory: String,
+    #[serde(default)]
+    pub branch: String,
     #[serde(default)]
     pub context: String,
     #[serde(default)]
@@ -253,17 +258,21 @@ impl Runtime {
             &request.folder
         };
         let mut cwd = base.to_path_buf();
-        for part in folder.split('/') {
-            cwd.push(part);
-            if cwd.exists()
-                && fs::symlink_metadata(&cwd)
-                    .map_err(|e| e.to_string())?
-                    .file_type()
-                    .is_symlink()
-            {
-                return Err("Workspace symlinks are not allowed.".into());
+        if !request.directory.is_empty() {
+            cwd = crate::project_repository::workspace(base, &request.directory, &request.branch)?;
+        } else {
+            for part in folder.split('/') {
+                cwd.push(part);
+                if cwd.exists()
+                    && fs::symlink_metadata(&cwd)
+                        .map_err(|e| e.to_string())?
+                        .file_type()
+                        .is_symlink()
+                {
+                    return Err("Workspace symlinks are not allowed.".into());
+                }
+                fs::create_dir_all(&cwd).map_err(|e| e.to_string())?;
             }
-            fs::create_dir_all(&cwd).map_err(|e| e.to_string())?;
         }
         let prior = inner.runs.iter().rev().find(|r| {
             r.request.key == request.key
@@ -1059,6 +1068,13 @@ fn validate(r: &RunRequest) -> Result<(), String> {
     {
         return Err("Invalid project directory.".into());
     }
+    if r.directory.len() > 4096
+        || (!r.directory.is_empty() && !std::path::Path::new(&r.directory).is_absolute())
+        || (!r.branch.is_empty()
+            && (r.directory.is_empty() || !crate::project_repository::valid_branch(&r.branch)))
+    {
+        return Err("Invalid project folder or branch.".into());
+    }
     if r.mode == "chat" && r.steps.len() != 1 {
         return Err("Chat requires one engine.".into());
     }
@@ -1167,6 +1183,8 @@ mod tests {
             title: "test".into(),
             mode: "chat".into(),
             folder: String::new(),
+            directory: String::new(),
+            branch: String::new(),
             context: String::new(),
             provider_permissions: ProviderPermissions::default(),
             steps: vec![Step {

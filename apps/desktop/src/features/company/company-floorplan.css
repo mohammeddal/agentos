@@ -198,29 +198,6 @@
   min-width: 0;
   background: color-mix(in srgb, var(--co-soft) 74%, var(--co-card));
 }
-.fp-map-caption {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 17px 21px 0;
-  gap: 15px;
-  font-size: 8px;
-  letter-spacing: 1px;
-  color: var(--co-muted);
-}
-.fp-map-caption > span:first-child {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 10px;
-  letter-spacing: 0;
-}
-.fp-map-caption i {
-  width: 6px;
-  height: 6px;
-  background: var(--co-accent);
-  border-radius: 50%;
-}
 .fp-map-scroll {
   max-height: 720px;
   overflow: auto;
@@ -390,26 +367,6 @@
     stroke-width: 3px;
   }
 }
-.fp-map-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 15px;
-  padding: 12px 18px;
-  border-top: 1px solid var(--co-border);
-  color: var(--co-muted);
-  background: var(--co-card);
-  font-size: 8px;
-}
-.fp-map-footer > span,
-.fp-map-footer > div {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.fp-map-footer > div {
-  gap: 13px;
-}
 .fp-legend {
   white-space: nowrap;
   display: inline-flex;
@@ -441,18 +398,6 @@
   display: flex;
   flex-direction: column;
 }
-.fp-layout:has(.fp-inspector.is-collapsed) {
-  grid-template-columns: minmax(0, 1fr) 44px;
-}
-.fp-inspector.is-collapsed {
-  padding: 16px 9px;
-}
-.fp-inspector.is-collapsed > header {
-  justify-content: center;
-}
-.fp-inspector.is-collapsed > header > span {
-  display: none;
-}
 .fp-inspector > header {
   display: flex;
   justify-content: space-between;
@@ -467,147 +412,11 @@
   align-items: center;
   gap: 5px;
 }
-.fp-inspector-toggle {
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  border-radius: 4px !important;
-}
-.fp-inspector-toggle:hover {
-  background: var(--co-soft) !important;
-  color: var(--co-text) !important;
-}
 .fp-inspector > header button {
   border: 0;
   background: transparent;
   padding: 0;
   color: var(--co-muted);
-}
-.fp-summary {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  margin: 21px 0;
-}
-.fp-summary > strong {
-  font-weight: 500;
-  font-size: 39px;
-  line-height: 1;
-  letter-spacing: -1.6px;
-}
-.fp-summary > span {
-  font-size: 10px;
-  color: var(--co-muted);
-  line-height: 1.6;
-}
-.fp-status-totals {
-  border-top: 1px solid var(--co-border);
-  border-bottom: 1px solid var(--co-border);
-  padding: 9px 0;
-}
-.fp-status-totals > div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 0;
-  font-size: 10px;
-  color: var(--co-secondary);
-}
-.fp-status-totals strong {
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-.fp-roster-heading {
-  font-size: 8px;
-  letter-spacing: 1px;
-  color: var(--co-muted);
-  margin: 24px 0 10px;
-}
-.fp-roster {
-  max-height: 360px;
-  overflow: auto;
-}
-.fp-roster-agent {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 0;
-  border: 0;
-  border-bottom: 1px solid var(--co-border);
-  background: transparent;
-  text-align: left;
-  border-radius: 3px;
-}
-.fp-roster-agent:hover {
-  background: var(--co-soft);
-}
-.fp-roster-avatar {
-  flex-shrink: 0;
-  width: 27px;
-  height: 29px;
-  display: grid;
-  place-items: center;
-  border-radius: 6px;
-  background: var(--office-soft);
-  color: var(--office);
-}
-.fp-roster-agent > span:nth-child(2) {
-  min-width: 0;
-  flex: 1;
-}
-.fp-roster-agent strong {
-  font-size: 9px;
-  font-weight: 550;
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.fp-roster-agent small {
-  font-size: 8px;
-  color: var(--co-muted);
-  display: block;
-  margin-top: 3px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.fp-roster-agent > i {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #8d9790;
-}
-.fp-roster-agent.working > i {
-  background: #4b9b72;
-}
-.fp-roster-agent.idle > i {
-  background: #c49d5d;
-}
-.fp-roster-agent.approval > i {
-  width: 7px;
-  height: 7px;
-  border-radius: 2px;
-  background: #d07a55;
-  transform: rotate(45deg);
-}
-.fp-preview-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding-top: 20px;
-  margin-top: auto;
-  color: var(--co-muted);
-}
-.fp-preview-note p {
-  margin: 0;
-  font-size: 9px;
-  line-height: 1.7;
-}
-.fp-preview-note > svg {
-  margin-top: 2px;
 }
 .fp-selected-avatar {
   width: 53px;
@@ -868,12 +677,6 @@
   .fp-inspector {
     padding: 16px 12px;
   }
-  .fp-map-footer {
-    flex-wrap: wrap;
-  }
-  .fp-map-caption > span:last-child {
-    font-size: 7px;
-  }
 }
 @media (max-width: 680px) {
   .fp-layout {
@@ -883,19 +686,6 @@
     border-left: 0;
     border-top: 1px solid var(--co-border);
     padding: 19px;
-  }
-  .fp-layout:has(.fp-inspector.is-collapsed) {
-    grid-template-columns: 1fr;
-  }
-  .fp-inspector.is-collapsed {
-    min-height: 48px;
-    padding: 12px 18px;
-  }
-  .fp-inspector.is-collapsed > header {
-    justify-content: flex-end;
-  }
-  .fp-roster {
-    max-height: 230px;
   }
   .fp-toolbar {
     align-items: flex-start;
@@ -910,20 +700,133 @@
   .fp-toolbar-right {
     margin-left: auto;
   }
-  .fp-map-caption > span:last-child {
-    display: none;
-  }
   .fp-map-scroll {
     padding-left: 5px;
     padding-right: 5px;
   }
-  .fp-preview-note {
-    margin-top: 16px;
-  }
-  .fp-summary {
-    margin: 13px 0;
-  }
-  .fp-roster-heading {
-    margin-top: 15px;
-  }
+}
+.fp-give-work,
+.fp-agent-workflows {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 4px;
+}
+.fp-give-work > span,
+.fp-agent-workflows > span {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--co-muted);
+}
+.fp-give-work textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 11px;
+  padding: 8px;
+  border: 1px solid var(--co-border);
+  border-radius: 7px;
+  background: var(--co-card);
+  color: var(--co-text);
+  resize: vertical;
+}
+.fp-give-work .co-button {
+  justify-self: start;
+}
+.fp-agent-workflows button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--co-border);
+  border-radius: 7px;
+  background: var(--co-card);
+  color: var(--co-text);
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+/* The agent panel only exists while an agent is selected; the map uses the full width otherwise. */
+.fp-layout:not(:has(.fp-inspector)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+/* Map page: heading and tabs stay put; only the floor plan scrolls. */
+.co-content.co-map-mode {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 20px;
+}
+.co-map-mode > * {
+  flex-shrink: 0;
+}
+.co-map-mode > .fp-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.co-map-mode .fp-layout {
+  flex: 1;
+  min-height: 0;
+}
+.co-map-mode .fp-map-area {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.co-map-mode .fp-map-scroll {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+.co-map-mode .fp-inspector {
+  min-height: 0;
+  overflow-y: auto;
+}
+/* Workflows sit in their office under the desks. */
+.fp-workflow {
+  cursor: pointer;
+  outline: none;
+}
+.fp-workflow-card {
+  fill: var(--fp-paper);
+  stroke: var(--fp-desk-edge);
+  stroke-width: 1;
+}
+.fp-workflow:hover .fp-workflow-card,
+.fp-workflow:focus-visible .fp-workflow-card,
+.fp-workflow.selected .fp-workflow-card {
+  stroke: var(--co-accent);
+  stroke-width: 1.6;
+}
+.fp-workflow-icon {
+  fill: none;
+  stroke: var(--fp-label);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+.fp-workflow-title {
+  font-size: 9.5px;
+  font-weight: 600;
+  fill: var(--co-text);
+}
+.fp-workflow-dot {
+  fill: #8d9790;
+}
+.fp-workflow.working .fp-workflow-dot {
+  fill: #4b9b72;
+}
+.fp-workflow.approval .fp-workflow-dot {
+  fill: #d07a55;
+}
+.fp-workflow.done .fp-workflow-dot {
+  fill: #5a8f6a;
+}
+.fp-workflow.failed .fp-workflow-dot {
+  fill: #c2410c;
+}
+.fp-workflow-avatar {
+  color: var(--co-accent);
 }

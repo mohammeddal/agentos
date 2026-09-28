@@ -24,17 +24,6 @@
 .co-dir-section-title {
   margin-top: 16px;
 }
-.co-dir-search {
-  width: 100%;
-  min-width: 0;
-  border: 1px solid var(--co-border);
-  background: var(--co-card);
-  border-radius: 7px;
-  color: var(--co-text);
-  padding: 7px 8px;
-  font-size: 11px;
-  margin: 6px 0;
-}
 .co-dir-row {
   display: flex;
   align-items: center;

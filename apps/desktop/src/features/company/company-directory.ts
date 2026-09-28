@@ -87,7 +87,7 @@ export function changeLifecycle(
     affectedRunKeys(company, entry).some((key) => activeKeys.includes(key))
   )
     throw new Error(
-      "Stop or finish the active run in Activity before archiving or removing this item.",
+      "Stop or finish the active run in its chat or workflow before archiving or removing this item.",
     );
   const update = <T extends { id: string; lifecycle?: Lifecycle }>(rows: T[] | undefined) =>
     (rows || []).map((r) => (r.id === entry.id ? { ...r, lifecycle } : r));

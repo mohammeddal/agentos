@@ -69,8 +69,8 @@ export function useLiveNotifications() {
               sendNotification({
                 title: "AgentOS",
                 body: run.approvals.length
-                  ? "A run needs your approval. Open Activity to review it."
-                  : `A run ${run.status}. Open Activity for its result.`,
+                  ? "A run needs your approval. Open AgentOS to review it."
+                  : `A run ${run.status}. Open AgentOS for its result.`,
               });
           })
           .catch(() => {});

@@ -294,6 +294,35 @@
 .co-provider-permissions select {
   width: 100%;
 }
+.co-chat-engines {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+.co-chat-engines > h3,
+.co-chat-engines > p {
+  margin: 0;
+}
+.co-chat-engine-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--co-border);
+}
+.co-chat-engine-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.co-chat-engine-default {
+  color: var(--co-secondary);
+}
+.co-chat-engine-row input:disabled + * {
+  opacity: 0.6;
+}
 .co-engine-workspace input {
   width: 100%;
 }

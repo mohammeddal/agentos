@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  CalendarClock,
   ArrowRight,
   Bot,
   Building2,
@@ -19,7 +20,6 @@ import {
   Undo2,
   Redo2,
   Plus,
-  Minus,
   Paperclip,
   RefreshCw,
   Search,
@@ -61,6 +61,12 @@ import {
   type TaskCanvasGraph,
   type CanvasEdge,
 } from "./task-canvas-model";
+import { ScheduleEditor } from "./TaskAutomation";
+import { CanvasStage, StatusPill, ZoomControls } from "../canvas/CanvasKit";
+import { canvasRunStatuses } from "../canvas/run-state";
+import type { LiveRun } from "../engines/live-runtime";
+import { WorkflowRunPanel } from "./WorkflowRunPanel";
+import type { TaskSchedule } from "./task-workflow";
 import "./task-canvas.css";
 
 const icons = {
@@ -122,6 +128,8 @@ const contextHints: Record<ContextType, string> = {
   memory: "Reviewed memory is scoped automatically; use this to point at a specific file or area.",
 };
 const clamp = (n: number, max: number) => Math.max(0, Math.min(max, n));
+/** The schedule is a fixed trigger block: stored on the task, drawn on the canvas, not a graph node. */
+const SCHEDULE_ID = "__schedule";
 const stepKinds: BlockKind[] = ["task", "office", "agent", "domain", "prompt"];
 export type ResourceSetupKind = "context" | "mcp" | "skill" | "connector";
 
@@ -138,6 +146,13 @@ export function TaskCanvas({
   changeApproval,
   changeTaskDetails,
   openResourceSettings,
+  schedule,
+  changeSchedule,
+  schedulePreview,
+  mode = "build",
+  setMode,
+  run,
+  runAgain,
   embedded = false,
 }: {
   company: Company;
@@ -152,6 +167,14 @@ export function TaskCanvas({
   changeApproval?: (rule: ApprovalRule) => void;
   changeTaskDetails?: (details: { title: string; brief: string }) => void;
   openResourceSettings?: (kind: ResourceSetupKind, engine: Engine) => void;
+  schedule?: TaskSchedule;
+  changeSchedule?: (schedule: TaskSchedule) => void;
+  schedulePreview?: { dates: string[]; error: string | null };
+  /** Build edits the graph; Run shows the same graph read-only with live status per block. */
+  mode?: "build" | "run";
+  setMode?: (mode: "build" | "run") => void;
+  run?: LiveRun | undefined;
+  runAgain?: (() => void) | undefined;
   embedded?: boolean;
 }) {
   const [graph, setGraph] = useState(() => initialTaskCanvas(task));
@@ -203,6 +226,28 @@ export function TaskCanvas({
   );
   const workflowRootId = graph.nodes.find((candidate) => candidate.kind === "task")?.id;
   const entryIds = new Set(canvasEntryNodes(graph).map((entry) => entry.id));
+  const running = mode === "run";
+  const statuses = running ? canvasRunStatuses(graph, run) : {};
+  const scheduleAnchor =
+    shown.find((n) => n.id === workflowRootId && entryIds.has(n.id)) ||
+    shown.find((n) => entryIds.has(n.id));
+  const scheduleBlock =
+    schedule && changeSchedule
+      ? scheduleAnchor
+        ? scheduleAnchor.x >= 250
+          ? { x: scheduleAnchor.x - 250, y: scheduleAnchor.y + 33 }
+          : scheduleAnchor.y >= 90
+            ? { x: scheduleAnchor.x, y: scheduleAnchor.y - 84 }
+            : { x: scheduleAnchor.x, y: scheduleAnchor.y + 150 }
+        : { x: 40, y: 40 }
+      : null;
+  const scheduleSummary = !schedule
+    ? ""
+    : schedule.kind === "manual"
+      ? "Manual · run it yourself"
+      : schedulePreview?.error
+        ? "Cron · needs a valid expression"
+        : `Cron · ${schedule.expression} · ${schedule.timeZone}`;
   function commit(next: TaskCanvasGraph) {
     if (JSON.stringify(next) === JSON.stringify(graph)) return;
     setPast((p) => [...p, graph].slice(-50));
@@ -250,6 +295,17 @@ export function TaskCanvas({
     commit({ ...graph, nodes: graph.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)) });
   }
   function add(kind: BlockKind, x?: number, y?: number) {
+    // Resources and restrictions attach to a step rather than joining the chain: the selected
+    // step, or the workflow start when nothing suitable is selected.
+    if (attachmentKinds.includes(kind)) {
+      const target =
+        (node && stepKinds.includes(node.kind) ? node : undefined) ||
+        graph.nodes.find((candidate) => candidate.id === workflowRootId);
+      if (target) {
+        attach(kind as (typeof attachmentKinds)[number], target, x, y);
+        return;
+      }
+    }
     if (graph.nodes.length >= 80) {
       setError("This draft supports up to 80 blocks.");
       return;
@@ -283,7 +339,12 @@ export function TaskCanvas({
         behavior: "smooth",
       });
   }
-  function attach(kind: (typeof attachmentKinds)[number], target: CanvasNode) {
+  function attach(
+    kind: (typeof attachmentKinds)[number],
+    target: CanvasNode,
+    x?: number,
+    y?: number,
+  ) {
     if (graph.nodes.length >= 80) {
       setError("This draft supports up to 80 blocks.");
       return;
@@ -292,36 +353,13 @@ export function TaskCanvas({
     const hasLeftSpace = target.x >= 270;
     const resource = newCanvasNode(
       kind,
-      clamp(hasLeftSpace ? target.x - 270 : target.x, 2190),
-      clamp(target.y + (hasLeftSpace ? offset : offset + 1) * 155, 1470),
+      clamp(x ?? (hasLeftSpace ? target.x - 270 : target.x), 2190),
+      clamp(y ?? target.y + (hasLeftSpace ? offset : offset + 1) * 155, 1470),
     );
     try {
       const withNode = { ...graph, nodes: [...graph.nodes, resource] };
       commit(connectCanvas(withNode, resource.id, target.id));
       setSelected(resource.id);
-      setEdgeId("");
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }
-  function addApprovalAfter(target: CanvasNode) {
-    if (graph.nodes.length >= 80) {
-      setError("This draft supports up to 80 blocks.");
-      return;
-    }
-    const offset = graph.edges.filter(
-      (candidate) => candidate.kind === "flow" && candidate.from === target.id,
-    ).length;
-    const hasRightSpace = target.x <= 1920;
-    const approval = newCanvasNode(
-      "approval",
-      clamp(hasRightSpace ? target.x + 270 : target.x, 2190),
-      clamp(target.y + (hasRightSpace ? offset : offset + 1) * 155, 1470),
-    );
-    try {
-      const withNode = { ...graph, nodes: [...graph.nodes, approval] };
-      commit(connectCanvas(withNode, target.id, approval.id));
-      setSelected(approval.id);
       setEdgeId("");
     } catch (e) {
       setError((e as Error).message);
@@ -500,6 +538,16 @@ export function TaskCanvas({
             </button>
           </nav>
         )}
+        {setMode && (
+          <nav className="ck-mode-switch" aria-label="Workflow mode">
+            <button type="button" aria-pressed={!running} onClick={() => setMode("build")}>
+              Build
+            </button>
+            <button type="button" aria-pressed={running} onClick={() => setMode("run")}>
+              Run
+            </button>
+          </nav>
+        )}
         <span className="tc-draft">
           Workflow · {graph.nodes.length} {graph.nodes.length === 1 ? "block" : "blocks"}
         </span>
@@ -508,163 +556,126 @@ export function TaskCanvas({
             Solid lines pass work to the next step. Dashed lines attach context or capabilities.
             Steps without an incoming line start first.
           </HelpTip>
-          <button
-            type="button"
-            className="co-button"
-            aria-pressed={taskSettings && !node && !edge}
-            onClick={() => {
-              setSelected("");
-              setEdgeId("");
-              setTaskSettings(true);
-            }}
-          >
-            <ClipboardList size={13} /> Workflow settings
-          </button>
-          <button type="button" className="co-button" onClick={fit}>
-            Fit view
-          </button>
-          <button
-            type="button"
-            className="co-icon-button"
-            aria-label="Undo canvas change"
-            disabled={!past.length}
-            onClick={undo}
-          >
-            <Undo2 size={15} />
-          </button>
-          <button
-            type="button"
-            className="co-icon-button"
-            aria-label="Redo canvas change"
-            disabled={!future.length}
-            onClick={redo}
-          >
-            <Redo2 size={15} />
-          </button>
-          <button
-            type="button"
-            className="co-icon-button"
-            aria-label="Zoom out"
-            disabled={zoom <= 0.1}
-            onClick={() => setZoom((z) => Math.max(0.1, z - 0.1))}
-          >
-            <Minus size={14} />
-          </button>
-          <span>{Math.round(zoom * 100)}%</span>
-          <button
-            type="button"
-            className="co-icon-button"
-            aria-label="Zoom in"
-            disabled={zoom >= 1.2}
-            onClick={() => setZoom((z) => Math.min(1.2, z + 0.1))}
-          >
-            <Plus size={14} />
-          </button>
+          {!running && (
+            <>
+              <button
+                type="button"
+                className="co-button"
+                aria-pressed={taskSettings && !node && !edge}
+                onClick={() => {
+                  setSelected("");
+                  setEdgeId("");
+                  setTaskSettings(true);
+                }}
+              >
+                <ClipboardList size={13} /> Workflow settings
+              </button>
+              <button
+                type="button"
+                className="co-icon-button"
+                aria-label="Undo canvas change"
+                disabled={!past.length}
+                onClick={undo}
+              >
+                <Undo2 size={15} />
+              </button>
+              <button
+                type="button"
+                className="co-icon-button"
+                aria-label="Redo canvas change"
+                disabled={!future.length}
+                onClick={redo}
+              >
+                <Redo2 size={15} />
+              </button>
+            </>
+          )}
+          <ZoomControls zoom={zoom} setZoom={setZoom} fit={fit} />
         </div>
       </div>
-      <div className="tc-layout">
-        <aside className="tc-palette" aria-label="Workflow blocks">
-          {node && stepKinds.includes(node.kind) ? (
-            <section className="tc-palette-inputs" aria-label={`Inputs for ${node.title}`}>
-              <div className="tc-palette-inputs-heading">
-                <span>Inputs</span>
-                <em aria-label="Attached inputs">
-                  {
-                    graph.edges.filter((item) => item.kind === "attachment" && item.to === node.id)
-                      .length
-                  }
-                </em>
-              </div>
-              <div className="tc-palette-input-actions">
-                {(["context", "mcp", "skill", "connector"] as const).map((kind) => {
-                  const Icon = icons[kind];
-                  return (
-                    <button type="button" key={kind} onClick={() => attach(kind, node)}>
-                      <Icon size={13} />
-                      {blockNames[kind]}
-                    </button>
-                  );
-                })}
-                <button type="button" onClick={() => addApprovalAfter(node)}>
-                  <ShieldCheck size={13} />
-                  Approval next
+      <div className={`tc-layout ${running ? "ck-no-palette" : ""}`}>
+        {!running && (
+          <aside className="tc-palette" aria-label="Workflow blocks">
+            {scheduleBlock && (
+              <details className="tc-block-group" open>
+                <summary>
+                  Trigger
+                  <span>1</span>
+                </summary>
+                <button
+                  type="button"
+                  className="tc-palette-block"
+                  aria-pressed={selected === SCHEDULE_ID}
+                  onClick={() => {
+                    setSelected(SCHEDULE_ID);
+                    setEdgeId("");
+                  }}
+                  aria-label="Edit Schedule block"
+                >
+                  <CalendarClock size={17} />
+                  <span>
+                    <strong>Schedule</strong>
+                    <small>Manual or recurring</small>
+                  </span>
+                  <ChevronRight size={12} />
                 </button>
-              </div>
-              {graph.edges
-                .filter((item) => item.kind === "attachment" && item.to === node.id)
-                .map((item) => graph.nodes.find((candidate) => candidate.id === item.from)!)
-                .map((resource) => {
-                  const ResourceIcon = icons[resource.kind];
+              </details>
+            )}
+            {(
+              [
+                { label: "Steps & team", kinds: ["task", "agent", "prompt"] },
+                { label: "Resources", kinds: ["context", "mcp", "skill", "connector"] },
+                { label: "Control", kinds: ["approval", "restriction"] },
+              ] as { label: string; kinds: BlockKind[] }[]
+            ).map(({ label, kinds }) => (
+              <details className="tc-block-group" key={label} open={label !== "Resources"}>
+                <summary>
+                  {label}
+                  <span>{kinds.length}</span>
+                </summary>
+                {kinds.map((kind) => {
+                  const Icon = icons[kind];
                   return (
                     <button
                       type="button"
-                      className="tc-palette-attached"
-                      key={resource.id}
-                      onClick={() => {
-                        setSelected(resource.id);
-                        setEdgeId("");
+                      key={kind}
+                      className="tc-palette-block"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("application/agentos-block", kind);
+                        e.dataTransfer.effectAllowed = "copy";
                       }}
+                      onClick={() => add(kind)}
+                      aria-label={`Add ${blockNames[kind]} block`}
                     >
-                      <ResourceIcon size={13} />
+                      <Icon size={17} />
                       <span>
-                        <strong>{resource.title}</strong>
-                        <small>{blockNames[resource.kind]}</small>
+                        <strong>{blockNames[kind]}</strong>
+                        <small>{descriptions[kind]}</small>
                       </span>
-                      <ChevronRight size={12} />
+                      <Plus size={12} />
                     </button>
                   );
                 })}
-            </section>
-          ) : null}
-          {(
-            [
-              { label: "Steps & team", kinds: ["task", "office", "agent", "prompt"] },
-              { label: "Resources", kinds: ["context", "mcp", "skill", "connector"] },
-              { label: "Control", kinds: ["approval", "restriction"] },
-            ] as { label: string; kinds: BlockKind[] }[]
-          ).map(({ label, kinds }) => (
-            <details className="tc-block-group" key={label} open={label !== "Resources"}>
-              <summary>
-                {label}
-                <span>{kinds.length}</span>
-              </summary>
-              {kinds.map((kind) => {
-                const Icon = icons[kind];
-                return (
-                  <button
-                    type="button"
-                    key={kind}
-                    className="tc-palette-block"
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData("application/agentos-block", kind);
-                      e.dataTransfer.effectAllowed = "copy";
-                    }}
-                    onClick={() => add(kind)}
-                    aria-label={`Add ${blockNames[kind]} block`}
-                  >
-                    <Icon size={17} />
-                    <span>
-                      <strong>{blockNames[kind]}</strong>
-                      <small>{descriptions[kind]}</small>
-                    </span>
-                    <Plus size={12} />
-                  </button>
-                );
-              })}
-            </details>
-          ))}
-        </aside>
+              </details>
+            ))}
+          </aside>
+        )}
         <div className="tc-center">
-          <div
-            className="tc-canvas"
-            ref={viewport}
-            aria-label="Workflow canvas"
+          <CanvasStage
+            label="Workflow canvas"
+            viewportRef={viewport}
+            worldRef={world}
+            zoom={zoom}
+            width={canvasSize.width}
+            height={canvasSize.height}
             onDragOver={(e) => {
+              if (running) return;
               e.preventDefault();
               e.dataTransfer.dropEffect = "copy";
             }}
             onDrop={(e) => {
+              if (running) return;
               e.preventDefault();
               const kind = e.dataTransfer.getData("application/agentos-block");
               if (Object.hasOwn(descriptions, kind)) {
@@ -672,286 +683,311 @@ export function TaskCanvas({
                 add(kind as BlockKind, p.x, p.y);
               }
             }}
-          >
-            <div style={{ width: canvasSize.width * zoom, height: canvasSize.height * zoom }}>
-              <div
-                className="tc-world"
-                ref={world}
-                style={{
-                  width: canvasSize.width,
-                  height: canvasSize.height,
-                  transform: `scale(${zoom})`,
-                }}
-              >
-                <svg
-                  className="tc-wires"
-                  width={canvasSize.width}
-                  height={canvasSize.height}
-                  aria-label="Connections"
-                >
-                  <defs>
-                    <marker
-                      id="tc-arrow"
-                      viewBox="0 0 10 10"
-                      refX="9"
-                      refY="5"
-                      markerWidth="6"
-                      markerHeight="6"
-                      orient="auto-start-reverse"
-                    >
-                      <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
-                    </marker>
-                  </defs>
-                  {graph.edges.map((e) => {
-                    const a = shown.find((n) => n.id === e.from)!,
-                      b = shown.find((n) => n.id === e.to)!;
-                    const x = a.x + 210,
-                      y = a.y + 65,
-                      dx = Math.max(80, Math.abs(b.x - x) / 2);
-                    const d = `M${x},${y} C${x + dx},${y} ${b.x - dx},${b.y + 65} ${b.x},${b.y + 65}`;
-                    return (
-                      <g
-                        key={e.id}
-                        className={`${e.kind} ${e.id === edgeId ? "selected" : ""}`}
-                        onClick={() => {
-                          setEdgeId(e.id);
-                          setSelected("");
-                        }}
-                      >
-                        <path className="tc-wire-hit" d={d} />
-                        <path className="tc-wire" d={d} markerEnd="url(#tc-arrow)" />
-                        <text x={(x + b.x) / 2} y={(y + b.y + 65) / 2 - 9}>
-                          {e.kind === "attachment" ? "applies to" : e.condition}
-                        </text>
-                      </g>
-                    );
-                  })}
-                  {connecting &&
-                    wire &&
-                    (() => {
-                      const a = shown.find((n) => n.id === connecting);
-                      return a ? (
-                        <path
-                          className="tc-wire tc-wire-preview"
-                          d={`M${a.x + 210},${a.y + 65} L${wire.x},${wire.y}`}
-                        />
-                      ) : null;
-                    })()}
-                </svg>
-                {shown.map((n) => {
-                  const Icon = icons[n.kind];
-                  const inputCount = graph.edges.filter(
-                    (edge) => edge.kind === "attachment" && edge.to === n.id,
-                  ).length;
+            wires={
+              <>
+                {graph.edges.map((e) => {
+                  const a = shown.find((n) => n.id === e.from)!,
+                    b = shown.find((n) => n.id === e.to)!;
+                  const x = a.x + 210,
+                    y = a.y + 65,
+                    dx = Math.max(80, Math.abs(b.x - x) / 2);
+                  const d = `M${x},${y} C${x + dx},${y} ${b.x - dx},${b.y + 65} ${b.x},${b.y + 65}`;
                   return (
-                    <article
-                      key={n.id}
-                      className={`tc-node tc-kind-${n.kind} ${selected === n.id ? "selected" : ""}`}
-                      style={{ left: n.x, top: n.y }}
-                      tabIndex={0}
-                      aria-label={`${n.id === workflowRootId ? "Workflow" : blockNames[n.kind]} block: ${n.title}`}
+                    <g
+                      key={e.id}
+                      className={`${e.kind} ${e.id === edgeId ? "selected" : ""} ${
+                        running && statuses[e.from] === "done" && statuses[e.to] !== "skipped"
+                          ? "ck-wire-done"
+                          : running && statuses[e.to] === "skipped"
+                            ? "ck-wire-skipped"
+                            : ""
+                      }`}
                       onClick={() => {
-                        setSelected(n.id);
-                        setEdgeId("");
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.target !== e.currentTarget) return;
-                        const offsets: Record<string, [number, number]> = {
-                          ArrowLeft: [-20, 0],
-                          ArrowRight: [20, 0],
-                          ArrowUp: [0, -20],
-                          ArrowDown: [0, 20],
-                        };
-                        const offset = offsets[e.key];
-                        if (offset) {
-                          e.preventDefault();
-                          update(n.id, {
-                            x: clamp(n.x + offset[0], 2190),
-                            y: clamp(n.y + offset[1], 1470),
-                          });
-                        }
-                        if (e.key === "Enter") {
-                          setSelected(n.id);
-                          setEdgeId("");
-                        }
-                        if (e.key === "Delete" || e.key === "Backspace") {
-                          e.preventDefault();
-                          commit(removeCanvasNode(graph, n.id));
-                          setSelected("");
-                          if (n.id === workflowRootId) setTaskSettings(true);
-                        }
+                        setEdgeId(e.id);
+                        setSelected("");
                       }}
                     >
-                      <div
-                        className="tc-node-handle"
-                        onPointerDown={(e) => {
-                          if (e.button !== 0) return;
-                          e.currentTarget.setPointerCapture(e.pointerId);
-                          drag.current = {
-                            id: n.id,
-                            x: n.x,
-                            y: n.y,
-                            clientX: e.clientX,
-                            clientY: e.clientY,
-                          };
-                          setSelected(n.id);
-                          setEdgeId("");
-                        }}
-                        onPointerMove={(e) => {
-                          const d = drag.current;
-                          if (d?.id === n.id)
-                            setMoving({
-                              id: n.id,
-                              x: clamp(d.x + (e.clientX - d.clientX) / zoom, 2190),
-                              y: clamp(d.y + (e.clientY - d.clientY) / zoom, 1470),
-                            });
-                        }}
-                        onPointerUp={(e) => {
-                          const d = drag.current;
-                          if (d)
-                            update(n.id, {
-                              x: clamp(d.x + (e.clientX - d.clientX) / zoom, 2190),
-                              y: clamp(d.y + (e.clientY - d.clientY) / zoom, 1470),
-                            });
-                          drag.current = null;
-                          setMoving(null);
-                        }}
-                        onPointerCancel={() => {
-                          drag.current = null;
-                          setMoving(null);
-                        }}
-                      >
-                        <Icon size={15} />
-                        <span>{n.id === workflowRootId ? "Workflow" : blockNames[n.kind]}</span>
-                        {entryIds.has(n.id) && <em className="tc-entry">Start</em>}
-                        <GripVertical size={13} />
-                      </div>
-                      <strong>{n.title || "Untitled block"}</strong>
-                      <p>
-                        {inputCount ? `${inputCount} attached · ` : ""}
-                        {n.kind === "approval"
-                          ? n.reviewer === "human"
-                            ? "Your approval required"
-                            : agents.find((a) => a.id === n.reviewer)?.name || "Choose reviewer"
-                          : n.kind === "restriction"
-                            ? `${n.readOnly ? "Read only" : "Writes requested"} · ${n.network ? "Network requested" : "No network"}`
-                            : n.kind === "context"
-                              ? `${contextTypeNames[n.contextType || "notes"]} · ${n.source || n.prompt || (n.attachmentIds || []).length ? "Configured" : "Select a source"}`
-                              : n.prompt ||
-                                (n.reference
-                                  ? n.capabilityStatus
-                                    ? `${n.capabilityStatus} · ${n.engine}`
-                                    : "Reference selected · unverified"
-                                  : "Select to configure")}
-                      </p>
-                      {!attachmentKinds.includes(n.kind) && (
-                        <button
-                          type="button"
-                          className="tc-port tc-port-in"
-                          data-input={n.id}
-                          aria-label={`Connect into ${n.title}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (connecting) connect(connecting, n.id);
-                            else {
-                              setTo(n.id);
-                              setError("Choose an output port or a From block below.");
-                            }
-                          }}
-                        />
-                      )}
-                      <button
-                        type="button"
-                        className={`tc-port tc-port-out ${connecting === n.id ? "active" : ""}`}
-                        aria-label={`Connect from ${n.title}`}
-                        onPointerDown={(e) => {
-                          e.stopPropagation();
-                          e.currentTarget.setPointerCapture(e.pointerId);
-                          wireStart.current = { x: e.clientX, y: e.clientY };
-                          setConnecting(n.id);
-                        }}
-                        onPointerMove={(e) => {
-                          if (wireStart.current) setWire(point(e.clientX, e.clientY));
-                        }}
-                        onPointerUp={(e) => {
-                          const start = wireStart.current;
-                          wireStart.current = null;
-                          if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 5) {
-                            const target = document
-                              .elementFromPoint(e.clientX, e.clientY)
-                              ?.closest<HTMLElement>("[data-input]")?.dataset.input;
-                            if (target) connect(n.id, target);
-                            else
-                              setError("Drop on an input dot, or click one to finish connecting.");
-                          }
-                          setWire(null);
-                        }}
-                        onPointerCancel={() => {
-                          wireStart.current = null;
-                          setWire(null);
-                          setConnecting("");
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (e.detail === 0) setConnecting(n.id);
-                        }}
-                      />
-                    </article>
+                      <path className="tc-wire-hit" d={d} />
+                      <path className="tc-wire" d={d} markerEnd="url(#tc-arrow)" />
+                      <text x={(x + b.x) / 2} y={(y + b.y + 65) / 2 - 9}>
+                        {e.kind === "attachment" ? "applies to" : e.condition}
+                      </text>
+                    </g>
                   );
                 })}
-              </div>
-            </div>
-          </div>
-          <details className="tc-connect-tools">
-            <summary>Connect using selectors</summary>
-            <div className="tc-connect">
-              <label>
-                From
-                <select
-                  aria-label="Connection from"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                >
-                  <option value="">Choose block</option>
-                  {graph.nodes.map((n, i) => (
-                    <option key={n.id} value={n.id}>
-                      {i + 1}. {n.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                To
-                <select
-                  aria-label="Connection to"
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                >
-                  <option value="">Choose block</option>
-                  {graph.nodes
-                    .filter((n) => !attachmentKinds.includes(n.kind))
-                    .map((n) => (
-                      <option key={n.id} value={n.id}>
-                        {graph.nodes.indexOf(n) + 1}. {n.title}
-                      </option>
-                    ))}
-                </select>
-              </label>
+                {connecting &&
+                  wire &&
+                  (() => {
+                    const a = shown.find((n) => n.id === connecting);
+                    return a ? (
+                      <path
+                        className="tc-wire tc-wire-preview"
+                        d={`M${a.x + 210},${a.y + 65} L${wire.x},${wire.y}`}
+                      />
+                    ) : null;
+                  })()}
+                {scheduleBlock && scheduleAnchor && (
+                  <path
+                    className="tc-wire tc-wire-schedule"
+                    d={`M${scheduleBlock.x + 105},${scheduleBlock.y + 32} L${scheduleAnchor.x + 105},${scheduleAnchor.y + 65}`}
+                  />
+                )}
+              </>
+            }
+          >
+            {scheduleBlock && (
               <button
                 type="button"
-                className="co-button"
-                disabled={!from || !to}
-                onClick={() => connect(from, to)}
+                className={`tc-node tc-schedule-node ${selected === SCHEDULE_ID ? "selected" : ""}`}
+                style={{ left: scheduleBlock.x, top: scheduleBlock.y }}
+                aria-label={`Schedule block: ${scheduleSummary}`}
+                onClick={() => {
+                  setSelected(SCHEDULE_ID);
+                  setEdgeId("");
+                }}
               >
-                Connect
+                <span className="tc-node-handle">
+                  <CalendarClock size={15} />
+                  <span>Schedule</span>
+                  {schedule?.kind === "cron" && <em className="tc-entry">Cron</em>}
+                </span>
+                <p>{scheduleSummary}</p>
               </button>
-            </div>
-          </details>
+            )}
+            {shown.map((n) => {
+              const Icon = icons[n.kind];
+              const inputCount = graph.edges.filter(
+                (edge) => edge.kind === "attachment" && edge.to === n.id,
+              ).length;
+              return (
+                <article
+                  key={n.id}
+                  className={`tc-node tc-kind-${n.kind} ${selected === n.id ? "selected" : ""}`}
+                  data-status={statuses[n.id]}
+                  style={{ left: n.x, top: n.y }}
+                  tabIndex={0}
+                  aria-label={`${n.id === workflowRootId ? "Workflow" : blockNames[n.kind]} block: ${n.title}`}
+                  onClick={() => {
+                    setSelected(n.id);
+                    setEdgeId("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (running) {
+                      if (e.key === "Enter") {
+                        setSelected(n.id);
+                        setEdgeId("");
+                      }
+                      return;
+                    }
+                    const offsets: Record<string, [number, number]> = {
+                      ArrowLeft: [-20, 0],
+                      ArrowRight: [20, 0],
+                      ArrowUp: [0, -20],
+                      ArrowDown: [0, 20],
+                    };
+                    const offset = offsets[e.key];
+                    if (offset) {
+                      e.preventDefault();
+                      update(n.id, {
+                        x: clamp(n.x + offset[0], 2190),
+                        y: clamp(n.y + offset[1], 1470),
+                      });
+                    }
+                    if (e.key === "Enter") {
+                      setSelected(n.id);
+                      setEdgeId("");
+                    }
+                    if (e.key === "Delete" || e.key === "Backspace") {
+                      e.preventDefault();
+                      commit(removeCanvasNode(graph, n.id));
+                      setSelected("");
+                      if (n.id === workflowRootId) setTaskSettings(true);
+                    }
+                  }}
+                >
+                  <div
+                    className="tc-node-handle"
+                    onPointerDown={(e) => {
+                      if (e.button !== 0) return;
+                      if (running) {
+                        setSelected(n.id);
+                        setEdgeId("");
+                        return;
+                      }
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                      drag.current = {
+                        id: n.id,
+                        x: n.x,
+                        y: n.y,
+                        clientX: e.clientX,
+                        clientY: e.clientY,
+                      };
+                      setSelected(n.id);
+                      setEdgeId("");
+                    }}
+                    onPointerMove={(e) => {
+                      const d = drag.current;
+                      if (d?.id === n.id)
+                        setMoving({
+                          id: n.id,
+                          x: clamp(d.x + (e.clientX - d.clientX) / zoom, 2190),
+                          y: clamp(d.y + (e.clientY - d.clientY) / zoom, 1470),
+                        });
+                    }}
+                    onPointerUp={(e) => {
+                      const d = drag.current;
+                      if (d)
+                        update(n.id, {
+                          x: clamp(d.x + (e.clientX - d.clientX) / zoom, 2190),
+                          y: clamp(d.y + (e.clientY - d.clientY) / zoom, 1470),
+                        });
+                      drag.current = null;
+                      setMoving(null);
+                    }}
+                    onPointerCancel={() => {
+                      drag.current = null;
+                      setMoving(null);
+                    }}
+                  >
+                    <Icon size={15} />
+                    <span>{n.id === workflowRootId ? "Workflow" : blockNames[n.kind]}</span>
+                    {entryIds.has(n.id) && <em className="tc-entry">Start</em>}
+                    {running ? (
+                      statuses[n.id] && <StatusPill status={statuses[n.id]!} />
+                    ) : (
+                      <GripVertical size={13} />
+                    )}
+                  </div>
+                  <strong>{n.title || "Untitled block"}</strong>
+                  <p>
+                    {inputCount ? `${inputCount} attached · ` : ""}
+                    {n.kind === "approval"
+                      ? n.reviewer === "human"
+                        ? "Your approval required"
+                        : agents.find((a) => a.id === n.reviewer)?.name || "Choose reviewer"
+                      : n.kind === "restriction"
+                        ? `${n.readOnly ? "Read only" : "Writes requested"} · ${n.network ? "Network requested" : "No network"}`
+                        : n.kind === "context"
+                          ? `${contextTypeNames[n.contextType || "notes"]} · ${n.source || n.prompt || (n.attachmentIds || []).length ? "Configured" : "Select a source"}`
+                          : n.prompt ||
+                            (n.reference
+                              ? n.capabilityStatus
+                                ? `${n.capabilityStatus} · ${n.engine}`
+                                : "Reference selected · unverified"
+                              : "Select to configure")}
+                  </p>
+                  {!running && !attachmentKinds.includes(n.kind) && (
+                    <button
+                      type="button"
+                      className="tc-port tc-port-in"
+                      data-input={n.id}
+                      aria-label={`Connect into ${n.title}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (connecting) connect(connecting, n.id);
+                        else {
+                          setTo(n.id);
+                          setError("Choose an output port or a From block below.");
+                        }
+                      }}
+                    />
+                  )}
+                  {!running && (
+                    <button
+                      type="button"
+                      className={`tc-port tc-port-out ${connecting === n.id ? "active" : ""}`}
+                      aria-label={`Connect from ${n.title}`}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                        wireStart.current = { x: e.clientX, y: e.clientY };
+                        setConnecting(n.id);
+                      }}
+                      onPointerMove={(e) => {
+                        if (wireStart.current) setWire(point(e.clientX, e.clientY));
+                      }}
+                      onPointerUp={(e) => {
+                        const start = wireStart.current;
+                        wireStart.current = null;
+                        if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 5) {
+                          const target = document
+                            .elementFromPoint(e.clientX, e.clientY)
+                            ?.closest<HTMLElement>("[data-input]")?.dataset.input;
+                          if (target) connect(n.id, target);
+                          else setError("Drop on an input dot, or click one to finish connecting.");
+                        }
+                        setWire(null);
+                      }}
+                      onPointerCancel={() => {
+                        wireStart.current = null;
+                        setWire(null);
+                        setConnecting("");
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (e.detail === 0) setConnecting(n.id);
+                      }}
+                    />
+                  )}
+                </article>
+              );
+            })}
+          </CanvasStage>
+          {!running && (
+            <details className="tc-connect-tools">
+              <summary>Connect using selectors</summary>
+              <div className="tc-connect">
+                <label>
+                  From
+                  <select
+                    aria-label="Connection from"
+                    value={from}
+                    onChange={(e) => setFrom(e.target.value)}
+                  >
+                    <option value="">Choose block</option>
+                    {graph.nodes.map((n, i) => (
+                      <option key={n.id} value={n.id}>
+                        {i + 1}. {n.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  To
+                  <select
+                    aria-label="Connection to"
+                    value={to}
+                    onChange={(e) => setTo(e.target.value)}
+                  >
+                    <option value="">Choose block</option>
+                    {graph.nodes
+                      .filter((n) => !attachmentKinds.includes(n.kind))
+                      .map((n) => (
+                        <option key={n.id} value={n.id}>
+                          {graph.nodes.indexOf(n) + 1}. {n.title}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="co-button"
+                  disabled={!from || !to}
+                  onClick={() => connect(from, to)}
+                >
+                  Connect
+                </button>
+              </div>
+            </details>
+          )}
           <div className="tc-hint" role="status">
             {error ||
-              (connecting
-                ? "Choose an input dot to connect."
-                : "Drag headers to move. Drag output → input to connect. Arrow keys move a focused block.")}
+              (running
+                ? "Run view · select a block to see its status and output."
+                : connecting
+                  ? "Choose an input dot to connect."
+                  : "Drag headers to move. Drag output → input to connect. Arrow keys move a focused block.")}
             {connecting && (
               <button
                 type="button"
@@ -977,8 +1013,27 @@ export function TaskCanvas({
               event.stopPropagation();
           }}
         >
-          <span className="co-section-kicker">{edge ? "CONNECTION" : "BLOCK SETTINGS"}</span>
-          {node ? (
+          <span className="co-section-kicker">
+            {running ? (node ? "BLOCK RUN" : "RUN") : edge ? "CONNECTION" : "BLOCK SETTINGS"}
+          </span>
+          {running ? (
+            <WorkflowRunPanel
+              run={run}
+              node={node}
+              status={node ? statuses[node.id] : undefined}
+              runAgain={runAgain}
+            />
+          ) : selected === SCHEDULE_ID && schedule && changeSchedule && schedulePreview ? (
+            <>
+              <h3>Schedule</h3>
+              <ScheduleEditor
+                compact
+                schedule={schedule}
+                change={changeSchedule}
+                preview={schedulePreview}
+              />
+            </>
+          ) : node ? (
             <>
               <h3>{node.id === workflowRootId ? "Workflow" : blockNames[node.kind]}</h3>
               <label>
@@ -1411,23 +1466,25 @@ export function TaskCanvas({
           ) : (
             <p>Select a block or connection to edit it.</p>
           )}
-          <details className="tc-outline">
-            <summary>Connections ({graph.edges.length})</summary>
-            {graph.edges.map((e) => (
-              <button
-                type="button"
-                key={e.id}
-                onClick={() => {
-                  setSelected("");
-                  setEdgeId(e.id);
-                }}
-              >
-                {graph.nodes.find((n) => n.id === e.from)?.title} →{" "}
-                {graph.nodes.find((n) => n.id === e.to)?.title}
-                <small>{e.kind === "attachment" ? "applies to" : e.condition}</small>
-              </button>
-            ))}
-          </details>
+          {!running && (
+            <details className="tc-outline">
+              <summary>Connections ({graph.edges.length})</summary>
+              {graph.edges.map((e) => (
+                <button
+                  type="button"
+                  key={e.id}
+                  onClick={() => {
+                    setSelected("");
+                    setEdgeId(e.id);
+                  }}
+                >
+                  {graph.nodes.find((n) => n.id === e.from)?.title} →{" "}
+                  {graph.nodes.find((n) => n.id === e.to)?.title}
+                  <small>{e.kind === "attachment" ? "applies to" : e.condition}</small>
+                </button>
+              ))}
+            </details>
+          )}
         </aside>
       </div>
       {(storageError || warnings.length > 0) && (

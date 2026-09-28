@@ -115,6 +115,7 @@ export type DirectoryProps = {
   openEntry: (entry: DirectoryEntry) => void;
   createEntry: (kind: DirectoryKind, projectId?: string) => void;
   lifecycle: (entry: DirectoryEntry, state: Lifecycle) => void;
+  editProject: (id: string) => void;
 };
 export function WorkspaceDirectory({
   company,
@@ -124,31 +125,21 @@ export function WorkspaceDirectory({
   openEntry,
   createEntry,
   lifecycle,
+  editProject,
 }: DirectoryProps) {
   const [mode, setMode] = useState<Lifecycle>("active");
-  const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [limit, setLimit] = useState(20);
   const active = directoryEntries(activeCompany(company));
   const all = directoryEntries(company);
   const newest = (a: DirectoryEntry, b: DirectoryEntry) =>
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  const matches = (e: DirectoryEntry) => e.title.toLowerCase().includes(query.toLowerCase());
-  const projects = active
-    .filter(
-      (e) =>
-        e.kind === "project" &&
-        (matches(e) || active.some((c) => c.projectId === e.id && matches(c))),
-    )
-    .sort(newest);
-  const entries = active
-    .filter((e) => e.kind !== "project" && !e.projectId && matches(e))
-    .sort(newest);
-  const hidden = all.filter((e) => e.lifecycle === mode && matches(e)).sort(newest);
+  const projects = active.filter((e) => e.kind === "project").sort(newest);
+  const entries = active.filter((e) => e.kind !== "project" && !e.projectId).sort(newest);
+  const hidden = all.filter((e) => e.lifecycle === mode).sort(newest);
   function switchMode(next: Lifecycle) {
     setMode(next);
     setLimit(20);
-    setQuery("");
   }
   function actions(entry: DirectoryEntry) {
     return (
@@ -161,6 +152,7 @@ export function WorkspaceDirectory({
                 <button onClick={() => createEntry("task", entry.id)}>
                   New workflow in project
                 </button>
+                <button onClick={() => editProject(entry.id)}>Edit project…</button>
               </>
             )}
             {entry.kind !== "project" && (
@@ -235,16 +227,6 @@ export function WorkspaceDirectory({
           </Actions>
         </div>
       </header>
-      <input
-        className="co-dir-search"
-        aria-label="Filter directory"
-        placeholder="Filter projects, chats, workflows…"
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setLimit(20);
-        }}
-      />
       {mode !== "active" ? (
         <>
           <button className="co-dir-back" onClick={() => switchMode("active")}>
@@ -252,7 +234,7 @@ export function WorkspaceDirectory({
           </button>
           <p className="co-dir-note">
             {mode === "removed"
-              ? "Recoverable removal. Files and Activity history are kept."
+              ? "Recoverable removal. Files and run history are kept."
               : "Restore items whenever you need them. Project archives include their chats and workflows."}
           </p>
           {hidden.slice(0, limit).map(row)}
@@ -266,10 +248,8 @@ export function WorkspaceDirectory({
       ) : (
         <>
           {projects.map((project) => {
-            const open = !collapsed.includes(project.id) || !!query;
-            const children = active
-              .filter((e) => e.projectId === project.id && (matches(e) || matches(project)))
-              .sort(newest);
+            const open = !collapsed.includes(project.id);
+            const children = active.filter((e) => e.projectId === project.id).sort(newest);
             return (
               <div className="co-dir-project" key={project.id}>
                 <div className="co-dir-row">
@@ -317,11 +297,7 @@ export function WorkspaceDirectory({
             );
           })}
           {!projects.length && (
-            <p className="co-dir-note">
-              {query
-                ? "No matching projects."
-                : "Create a project to group related chats and workflows."}
-            </p>
+            <p className="co-dir-note">Create a project to group related chats and workflows.</p>
           )}
           <div className="co-dir-section-title">
             <span>Chats & workflows</span>
@@ -331,9 +307,7 @@ export function WorkspaceDirectory({
             </Actions>
           </div>
           {entries.slice(0, limit).map(row)}
-          {!entries.length && (
-            <p className="co-dir-note">{query ? "No matching items." : "No chats or workflows."}</p>
-          )}
+          {!entries.length && <p className="co-dir-note">No chats or workflows.</p>}
           {entries.length > limit && (
             <button className="co-dir-back" onClick={() => setLimit(limit + 20)}>
               Show more

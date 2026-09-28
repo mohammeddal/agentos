@@ -1430,3 +1430,6 @@ svg {
     animation: none !important;
   }
 }
+.co-section-toolbar > .co-search:first-child {
+  margin-left: auto;
+}

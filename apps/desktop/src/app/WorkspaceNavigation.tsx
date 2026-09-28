@@ -1,5 +1,4 @@
 import {
-  Activity,
   AudioLines,
   BookOpen,
   Building2,
@@ -14,11 +13,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import { destinations, primaryView, type WorkspaceView } from "./navigation";
 import { isActiveRun, useLiveRuntime } from "../features/engines/live-runtime";
 import { WorkspaceDirectory, type DirectoryProps } from "./WorkspaceDirectory";
-import { unreadActivityCount } from "../features/activity/activity-badge";
 const icons = {
   start: MessageSquare,
   map: Building2,
-  activity: Activity,
   memory: BookOpen,
 };
 
@@ -33,7 +30,7 @@ export function WorkspaceNavigation({
   toggleTheme,
   mobile = false,
   directory,
-  acknowledgedActivity,
+  openRun,
 }: {
   view: WorkspaceView;
   theme: "light" | "dark";
@@ -45,12 +42,11 @@ export function WorkspaceNavigation({
   toggleTheme: () => void;
   mobile?: boolean;
   directory: DirectoryProps;
-  acknowledgedActivity: ReadonlySet<string>;
+  openRun: (runKey: string) => void;
 }) {
   const live = useLiveRuntime();
   const pending = live.runs.reduce((n, r) => n + r.approvals.length, 0);
   const active = live.runs.filter(isActiveRun).length;
-  const unreadActivity = unreadActivityCount(live.runs, acknowledgedActivity);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsId = useId();
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -103,14 +99,6 @@ export function WorkspaceNavigation({
             >
               <Icon size={18} />
               <span>{d.label}</span>
-              {d.view === "activity" && unreadActivity > 0 && (
-                <b
-                  className="co-nav-count"
-                  aria-label={`${unreadActivity} unread activity ${unreadActivity === 1 ? "item" : "items"}`}
-                >
-                  {unreadActivity}
-                </b>
-              )}
             </button>
           );
         })}
@@ -120,7 +108,12 @@ export function WorkspaceNavigation({
         {(pending > 0 || active > 0 || !live.native) && (
           <button
             className="co-sidebar-status"
-            onClick={() => navigate(pending || active ? "activity" : "engines")}
+            onClick={() => {
+              // Open the chat or workflow that needs attention; its page shows the run.
+              const run = live.runs.find((r) => r.approvals.length) || live.runs.find(isActiveRun);
+              if (run) openRun(run.request.key);
+              else navigate("engines");
+            }}
           >
             {pending
               ? `${pending} approval${pending === 1 ? "" : "s"} needed`

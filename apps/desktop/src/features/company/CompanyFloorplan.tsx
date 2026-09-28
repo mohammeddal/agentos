@@ -1,22 +1,23 @@
 import { useEffect, useRef, useState } from "react";
+import { Activity, ArrowRight, Bot, Focus, Minus, Plus, ShieldAlert, X } from "lucide-react";
 import {
-  Activity,
-  ArrowRight,
-  Bot,
-  ChevronLeft,
-  ChevronRight,
-  Focus,
-  Minus,
-  MousePointer2,
-  Plus,
-  ShieldAlert,
-  Users,
-  X,
-} from "lucide-react";
-import type { Company, CompanyAgent, Office } from "./company-model";
+  taskParticipants,
+  type Company,
+  type CompanyAgent,
+  type CompanyTask,
+  type Office,
+} from "./company-model";
+import { AgentWorkForm } from "./AgentWorkForm";
+import { WorkflowMapPanel } from "./WorkflowMapPanel";
+import { latestRun } from "../engines/run-presentation";
 import "./company-floorplan.css";
-import { controlLive, isActiveRun, useLiveRuntime } from "../engines/live-runtime";
-import { agentMapRuns, agentMapState, type AgentMapState } from "./company-map-state";
+import { controlLive, isActiveRun, useLiveRuntime, type LiveRun } from "../engines/live-runtime";
+import {
+  agentMapRuns,
+  agentMapState,
+  workflowOfficeId,
+  type AgentMapState,
+} from "./company-map-state";
 
 const initialWorkers = new Set(["data-engineer", "investigator", "developer"]);
 const initialApprovals = new Set(["reviewer"]);
@@ -36,7 +37,11 @@ const colors: Record<string, string> = {
 type Props = {
   company: Company;
   query: string;
-  openOffice: (id: string) => void;
+  editOffice: (office: Office) => void;
+  addWorkflow: (office: Office | null) => void;
+  openWorkflow: (task: CompanyTask) => void;
+  runWorkflow: (task: CompanyTask) => Promise<void>;
+  assignWork: (agent: CompanyAgent, text: string) => Promise<void>;
   addOffice: () => void;
   addAgent: (id: string) => void;
   editAgent: (officeId: string, agent: CompanyAgent) => void;
@@ -46,7 +51,11 @@ type Props = {
 export function CompanyFloorplan({
   company,
   query,
-  openOffice,
+  editOffice,
+  addWorkflow,
+  openWorkflow,
+  runWorkflow,
+  assignWork,
   addOffice,
   addAgent,
   editAgent,
@@ -56,7 +65,7 @@ export function CompanyFloorplan({
   const live = useLiveRuntime();
   const [overrides, setOverrides] = useState<Record<string, "working" | "approval" | "idle">>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [insightsOpen, setInsightsOpen] = useState(true);
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [approvalError, setApprovalError] = useState("");
@@ -66,6 +75,17 @@ export function CompanyFloorplan({
     office.agents.map((agent) => ({ ...agent, office })),
   );
   const selected = agents.find((a) => a.id === selectedId);
+  const officeWorkflows = (office: Office) =>
+    (company.tasks || []).filter((task) => workflowOfficeId(company, task) === office.id);
+  const selectedWorkflow = (company.tasks || []).find((task) => task.id === selectedWorkflowId);
+  const selectAgent = (id: string) => {
+    setSelectedWorkflowId(null);
+    setSelectedId(id);
+  };
+  const selectWorkflow = (id: string) => {
+    setSelectedId(null);
+    setSelectedWorkflowId(id);
+  };
   const status = (agent: CompanyAgent): AgentMapState =>
     !preview
       ? agentMapState(live.runs, agent.id)
@@ -91,6 +111,11 @@ export function CompanyFloorplan({
   const selectedResult = selectedRun?.results.find((result) => result.id === selectedStep?.id);
   const selectedEvent = selectedRun?.events.at(-1);
   const selectedApproval = selectedRun?.approvals[0];
+  const agentWorkflows = selected
+    ? (company.tasks || []).filter((task) =>
+        taskParticipants(company, task.assignment).some((agent) => agent.id === selected.id),
+      )
+    : [];
   async function decideApproval(allow: boolean) {
     if (!selectedRun || !selectedApproval || approvalBusy) return;
     setApprovalBusy(true);
@@ -119,18 +144,32 @@ export function CompanyFloorplan({
     const waiting = office.agents.filter((agent) => status(agent) === "approval").length;
     return `${office.agents.length} ${office.agents.length === 1 ? "agent" : "agents"} · ${active} working${waiting ? ` · ${waiting} approval` : ""}`;
   };
+  /** Bottom of the desk area inside a room (the empty-office card when it has no agents). */
+  const agentsBottom = (office: Office) =>
+    office.agents.length ? 86 + Math.ceil(office.agents.length / 2) * 104 - 14 : 215;
   const rooms: Array<{ office: Office | null; x: number; y: number; height: number }> = [];
   let y = 100;
   for (let i = 0; i < company.offices.length + 1; i += 2) {
     const pair = [company.offices[i], company.offices[i + 1]];
     const height = Math.max(
       284,
-      ...pair.map((o) => 110 + Math.ceil((o?.agents.length || 0) / 2) * 104),
+      ...pair.map((o) => {
+        if (!o) return 0;
+        const flows = officeWorkflows(o).length;
+        return agentsBottom(o) + (flows ? 26 + Math.ceil(flows / 2) * WORKFLOW_ROW : 0) + 48;
+      }),
     );
     for (let j = 0; j < 2 && i + j < company.offices.length + 1; j++)
       rooms.push({ office: pair[j] || null, x: j === 0 ? 38 : 512, y, height });
     y += height + 22;
   }
+  // Workflows that span several offices live in a shared, company-wide area below the rooms.
+  const sharedWorkflows = (company.tasks || []).filter((task) => !workflowOfficeId(company, task));
+  const shared = {
+    y,
+    height: 40 + Math.max(1, Math.ceil(sharedWorkflows.length / SHARED_COLUMNS)) * WORKFLOW_ROW,
+  };
+  y += shared.height + 22;
   const height = y + 92;
   const enter = (event: React.KeyboardEvent<SVGGElement>, action: () => void) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -211,12 +250,6 @@ export function CompanyFloorplan({
       </header>
       <div className="fp-layout">
         <div className="fp-map-area">
-          <div className="fp-map-caption">
-            <span>
-              <i /> {company.name}
-            </span>
-            <span>LIVE COMPANY MAP</span>
-          </div>
           <div
             className="fp-map-scroll"
             ref={mapScroll}
@@ -330,10 +363,10 @@ export function CompanyFloorplan({
                       <g
                         role="button"
                         tabIndex={0}
-                        aria-label={`Open ${office.name} office`}
+                        aria-label={`Edit ${office.name} office`}
                         className="fp-room-title"
-                        onClick={() => openOffice(office.id)}
-                        onKeyDown={(e) => enter(e, () => openOffice(office.id))}
+                        onClick={() => editOffice(office)}
+                        onKeyDown={(e) => enter(e, () => editOffice(office))}
                       >
                         <rect
                           x={x + 16}
@@ -375,6 +408,23 @@ export function CompanyFloorplan({
                           ADD AGENT
                         </text>
                       </g>
+                      <g
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Add workflow to ${office.name}`}
+                        className="fp-room-add-agent"
+                        onClick={() => addWorkflow(office)}
+                        onKeyDown={(e) => enter(e, () => addWorkflow(office))}
+                      >
+                        <rect x={x + 184} y={y + 20} width="86" height="26" rx="13" />
+                        <path
+                          d={`M${x + 197} ${y + 33}h8 M${x + 201} ${y + 29}v8`}
+                          strokeWidth="1.4"
+                        />
+                        <text x={x + 210} y={y + 36}>
+                          WORKFLOW
+                        </text>
+                      </g>
                       {office.agents.map((agent, agentIndex) => (
                         <Workstation
                           key={agent.id}
@@ -385,10 +435,30 @@ export function CompanyFloorplan({
                           state={status(agent)}
                           selected={selectedId === agent.id}
                           dim={!matches(office, agent)}
-                          onSelect={() => {
-                            setSelectedId(agent.id);
-                            setInsightsOpen(true);
-                          }}
+                          onSelect={() => selectAgent(agent.id)}
+                        />
+                      ))}
+                      {officeWorkflows(office).length > 0 && (
+                        <text
+                          x={x + 22}
+                          y={y + agentsBottom(office) + 16}
+                          className="fp-room-number"
+                        >
+                          WORKFLOWS
+                        </text>
+                      )}
+                      {officeWorkflows(office).map((task, flowIndex) => (
+                        <WorkflowBoard
+                          key={task.id}
+                          task={task}
+                          x={x + 22 + (flowIndex % 2) * 170}
+                          y={
+                            y + agentsBottom(office) + 26 + Math.floor(flowIndex / 2) * WORKFLOW_ROW
+                          }
+                          run={latestRun(live.runs, `task:${task.id}`)}
+                          selected={selectedWorkflowId === task.id}
+                          dim={!!query && !task.title.toLowerCase().includes(query.toLowerCase())}
+                          onSelect={() => selectWorkflow(task.id)}
                         />
                       ))}
                       {!office.agents.length && (
@@ -491,8 +561,54 @@ export function CompanyFloorplan({
                     </g>
                   ),
                 )}
+                <g className="fp-shared-area">
+                  <rect
+                    x="38"
+                    y={shared.y}
+                    width="844"
+                    height={shared.height}
+                    rx="8"
+                    fill="var(--fp-room-floor)"
+                    stroke="var(--fp-door)"
+                    strokeDasharray="4 5"
+                  />
+                  <text x="58" y={shared.y + 24} className="fp-room-number">
+                    COMPANY-WIDE WORKFLOWS
+                  </text>
+                  <g
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Add company-wide workflow"
+                    className="fp-room-add-agent"
+                    onClick={() => addWorkflow(null)}
+                    onKeyDown={(e) => enter(e, () => addWorkflow(null))}
+                  >
+                    <rect x={776} y={shared.y + 10} width="86" height="26" rx="13" />
+                    <path d={`M789 ${shared.y + 23}h8 M793 ${shared.y + 19}v8`} strokeWidth="1.4" />
+                    <text x={802} y={shared.y + 26}>
+                      WORKFLOW
+                    </text>
+                  </g>
+                  {sharedWorkflows.map((task, index) => (
+                    <WorkflowBoard
+                      key={task.id}
+                      task={task}
+                      x={58 + (index % SHARED_COLUMNS) * 170}
+                      y={shared.y + 40 + Math.floor(index / SHARED_COLUMNS) * WORKFLOW_ROW}
+                      run={latestRun(live.runs, `task:${task.id}`)}
+                      selected={selectedWorkflowId === task.id}
+                      dim={!!query && !task.title.toLowerCase().includes(query.toLowerCase())}
+                      onSelect={() => selectWorkflow(task.id)}
+                    />
+                  ))}
+                  {!sharedWorkflows.length && (
+                    <text x="58" y={shared.y + 58} className="fp-office-meta">
+                      Workflows that use agents from several offices appear here.
+                    </text>
+                  )}
+                </g>
                 <Plant x={460} y={115} />
-                <Plant x={460} y={height - 105} />
+                <Plant x={460} y={height - 84} />
                 <g transform={`translate(65 ${height - 69})`}>
                   <rect
                     width="172"
@@ -528,246 +644,250 @@ export function CompanyFloorplan({
               </svg>
             </div>
           </div>
-          <footer className="fp-map-footer">
-            <span>
-              <MousePointer2 size={12} /> Select an agent to see their status
-            </span>
-            <div>
-              <span className="fp-legend working">Working</span>
-              <span className="fp-legend approval">Approval</span>
-              <span className="fp-legend idle">Idle</span>
-              <span className="fp-legend offline">Not connected</span>
-            </div>
-          </footer>
         </div>
-        <aside
-          className={`fp-inspector ${insightsOpen ? "" : "is-collapsed"}`}
-          aria-label="Map activity"
-          ref={inspector}
-        >
-          <header>
-            <span>{selected ? "AGENT DETAILS" : "AT A GLANCE"}</span>
-            <div>
-              {selected && insightsOpen && (
+        {selectedWorkflow && !selected && (
+          <aside className="fp-inspector" aria-label="Workflow details" ref={inspector}>
+            <header>
+              <span>WORKFLOW</span>
+              <div>
+                <button
+                  aria-label="Close workflow details"
+                  onClick={() => setSelectedWorkflowId(null)}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            </header>
+            <WorkflowMapPanel
+              key={selectedWorkflow.id}
+              company={company}
+              task={selectedWorkflow}
+              run={latestRun(live.runs, `task:${selectedWorkflow.id}`)}
+              runNow={() => runWorkflow(selectedWorkflow)}
+              open={() => openWorkflow(selectedWorkflow)}
+            />
+          </aside>
+        )}
+        {selected && (
+          <aside className="fp-inspector" aria-label="Agent details" ref={inspector}>
+            <header>
+              <span>AGENT DETAILS</span>
+              <div>
                 <button aria-label="Close agent details" onClick={() => setSelectedId(null)}>
                   <X size={15} />
                 </button>
-              )}
-              <button
-                className="fp-inspector-toggle"
-                aria-label={insightsOpen ? "Collapse map insights" : "Expand map insights"}
-                aria-expanded={insightsOpen}
-                onClick={() => setInsightsOpen((open) => !open)}
-              >
-                {insightsOpen ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
-              </button>
-            </div>
-          </header>
-          {insightsOpen &&
-            (selected ? (
-              <>
-                <div className={`fp-selected-avatar tone-${selected.office.color}`}>
-                  <Bot size={26} />
+              </div>
+            </header>
+            <>
+              <div className={`fp-selected-avatar tone-${selected.office.color}`}>
+                <Bot size={26} />
+              </div>
+              <h3>{selected.name}</h3>
+              <p className="fp-agent-role">{selected.role}</p>
+              <span className={`fp-state-badge ${status(selected)}`}>
+                {stateLabel[status(selected)]}
+                {preview ? " · preview" : ""}
+              </span>
+              <dl>
+                <div>
+                  <dt>Office</dt>
+                  <dd>{selected.office.name}</dd>
                 </div>
-                <h3>{selected.name}</h3>
-                <p className="fp-agent-role">{selected.role}</p>
-                <span className={`fp-state-badge ${status(selected)}`}>
-                  {stateLabel[status(selected)]}
-                  {preview ? " · preview" : ""}
-                </span>
-                <dl>
-                  <div>
-                    <dt>Office</dt>
-                    <dd>{selected.office.name}</dd>
-                  </div>
-                  <div>
-                    <dt>Engine</dt>
-                    <dd>{selected.engine}</dd>
-                  </div>
-                </dl>
-                {!preview && selectedRun && (
-                  <section className="fp-current-work" aria-label="Current agent work">
-                    <header>
-                      <span>
-                        <Activity size={13} />{" "}
-                        {isActiveRun(selectedRun) ? "Current task" : "Latest task"}
-                      </span>
-                      <em className={status(selected)}>{stateLabel[status(selected)]}</em>
-                    </header>
-                    <h4>{selectedRun.request.title}</h4>
-                    <dl>
-                      <div>
-                        <dt>Step</dt>
-                        <dd>{selectedStep?.label || "Preparing work"}</dd>
-                      </div>
-                      <div>
-                        <dt>Updated</dt>
-                        <dd>{new Date(selectedRun.updatedAt).toLocaleTimeString()}</dd>
-                      </div>
-                    </dl>
-                    {selectedApproval && (
-                      <div className="fp-approval-callout">
-                        <ShieldAlert size={15} />
-                        <span>
-                          <strong>{selectedApproval.title}</strong>
-                          <small>{selectedApproval.detail}</small>
-                          <span className="fp-approval-actions">
-                            <button
-                              disabled={approvalBusy}
-                              onClick={() => void decideApproval(true)}
-                            >
-                              {approvalBusy ? "Updating…" : "Approve"}
-                            </button>
-                            <button
-                              disabled={approvalBusy}
-                              onClick={() => void decideApproval(false)}
-                            >
-                              Reject
-                            </button>
-                          </span>
-                        </span>
-                      </div>
-                    )}
-                    {approvalError && (
-                      <p className="fp-approval-error" role="alert">
-                        {approvalError}
-                      </p>
-                    )}
-                    {(selectedResult?.output || selectedRun.output) && (
-                      <div className="fp-work-output">
-                        <span>Latest output</span>
-                        <p>{(selectedResult?.output || selectedRun.output).slice(0, 280)}</p>
-                      </div>
-                    )}
-                    {!selectedResult?.output && !selectedRun.output && selectedEvent && (
-                      <div className="fp-work-output">
-                        <span>Latest update</span>
-                        <p>{selectedEvent.text.slice(0, 280)}</p>
-                      </div>
-                    )}
-                  </section>
-                )}
-                {!preview && !selectedRun && (
-                  <div className="fp-state-description">
-                    No attributed task yet. This agent will show current work, recent output, and
-                    approval requests here after a live run starts.
-                  </div>
-                )}
-                {preview && (
-                  <div className="fp-state-description">
-                    {status(selected) === "working"
-                      ? "Focused on a task. Live runs show the task, step, and latest update here."
-                      : status(selected) === "approval"
-                        ? "Waiting at an approval checkpoint. The live inspector shows the request and reviewer action."
-                        : "Available for the next task."}
-                  </div>
-                )}
-                {preview && (
-                  <div className="fp-state-controls">
-                    <span>TRY A PREVIEW STATE</span>
+                <div>
+                  <dt>Engine</dt>
+                  <dd>{selected.engine}</dd>
+                </div>
+              </dl>
+              {!preview && selectedRun && (
+                <section className="fp-current-work" aria-label="Current agent work">
+                  <header>
+                    <span>
+                      <Activity size={13} />{" "}
+                      {isActiveRun(selectedRun) ? "Current task" : "Latest task"}
+                    </span>
+                    <em className={status(selected)}>{stateLabel[status(selected)]}</em>
+                  </header>
+                  <h4>{selectedRun.request.title}</h4>
+                  <dl>
                     <div>
-                      {(["working", "approval", "idle"] as const).map((s) => (
-                        <button
-                          key={s}
-                          aria-pressed={status(selected) === s}
-                          onClick={() => setOverrides((v) => ({ ...v, [selected.id]: s }))}
-                        >
-                          {stateLabel[s]}
-                        </button>
-                      ))}
+                      <dt>Step</dt>
+                      <dd>{selectedStep?.label || "Preparing work"}</dd>
                     </div>
-                  </div>
-                )}
-                <button
-                  className="fp-inspector-action"
-                  onClick={() => inspectAgent(selected.office.id, selected)}
-                >
-                  Open full activity <ArrowRight size={13} />
-                </button>
-                <button
-                  className="fp-inspector-secondary"
-                  onClick={() => editAgent(selected.office.id, selected)}
-                >
-                  Configure agent <ArrowRight size={13} />
-                </button>
-                <button
-                  className="fp-inspector-secondary"
-                  onClick={() => openOffice(selected.office.id)}
-                >
-                  Open office <ArrowRight size={13} />
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="fp-summary">
-                  <strong>{agents.length}</strong>
-                  <span>
-                    {agents.length === 1 ? "teammate" : "teammates"} across {company.offices.length}{" "}
-                    {company.offices.length === 1 ? "office" : "offices"}
-                  </span>
-                </div>
-                <div className="fp-status-totals">
-                  <div>
-                    <span className="fp-legend working">Working</span>
-                    <strong>{working}</strong>
-                  </div>
-                  <div>
-                    <span className="fp-legend approval">Needs approval</span>
-                    <strong>{approvals}</strong>
-                  </div>
-                  <div>
-                    <span className="fp-legend idle">Idle</span>
-                    <strong>{idle}</strong>
-                  </div>
-                  {!preview && (
                     <div>
-                      <span className="fp-legend offline">Not connected</span>
-                      <strong>{offline}</strong>
+                      <dt>Updated</dt>
+                      <dd>{new Date(selectedRun.updatedAt).toLocaleTimeString()}</dd>
+                    </div>
+                  </dl>
+                  {selectedApproval && (
+                    <div className="fp-approval-callout">
+                      <ShieldAlert size={15} />
+                      <span>
+                        <strong>{selectedApproval.title}</strong>
+                        <small>{selectedApproval.detail}</small>
+                        <span className="fp-approval-actions">
+                          <button disabled={approvalBusy} onClick={() => void decideApproval(true)}>
+                            {approvalBusy ? "Updating…" : "Approve"}
+                          </button>
+                          <button
+                            disabled={approvalBusy}
+                            onClick={() => void decideApproval(false)}
+                          >
+                            Reject
+                          </button>
+                        </span>
+                      </span>
                     </div>
                   )}
+                  {approvalError && (
+                    <p className="fp-approval-error" role="alert">
+                      {approvalError}
+                    </p>
+                  )}
+                  {(selectedResult?.output || selectedRun.output) && (
+                    <div className="fp-work-output">
+                      <span>Latest output</span>
+                      <p>{(selectedResult?.output || selectedRun.output).slice(0, 280)}</p>
+                    </div>
+                  )}
+                  {!selectedResult?.output && !selectedRun.output && selectedEvent && (
+                    <div className="fp-work-output">
+                      <span>Latest update</span>
+                      <p>{selectedEvent.text.slice(0, 280)}</p>
+                    </div>
+                  )}
+                </section>
+              )}
+              {!preview && !selectedRun && (
+                <div className="fp-state-description">
+                  No attributed task yet. This agent will show current work, recent output, and
+                  approval requests here after a live run starts.
                 </div>
-                <div className="fp-roster-heading">
-                  {preview ? "AROUND THE OFFICE" : "YOUR TEAM"}
+              )}
+              {preview && (
+                <div className="fp-state-description">
+                  {status(selected) === "working"
+                    ? "Focused on a task. Live runs show the task, step, and latest update here."
+                    : status(selected) === "approval"
+                      ? "Waiting at an approval checkpoint. The live inspector shows the request and reviewer action."
+                      : "Available for the next task."}
                 </div>
-                <div className="fp-roster">
-                  {agents.map((a) => (
-                    <button
-                      key={a.id}
-                      className={`fp-roster-agent ${status(a)}`}
-                      onClick={() => {
-                        setSelectedId(a.id);
-                        setInsightsOpen(true);
-                      }}
-                    >
-                      <span className={`fp-roster-avatar tone-${a.office.color}`}>
-                        <Bot size={15} />
-                      </span>
-                      <span>
-                        <strong>{a.name}</strong>
-                        <small>
-                          {stateLabel[status(a)]} · {a.office.name}
-                        </small>
-                      </span>
-                      <i />
+              )}
+              {preview && (
+                <div className="fp-state-controls">
+                  <span>TRY A PREVIEW STATE</span>
+                  <div>
+                    {(["working", "approval", "idle"] as const).map((s) => (
+                      <button
+                        key={s}
+                        aria-pressed={status(selected) === s}
+                        onClick={() => setOverrides((v) => ({ ...v, [selected.id]: s }))}
+                      >
+                        {stateLabel[s]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <AgentWorkForm
+                key={selected.id}
+                agent={selected}
+                assignWork={(text) => assignWork(selected, text)}
+              />
+              {agentWorkflows.length > 0 && (
+                <div className="fp-agent-workflows">
+                  <span>IN WORKFLOWS</span>
+                  {agentWorkflows.map((task) => (
+                    <button key={task.id} onClick={() => openWorkflow(task)}>
+                      {task.title} <ArrowRight size={12} />
                     </button>
                   ))}
-                  {!agents.length && <p>Add an agent to bring your office to life.</p>}
                 </div>
-              </>
-            ))}
-          {insightsOpen && (
-            <div className="fp-preview-note">
-              <Users size={15} />
-              <p>
-                {preview
-                  ? "You're viewing sample activity. Connect engines later to see your team's real status."
-                  : "Live task status. Open an agent to inspect output or approve a pending action."}
-              </p>
-            </div>
-          )}
-        </aside>
+              )}
+              <button
+                className="fp-inspector-action"
+                onClick={() => inspectAgent(selected.office.id, selected)}
+              >
+                Open run history <ArrowRight size={13} />
+              </button>
+              <button
+                className="fp-inspector-secondary"
+                onClick={() => editAgent(selected.office.id, selected)}
+              >
+                Configure agent <ArrowRight size={13} />
+              </button>
+              <button
+                className="fp-inspector-secondary"
+                onClick={() => editOffice(selected.office)}
+              >
+                Edit office <ArrowRight size={13} />
+              </button>
+            </>
+          </aside>
+        )}
       </div>
     </section>
+  );
+}
+
+const WORKFLOW_ROW = 42;
+const SHARED_COLUMNS = 4;
+
+function WorkflowBoard({
+  task,
+  x,
+  y,
+  run,
+  selected,
+  dim,
+  onSelect,
+}: {
+  task: CompanyTask;
+  x: number;
+  y: number;
+  run: LiveRun | undefined;
+  selected: boolean;
+  dim: boolean;
+  onSelect: () => void;
+}) {
+  const state = !run
+    ? "idle"
+    : run.status === "awaiting_approval"
+      ? "approval"
+      : isActiveRun(run)
+        ? "working"
+        : run.status === "failed"
+          ? "failed"
+          : "done";
+  return (
+    <g
+      transform={`translate(${x} ${y})`}
+      className={`fp-workflow ${state} ${selected ? "selected" : ""}`}
+      opacity={dim ? 0.24 : 1}
+      role="button"
+      tabIndex={0}
+      aria-label={`Workflow ${task.title}`}
+      aria-pressed={selected}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+    >
+      <title>{task.title}</title>
+      <rect width="160" height="32" rx="7" className="fp-workflow-card" />
+      <g className="fp-workflow-icon">
+        <circle cx="11" cy="10" r="2" />
+        <circle cx="11" cy="22" r="2" />
+        <circle cx="19" cy="12" r="2" />
+        <path d="M11 12v8M19 14c0 4-8 3-8 6" />
+      </g>
+      <text x="26" y="20" className="fp-workflow-title">
+        {task.title.length > 21 ? `${task.title.slice(0, 20)}…` : task.title}
+      </text>
+      <circle cx="148" cy="16" r="4" className="fp-workflow-dot" />
+    </g>
   );
 }
 

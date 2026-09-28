@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, CalendarClock, ClipboardList, GitBranch, Layers3, Users } from "lucide-react";
+import { ArrowRight, GitBranch } from "lucide-react";
 import {
   taskParticipants,
   type Company,
@@ -7,8 +7,8 @@ import {
   type TaskAssignment,
 } from "../company/company-model";
 import "./company-tasks.css";
-import { useLiveRuntime } from "../engines/live-runtime";
-import { latestRun, matchesRunFilter, runLabel, type RunFilter } from "../engines/run-presentation";
+import { isActiveRun, useLiveRuntime } from "../engines/live-runtime";
+import { latestRun } from "../engines/run-presentation";
 import type { ModelChoice } from "../engines/model-choice";
 import type { StepModelChoice } from "../engines/model-choice";
 import { approvalError, type ApprovalRule } from "./task-approvals";
@@ -28,164 +28,13 @@ import {
   type TaskSchedule,
 } from "./task-workflow";
 
-const countLabel = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
-
-export function CompanyTasks({
-  company,
-  query,
-  edit,
-}: {
-  company: Company;
-  query: string;
-  edit: (task: CompanyTask) => void;
-}) {
-  const live = useLiveRuntime();
-  const [statusFilter, setStatusFilter] = useState<RunFilter | "planned">("all");
-  const tasks = (company.tasks || []).filter((task) => {
-    const team = taskParticipants(company, task.assignment);
-    return [
-      task.title,
-      task.brief,
-      company.projects?.find((p) => p.id === task.projectId)?.name || "",
-      ...task.assignment.targets,
-      ...team.flatMap((a) => [a.name, a.office.name, a.office.domain]),
-    ]
-      .join(" ")
-      .toLowerCase()
-      .includes(query.toLowerCase());
-  });
-  if (!(company.tasks || []).length)
-    return (
-      <section className="co-tasks-empty">
-        <span>
-          <ClipboardList size={30} />
-        </span>
-        <h2>No workflows yet.</h2>
-      </section>
-    );
-  const matchesStatus = (task: CompanyTask, filter: RunFilter | "planned") => {
-    const run = latestRun(live.runs, `task:${task.id}`);
-    return (
-      filter === "all" || (filter === "planned" ? !run : !!run && matchesRunFilter(run, filter))
-    );
-  };
-  const visible = tasks.filter((task) => matchesStatus(task, statusFilter));
-  return (
-    <div className="co-task-list">
-      <div className="co-work-filters" role="group" aria-label="Filter workflows">
-        {(
-          [
-            { id: "all", label: "All workflows" },
-            { id: "attention", label: "Needs attention" },
-            { id: "active", label: "Running" },
-            { id: "planned", label: "Planned" },
-            { id: "finished", label: "Finished" },
-          ] as const
-        ).map((filter) => (
-          <button
-            key={filter.id}
-            aria-pressed={statusFilter === filter.id}
-            onClick={() => setStatusFilter(filter.id)}
-          >
-            {filter.label}
-            <span>{tasks.filter((task) => matchesStatus(task, filter.id)).length}</span>
-          </button>
-        ))}
-      </div>
-      {!visible.length && (
-        <div className="co-filter-empty">
-          <p>
-            {query
-              ? `No workflows match “${query}” in this view.`
-              : statusFilter === "attention"
-                ? "No workflows need your attention."
-                : "No workflows in this view."}
-          </p>
-          {statusFilter !== "all" && (
-            <button className="co-button" onClick={() => setStatusFilter("all")}>
-              Show all tasks
-            </button>
-          )}
-        </div>
-      )}
-      {visible.map((task) => {
-        const team = taskParticipants(company, task.assignment);
-        const labels =
-          task.assignment.kind === "domains"
-            ? task.assignment.targets
-            : task.assignment.targets.map(
-                (id) => team.find((a) => a.id === id)?.name || "Unavailable agent",
-              );
-        return (
-          <button
-            className="co-task-card"
-            key={task.id}
-            onClick={() => edit(task)}
-            aria-label={`Open workflow: ${task.title}`}
-          >
-            <span className="co-task-card-icon">
-              <ClipboardList size={21} />
-            </span>
-            <span className="co-task-card-body">
-              <span className="co-task-card-heading">
-                <strong>{task.title}</strong>
-                <em>{runLabel(latestRun(live.runs, `task:${task.id}`))}</em>
-              </span>
-              <span className="co-task-brief">
-                {task.projectId && (
-                  <strong>
-                    {company.projects?.find((p) => p.id === task.projectId)?.name ||
-                      "Unavailable project"}{" "}
-                    ·{" "}
-                  </strong>
-                )}
-                {task.brief || "No brief added yet."}
-              </span>
-              <span className="co-task-targets">
-                {task.assignment.kind === "domains" ? <Layers3 size={13} /> : <Users size={13} />}
-                {labels.map((label, i) => (
-                  <span key={i}>{label}</span>
-                ))}
-              </span>
-              <small>
-                {team.length} {team.length === 1 ? "agent" : "agents"} ·{" "}
-                {countLabel(new Set(team.map((a) => a.office.id)).size, "office")} ·{" "}
-                {task.assignment.kind === "domains" ? "Office team" : "Direct assignment"}
-                {!team.length ? " · Needs agents" : ""}
-              </small>
-              {(task.schedule?.kind === "cron" || !!task.handoffs?.length) && (
-                <span className="co-task-automation-summary">
-                  {task.schedule?.kind === "cron" && (
-                    <>
-                      <CalendarClock size={13} />
-                      <code>{task.schedule.expression}</code>
-                      <span>{task.schedule.timeZone}</span>
-                      <em>Schedule draft</em>
-                    </>
-                  )}
-                  {!!task.handoffs?.length && (
-                    <>
-                      <GitBranch size={13} />
-                      <span>{task.handoffs.length} conditional handoffs</span>
-                    </>
-                  )}
-                </span>
-              )}
-            </span>
-            <ArrowRight size={15} />
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 export function TaskForm({
   company,
   existing,
   initialDomain,
   initialProjectId,
   initialAgentId,
+  initialOfficeId,
   save,
   start,
   storageError,
@@ -196,6 +45,7 @@ export function TaskForm({
   initialDomain: string | undefined;
   initialProjectId?: string | undefined;
   initialAgentId?: string | undefined;
+  initialOfficeId?: string | undefined;
   save: (task: CompanyTask) => void;
   start?: ((task: CompanyTask) => Promise<void>) | undefined;
   storageError: boolean;
@@ -214,7 +64,6 @@ export function TaskForm({
     existing?.stepModels || {},
   );
   const [projectId, setProjectId] = useState(existing?.projectId || initialProjectId || "");
-  const [panel, setPanel] = useState<"schedule" | "workflow">("workflow");
   const [approval, setApproval] = useState<ApprovalRule>(existing?.approval || { kind: "none" });
   const [schedule, setSchedule] = useState<TaskSchedule>(existing?.schedule || { kind: "manual" });
   const [handoffs, setHandoffs] = useState<HandoffStep[]>(existing?.handoffs || []);
@@ -242,6 +91,11 @@ export function TaskForm({
   const [previewTime, setPreviewTime] = useState(() => new Date());
   const [submitting, setSubmitting] = useState<"save" | "start" | "">("");
   const [submitError, setSubmitError] = useState("");
+  const live = useLiveRuntime();
+  const lastRun = latestRun(live.runs, `task:${taskId}`);
+  const [mode, setMode] = useState<"build" | "run">(() =>
+    lastRun && isActiveRun(lastRun) ? "run" : "build",
+  );
   useEffect(() => {
     const timer = window.setInterval(() => setPreviewTime(new Date()), 60_000);
     return () => window.clearInterval(timer);
@@ -288,6 +142,9 @@ export function TaskForm({
     modelDefaults,
     stepModels,
     ...(projectId ? { projectId } : {}),
+    ...(existing?.officeId || initialOfficeId
+      ? { officeId: (existing?.officeId || initialOfficeId)! }
+      : {}),
     schedule,
     handoffs: canvas ? [] : handoffs,
     approval,
@@ -298,8 +155,11 @@ export function TaskForm({
     setSubmitting(run ? "start" : "save");
     setSubmitError("");
     try {
-      if (run && start) await start(draftTask);
-      else save(draftTask);
+      if (run && start) {
+        await start(draftTask);
+        setMode("run");
+      } else save(draftTask);
+      setSubmitting("");
     } catch (error) {
       setSubmitError(String(error).replace(/^Error: /, ""));
       setSubmitting("");
@@ -317,112 +177,93 @@ export function TaskForm({
         void submitTask(schedule.kind === "manual" && !!start);
       }}
     >
-      <nav className="co-task-editor-nav" aria-label="Workflow editor">
-        <button
-          type="button"
-          aria-label="Workflow map"
-          aria-pressed={panel === "workflow"}
-          onClick={() => setPanel("workflow")}
-        >
-          <GitBranch size={14} />
-          Workflow map
-          {(canvas?.nodes.length || handoffs.length) > 0 && (
-            <em>{canvas?.nodes.length || handoffs.length}</em>
-          )}
-        </button>
-        <button
-          type="button"
-          aria-label="Schedule"
-          aria-pressed={panel === "schedule"}
-          onClick={() => setPanel("schedule")}
-        >
-          <CalendarClock size={14} />
-          Schedule{schedule.kind === "cron" && <em>CRON</em>}
-        </button>
-      </nav>
-      <div className="co-task-panel" hidden={panel !== "schedule"}>
-        <ScheduleEditor schedule={schedule} change={setSchedule} preview={scheduleResult} />
-      </div>
-      <div className="co-task-panel" hidden={panel !== "workflow"}>
-        {panel === "workflow" &&
-          (canvas ? (
-            <TaskCanvas
-              embedded
-              company={company}
-              task={{ ...draftTask, canvas }}
-              save={changeCanvas}
-              back={() => setPanel("workflow")}
-              storageError={storageError}
-              changeProject={setProjectId}
-              changeAttachments={setAttachments}
-              onAttachmentsBusy={setAttaching}
-              changeApproval={setApproval}
-              {...(canSave && openResourceSettings
-                ? {
-                    openResourceSettings: (kind: ResourceSetupKind, engine: Engine) =>
-                      openResourceSettings(draftTask, kind, engine),
-                  }
-                : {})}
-              changeTaskDetails={({ title: nextTitle, brief: nextBrief }) => {
-                setTitle(nextTitle);
-                setBrief(nextBrief);
-              }}
-              saveModels={(next) => {
-                setModelDefaults(next.modelDefaults || {});
-                setStepModels(next.stepModels || {});
-              }}
-            />
-          ) : (
-            <>
-              <section className="co-workflow-migration">
-                <div>
-                  <strong>Move this workflow to the visual map</strong>
-                  <p>
-                    This older workflow has {handoffs.length} step handoffs. Convert it when you are
-                    ready to rebuild those routes visually.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="co-button"
-                  onClick={() => {
-                    setHandoffs([]);
-                    setCanvas(taskCanvasFromAssignment(company, { ...draftTask, handoffs: [] }));
-                  }}
-                >
-                  <GitBranch size={13} /> Use visual canvas
-                </button>
-              </section>
-              <div className="co-workflow-legacy-basics">
-                <label>
-                  Workflow name
-                  <input
-                    required
-                    maxLength={120}
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                  />
-                </label>
-                <label>
-                  Workflow outcome
-                  <textarea
-                    rows={3}
-                    maxLength={3000}
-                    value={brief}
-                    onChange={(event) => setBrief(event.target.value)}
-                  />
-                </label>
+      <div className="co-task-panel">
+        {canvas ? (
+          <TaskCanvas
+            embedded
+            company={company}
+            task={{ ...draftTask, canvas }}
+            save={changeCanvas}
+            back={() => {}}
+            storageError={storageError}
+            changeProject={setProjectId}
+            changeAttachments={setAttachments}
+            onAttachmentsBusy={setAttaching}
+            changeApproval={setApproval}
+            {...(canSave && openResourceSettings
+              ? {
+                  openResourceSettings: (kind: ResourceSetupKind, engine: Engine) =>
+                    openResourceSettings(draftTask, kind, engine),
+                }
+              : {})}
+            changeTaskDetails={({ title: nextTitle, brief: nextBrief }) => {
+              setTitle(nextTitle);
+              setBrief(nextBrief);
+            }}
+            saveModels={(next) => {
+              setModelDefaults(next.modelDefaults || {});
+              setStepModels(next.stepModels || {});
+            }}
+            schedule={schedule}
+            changeSchedule={setSchedule}
+            schedulePreview={scheduleResult}
+            mode={mode}
+            setMode={setMode}
+            run={lastRun}
+            runAgain={start && canSave ? () => void submitTask(true) : undefined}
+          />
+        ) : (
+          <>
+            <section className="co-workflow-migration">
+              <div>
+                <strong>Move this workflow to the visual map</strong>
+                <p>
+                  This older workflow has {handoffs.length} step handoffs. Convert it when you are
+                  ready to rebuild those routes visually.
+                </p>
               </div>
-              <WorkflowEditor
-                company={company}
-                taskId={taskId}
-                title={title}
-                steps={handoffs}
-                change={setHandoffs}
-                error={handoffError}
-              />
-            </>
-          ))}
+              <button
+                type="button"
+                className="co-button"
+                onClick={() => {
+                  setHandoffs([]);
+                  setCanvas(taskCanvasFromAssignment(company, { ...draftTask, handoffs: [] }));
+                }}
+              >
+                <GitBranch size={13} /> Use visual canvas
+              </button>
+            </section>
+            <div className="co-workflow-legacy-basics">
+              <label>
+                Workflow name
+                <input
+                  required
+                  maxLength={120}
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                />
+              </label>
+              <label>
+                Workflow outcome
+                <textarea
+                  rows={3}
+                  maxLength={3000}
+                  value={brief}
+                  onChange={(event) => setBrief(event.target.value)}
+                />
+              </label>
+            </div>
+            <WorkflowEditor
+              company={company}
+              taskId={taskId}
+              title={title}
+              steps={handoffs}
+              change={setHandoffs}
+              error={handoffError}
+            />
+            <ScheduleEditor schedule={schedule} change={setSchedule} preview={scheduleResult} />
+          </>
+        )}
       </div>
       {submitError && (
         <p role="alert" className="co-form-error co-task-submit-error">

@@ -354,3 +354,35 @@
     grid-template-columns: 1fr;
   }
 }
+.co-project-folder {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+}
+.co-project-folder > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--co-border);
+  border-radius: 8px;
+  background: var(--co-card);
+}
+.co-project-folder code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.co-project-folder small,
+.co-project-form label small {
+  color: var(--co-muted);
+  font-size: 10px;
+}
+.co-project-branch-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}

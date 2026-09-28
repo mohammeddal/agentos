@@ -1,3 +1,4 @@
+import { taskParticipants, type Company, type CompanyTask } from "./company-model";
 import { isActiveRun, type LiveRun } from "../engines/live-runtime";
 
 export type AgentMapState = "working" | "idle" | "offline" | "approval";
@@ -27,4 +28,19 @@ export function agentMapRuns(runs: LiveRun[], agentId: string): LiveRun[] {
         run.request.steps.some((step) => step.agentId === agentId),
     )
     .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+/**
+ * The office whose room shows a workflow: the office it was created in, otherwise the one office
+ * all of its agents belong to. Workflows spanning several offices stay off the map.
+ */
+export function workflowOfficeId(company: Company, task: CompanyTask): string | undefined {
+  if (task.officeId && company.offices.some((office) => office.id === task.officeId))
+    return task.officeId;
+  const offices = new Set(
+    taskParticipants(company, task.assignment).map(
+      (agent) => company.offices.find((office) => office.agents.some((a) => a.id === agent.id))?.id,
+    ),
+  );
+  return offices.size === 1 ? [...offices][0] : undefined;
 }

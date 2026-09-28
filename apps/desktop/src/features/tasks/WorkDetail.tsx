@@ -8,6 +8,7 @@ import {
   GitBranch,
   MessageSquare,
   Pencil,
+  Play,
   RefreshCw,
   Archive,
   Trash2,
@@ -15,7 +16,13 @@ import {
 import type { Company, CompanyChat, CompanyTask } from "../company/company-model";
 import { readRehearsals, REHEARSAL_STORAGE } from "../activity/run-inspection";
 import { RunInspector } from "../activity/RunInspector";
-import { runStatus, statusLabels } from "../activity/task-rehearsal";
+import {
+  createRehearsal,
+  runStatus,
+  statusLabels,
+  type RehearsalRun,
+} from "../activity/task-rehearsal";
+import { RehearsalControls } from "../activity/RehearsalControls";
 import { chatSteps, plannedSteps, relatedRehearsals } from "./work-detail";
 import "./work-detail.css";
 import { LiveHistory, TaskExecution } from "../engines/LiveExecution";
@@ -27,7 +34,6 @@ export function WorkDetail({
   chat,
   edit,
   openTask,
-  activity,
   canvas,
   saveTask,
   archive,
@@ -40,13 +46,13 @@ export function WorkDetail({
   chat?: CompanyChat | undefined;
   edit?: (() => void) | undefined;
   openTask?: ((task: CompanyTask) => void) | undefined;
-  activity: () => void;
   archive?: (() => void) | undefined;
   remove?: (() => void) | undefined;
 }) {
   const [tab, setTab] = useState<"steps" | "updates" | "output" | "rehearsals">("steps");
   const [history, setHistory] = useState(readRehearsals);
   const [selectedRun, setSelectedRun] = useState("");
+  const [rehearsalError, setRehearsalError] = useState("");
   const live = useLiveRuntime();
   const liveRuns = live.runs.filter(
     (r) => r.request.key === `${task ? "task" : "chat"}:${task?.id || chat?.id}`,
@@ -63,6 +69,39 @@ export function WorkDetail({
     { id: "output", label: "Output", Icon: FileText },
     { id: "rehearsals", label: `Rehearsals (${runs.length})`, Icon: Activity },
   ] as const;
+  function saveRehearsals(changed: RehearsalRun[]) {
+    const merge = <T,>(list: T[], id: (item: T) => unknown) => [
+      ...changed.filter((run) => !list.some((item) => id(item) === run.id)),
+      ...list.map((item) => changed.find((run) => run.id === id(item)) ?? item),
+    ];
+    try {
+      // Merge into the raw stored list so records this view could not parse are kept.
+      const raw: unknown = JSON.parse(localStorage.getItem(REHEARSAL_STORAGE) || "[]");
+      const stored = merge(Array.isArray(raw) ? raw : [], (item) => (item as { id?: unknown })?.id);
+      localStorage.setItem(REHEARSAL_STORAGE, JSON.stringify(stored));
+      setRehearsalError("");
+    } catch {
+      setRehearsalError("Rehearsal storage is unavailable. Changes last for this session only.");
+    }
+    setHistory((h) => ({ ...h, runs: merge(h.runs, (run) => run.id) }));
+  }
+  function startRehearsal() {
+    if (!relatedTask) return;
+    try {
+      const created = createRehearsal(company, relatedTask);
+      saveRehearsals([created]);
+      setSelectedRun(created.id);
+    } catch (e) {
+      setRehearsalError(e instanceof Error ? e.message : "Unable to start rehearsal.");
+    }
+  }
+  function updateRehearsal(target: RehearsalRun, change: (run: RehearsalRun) => RehearsalRun) {
+    try {
+      saveRehearsals([change(target)]);
+    } catch (e) {
+      setRehearsalError(e instanceof Error ? e.message : "Could not update this rehearsal.");
+    }
+  }
   useEffect(() => {
     const refresh = () => setHistory(readRehearsals());
     const onStorage = (event: StorageEvent) => {
@@ -281,11 +320,24 @@ export function WorkDetail({
                 : "Saved simulations of this task, matched by task ID."}{" "}
               Each run keeps its original plan snapshot.
             </p>
-            <button className="co-button" onClick={() => setHistory(readRehearsals())}>
-              <RefreshCw size={13} />
-              Refresh history
-            </button>
+            <div>
+              {relatedTask && (
+                <button className="co-button co-button-primary" onClick={startRehearsal}>
+                  <Play size={13} />
+                  Start rehearsal
+                </button>
+              )}
+              <button className="co-button" onClick={() => setHistory(readRehearsals())}>
+                <RefreshCw size={13} />
+                Refresh history
+              </button>
+            </div>
           </div>
+          {rehearsalError && (
+            <p className="co-form-error" role="alert">
+              {rehearsalError}
+            </p>
+          )}
           {history.error && (
             <p className="co-form-error" role="alert">
               {history.error}
@@ -304,6 +356,11 @@ export function WorkDetail({
                   ))}
                 </select>
               </label>
+              <RehearsalControls
+                key={`controls:${run!.id}`}
+                run={run!}
+                update={(change) => updateRehearsal(run!, change)}
+              />
               <RunInspector key={run!.id} run={run!} />
             </>
           ) : (
@@ -313,13 +370,10 @@ export function WorkDetail({
               <p>
                 {chat && !linkedTask
                   ? "Make a prompt a task before testing its workflow."
-                  : "Test the plan in Activity & approvals. Rehearsals never run agents or grant permission for real actions."}
+                  : "Start a rehearsal to test this plan's gates and handoffs. Rehearsals never run agents or grant permission for real actions."}
               </p>
             </div>
           )}
-          <button className="co-button" onClick={activity}>
-            Open Activity & approvals
-          </button>
         </div>
       )}
     </section>

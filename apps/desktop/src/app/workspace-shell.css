@@ -577,3 +577,20 @@
     padding-block: 6px;
   }
 }
+/* Company section: tabs sit at the top, with the section's action on the right. */
+.co-company-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--co-border);
+  margin: 0 0 20px;
+}
+.co-company-bar > .co-page-tabs {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+  margin: 0;
+}
+.co-company-bar > .co-button {
+  flex-shrink: 0;
+}

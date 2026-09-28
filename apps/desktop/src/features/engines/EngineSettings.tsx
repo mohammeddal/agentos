@@ -15,6 +15,13 @@ import {
   saveProviderPermissions,
   type ProviderPermissions,
 } from "./provider-permissions";
+import {
+  CHAT_ENGINES,
+  readChatEngines,
+  saveChatEngines,
+  type ChatEngine,
+  type ChatEnginePreferences,
+} from "./chat-engines";
 import "./engine-library.css";
 
 const WORKSPACE_STORAGE = "agentos:inventory-workspace";
@@ -49,6 +56,7 @@ export function EngineSettings({ focus }: { focus?: EngineSettingsFocus | null }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [permissions, setPermissions] = useState<ProviderPermissions>(readProviderPermissions);
+  const [chatEngines, setChatEngines] = useState<ChatEnginePreferences>(readChatEngines);
 
   useEffect(() => {
     if (focus?.engine) setEngine(focus.engine);
@@ -74,6 +82,27 @@ export function EngineSettings({ focus }: { focus?: EngineSettingsFocus | null }
     } catch {
       setError("Permission preferences could not be saved. They remain active for this session.");
     }
+  }
+
+  function updateChatEngines(next: ChatEnginePreferences) {
+    setChatEngines(next);
+    try {
+      saveChatEngines(next);
+      setError("");
+    } catch {
+      setError("Chat engine preferences could not be saved. They remain active for this session.");
+    }
+  }
+
+  function toggleChatEngine(engine: ChatEngine, on: boolean) {
+    const enabled = CHAT_ENGINES.filter((e) =>
+      e === engine ? on : chatEngines.enabled.includes(e),
+    );
+    if (!enabled.length) return;
+    updateChatEngines({
+      enabled,
+      default: enabled.includes(chatEngines.default) ? chatEngines.default : enabled[0]!,
+    });
   }
 
   async function scan() {
@@ -172,6 +201,42 @@ export function EngineSettings({ focus }: { focus?: EngineSettingsFocus | null }
             ))}
             {!live.native && <small>Open the installed app to check local engines.</small>}
           </div>
+        </section>
+
+        <section className="co-chat-engines">
+          <h3>Chat engines</h3>
+          <p>Choose which engines new chats can use and which one they start with.</p>
+          {CHAT_ENGINES.map((engine) => {
+            const on = chatEngines.enabled.includes(engine);
+            const only = on && chatEngines.enabled.length === 1;
+            return (
+              <div key={engine} className="co-chat-engine-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    disabled={only}
+                    title={only ? "Keep at least one engine on" : undefined}
+                    onChange={(event) => toggleChatEngine(engine, event.target.checked)}
+                  />
+                  <strong>{engine}</strong>
+                </label>
+                <label className="co-chat-engine-default">
+                  <input
+                    type="radio"
+                    name="chat-engine-default"
+                    checked={chatEngines.default === engine}
+                    disabled={!on}
+                    onChange={() => updateChatEngines({ ...chatEngines, default: engine })}
+                  />
+                  Default
+                </label>
+              </div>
+            );
+          })}
+          <small className="co-setting-footnote">
+            Existing chats keep the engine they were started with.
+          </small>
         </section>
 
         <section className="co-provider-permissions">

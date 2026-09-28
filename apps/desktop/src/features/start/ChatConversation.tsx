@@ -106,6 +106,34 @@ export function ChatConversation({
                     : "Working…"}
               </p>
             )}
+            {run?.error && (
+              <p className="co-chat-error" role="alert">
+                {run.error}
+              </p>
+            )}
+            {run && !isActiveRun(run) && !run.output && !run.error && (
+              <p className="co-chat-status">The run ended without a reply.</p>
+            )}
+            {run && (
+              <details className="co-chat-log" open={!!run.error && !run.output}>
+                <summary>
+                  Run log · {run.events.length} {run.events.length === 1 ? "event" : "events"}
+                </summary>
+                {run.events.length ? (
+                  <ol>
+                    {run.events.map((event, index) => (
+                      <li key={index} data-kind={event.kind}>
+                        <time>{new Date(event.at).toLocaleTimeString()}</time>
+                        <span>{event.kind}</span>
+                        <pre>{event.text}</pre>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p>No events were recorded for this run.</p>
+                )}
+              </details>
+            )}
             {!run && <p className="co-chat-status">Saved prompt · No recorded reply</p>}
           </div>
         );

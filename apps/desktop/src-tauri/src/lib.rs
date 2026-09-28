@@ -3,6 +3,7 @@ mod company_memory;
 mod engine_inventory;
 mod live_runtime;
 mod project_directories;
+mod project_repository;
 mod provider_models;
 mod terminal_runtime;
 use tauri::Manager;
@@ -32,6 +33,7 @@ pub fn run() {
             company_memory::save_company_memory,
             engine_inventory::engine_inventory,
             project_directories::project_directories,
+            project_repository::project_repository,
             live_runtime::live_snapshot,
             live_runtime::live_engines,
             live_runtime::live_start,

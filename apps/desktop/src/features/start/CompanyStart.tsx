@@ -22,6 +22,7 @@ import { EngineSetup } from "../engines/LiveExecution";
 import { ModelPicker } from "../engines/ModelPicker";
 import { engineId } from "../engines/live-runtime";
 import { AttachmentEditor } from "../attachments/Attachments";
+import { chatEngineOptions, readChatEngines, type ChatEngine } from "../engines/chat-engines";
 
 export function CompanyStart({
   company,
@@ -49,6 +50,7 @@ export function CompanyStart({
     : initialProjectId
       ? `${PROMPT_STORAGE}:project:${initialProjectId}`
       : PROMPT_STORAGE;
+  const [engines] = useState(readChatEngines);
   const [initial] = useState(() => {
     try {
       const legacy = parsePromptDraft(localStorage.getItem(PROMPT_STORAGE));
@@ -66,6 +68,13 @@ export function CompanyStart({
         draft = { ...draft, chatId: selectedChat.id, projectId: selectedChat.projectId || "" };
       } else {
         if (draft.chatId) draft = { ...emptyPrompt };
+        // New chats start on the default engine; an unsent draft keeps its engine while it stays enabled.
+        if (!draft.text.trim() || !engines.enabled.includes(draft.engine as ChatEngine))
+          draft = {
+            ...draft,
+            engine: engines.default,
+            ...(draft.engine === engines.default ? {} : { modelChoice: {} }),
+          };
         draft = { ...draft, chatId: "", projectId: initialProjectId || draft.projectId };
       }
       return { draft, error: "" };
@@ -74,7 +83,7 @@ export function CompanyStart({
         draft: {
           ...emptyPrompt,
           chatId: selectedChat?.id || "",
-          engine: selectedChat?.engine || emptyPrompt.engine,
+          engine: selectedChat?.engine || engines.default,
           modelChoice: selectedChat?.modelChoice || {},
           projectId: selectedChat?.projectId || initialProjectId || "",
         },
@@ -237,6 +246,13 @@ export function CompanyStart({
                 ? `What would you like to work on in ${selectedProject.name}?`
                 : "What would you like to work on?"}
           </h1>
+          {!chat && selectedProject && (
+            <p className="co-start-project-folder" title={selectedProject.directory}>
+              {selectedProject.directory
+                ? `${selectedProject.directory.split("/").filter(Boolean).at(-1)}${selectedProject.branch ? ` · ${selectedProject.branch}` : ""}`
+                : "AgentOS workspace"}
+            </p>
+          )}
         </div>
         {selectedChatId && !selectedChat && (
           <p role="alert">
@@ -343,7 +359,7 @@ export function CompanyStart({
                           value={draft.engine}
                           onChange={(e) => update({ engine: e.target.value, modelChoice: {} })}
                         >
-                          {[...new Set(["Codex", "Claude Code", draft.engine])].map((engine) => (
+                          {chatEngineOptions(engines, selectedChat?.engine).map((engine) => (
                             <option key={engine}>{engine}</option>
                           ))}
                         </select>

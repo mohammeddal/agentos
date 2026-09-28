@@ -42,6 +42,8 @@ export type LiveRequest = {
   title: string;
   mode: "chat" | "task";
   folder: string;
+  directory?: string;
+  branch?: string;
   context: string;
   contextWithoutMemory?: string;
   memoryScopes?: string[];
@@ -140,6 +142,13 @@ function folder(company: Company, projectId?: string) {
     throw new Error("This project is unavailable.");
   return projectId ? `projects/project-${projectId}` : "";
 }
+/** A project with a chosen folder runs there (on its branch); others use the app workspace. */
+function projectWorkspace(company: Company, projectId?: string) {
+  const project = company.projects?.find((p) => p.id === projectId);
+  return project?.directory
+    ? { directory: project.directory, ...(project.branch ? { branch: project.branch } : {}) }
+    : {};
+}
 async function context(company: Company, projectId: string | undefined, agentIds: string[]) {
   const scopes = company.offices.flatMap((o) =>
     o.agents
@@ -196,6 +205,7 @@ export async function chatRequest(
     title: prompt.slice(0, 120),
     mode: "chat",
     folder: folder(company, chat.projectId),
+    ...projectWorkspace(company, chat.projectId),
     contextWithoutMemory: [projectContext.contextWithoutMemory, productContext]
       .filter(Boolean)
       .join("\n\n"),
@@ -571,6 +581,7 @@ export async function taskRequest(
     title: task.title,
     mode: "task",
     folder: folder(company, task.projectId),
+    ...projectWorkspace(company, task.projectId),
     providerPermissions: readProviderPermissions(),
     ...(await context(
       company,

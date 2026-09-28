@@ -909,3 +909,35 @@
     padding-inline: 14px;
   }
 }
+.tc-schedule-node {
+  height: 64px;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-style: dashed;
+}
+.tc-schedule-node .tc-node-handle {
+  cursor: pointer;
+  color: var(--co-accent);
+}
+.tc-schedule-node > p {
+  margin-top: 7px;
+  -webkit-line-clamp: 1;
+}
+.tc-wire-schedule {
+  stroke-dasharray: 4 4;
+}
+.tc-inspector .co-automation-panel.is-compact {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.tc-inspector .is-compact .co-assignment-modes,
+.tc-inspector .is-compact .co-form-pair {
+  grid-template-columns: minmax(0, 1fr);
+}
+.tc-inspector .is-compact .co-cron-key {
+  flex-wrap: wrap;
+}

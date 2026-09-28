@@ -52,20 +52,27 @@ export function ScheduleEditor({
   schedule,
   change,
   preview,
+  compact = false,
 }: {
   schedule: TaskSchedule;
   change: (schedule: TaskSchedule) => void;
   preview: { dates: string[]; error: string | null };
+  compact?: boolean;
 }) {
   return (
-    <section className="co-automation-panel" aria-label="Task schedule">
-      <div className="co-automation-intro">
-        <CalendarClock size={22} />
-        <div>
-          <h3>Give your work a rhythm.</h3>
-          <p>Use a preset or write a cron expression in your time zone.</p>
+    <section
+      className={`co-automation-panel ${compact ? "is-compact" : ""}`}
+      aria-label="Task schedule"
+    >
+      {!compact && (
+        <div className="co-automation-intro">
+          <CalendarClock size={22} />
+          <div>
+            <h3>Give your work a rhythm.</h3>
+            <p>Use a preset or write a cron expression in your time zone.</p>
+          </div>
         </div>
-      </div>
+      )}
       <div className="co-assignment-modes">
         <button
           type="button"
@@ -549,7 +556,7 @@ export function WorkflowEditor({
       )}
       <div className="co-form-note">
         {testing
-          ? "Condition preview only. Action approval gates remain waiting; use Activity → Approval rehearsal to test scoped decisions. No agents run or real approvals are granted."
+          ? "Condition preview only. Action approval gates remain waiting; use the workflow's Rehearsals tab to test scoped decisions. No agents run or real approvals are granted."
           : "Save the workflow, then choose Run task in the installed Mac app. Conditions use real step results; approval gates stop execution until resolved."}
       </div>
     </section>

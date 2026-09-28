@@ -9,33 +9,22 @@ import {
   type WorkspaceView,
 } from "./navigation";
 describe("workspace navigation", () => {
-  it("keeps four stable primary destinations and places workflows inside the company hub", () => {
-    expect(destinations).toHaveLength(4);
+  it("keeps three stable primary destinations and places workflows inside the company hub", () => {
+    expect(destinations.map((destination) => destination.view)).toEqual(["start", "map", "memory"]);
     expect(destinations.map((destination) => destination.view)).not.toContain("projects");
     expect(destinations.map((destination) => destination.view)).not.toContain("tasks");
-    expect(primaryView("agents")).toBe("map");
     expect(primaryView("tasks")).toBe("map");
     expect(primaryView("engines")).toBe("memory");
     expect(primaryView("settings")).toBe("settings");
   });
   it("round trips every current page and redirects legacy domain links", () => {
-    for (const view of [
-      "start",
-      "tasks",
-      "projects",
-      "map",
-      "offices",
-      "agents",
-      "activity",
-      "memory",
-      "engines",
-      "settings",
-    ] as WorkspaceView[])
+    for (const view of ["start", "map", "memory", "engines", "settings"] as WorkspaceView[])
       expect(parseRoute(routeHash({ view }))).toEqual({ view });
-    expect(parseRoute("#/company/domains")).toEqual({ view: "offices" });
+    for (const legacy of ["#/tasks", "#/company/domains", "#/company/offices", "#/company/agents"])
+      expect(parseRoute(legacy)).toEqual({ view: "map" });
+    expect(parseRoute("#/company/offices/research")).toEqual({ view: "map" });
+    expect(parseRoute("#/projects/a%20project")).toEqual({ view: "start", projectId: "a project" });
     for (const route of [
-      { view: "offices" as const, officeId: "research / east" },
-      { view: "projects" as const, projectId: "a project" },
       { view: "start" as const, projectId: "a project" },
       { view: "start" as const, chatId: "a chat" },
       { view: "tasks" as const, taskId: "a workflow" },
@@ -43,7 +32,7 @@ describe("workspace navigation", () => {
       expect(parseRoute(routeHash(route))).toEqual(route);
   });
   it("falls back safely for malformed and unknown links", () => {
-    for (const hash of ["", "#invalid", "#/company/offices/%zz", "#/projects/foo/bar"])
+    for (const hash of ["", "#invalid", "#/activity", "#/projects/%zz", "#/projects/foo/bar"])
       expect(parseRoute(hash)).toEqual({ view: "start" });
   });
   it("finds agents by name, engine and office without reading external files", () => {
@@ -54,7 +43,7 @@ describe("workspace navigation", () => {
     ).toBe(true);
     expect(findWorkspace(starterCompany, "MCP")[0]?.route?.view).toBe("engines");
     expect(findWorkspace(starterCompany, "notifications")[0]?.route?.view).toBe("settings");
-    expect(findWorkspace(starterCompany, "project details")[0]?.route?.view).toBe("projects");
+    expect(findWorkspace(starterCompany, "workflows")[0]?.route?.view).toBe("map");
     expect(findWorkspace(starterCompany, "no-such-item")).toEqual([]);
   });
   it("returns tasks, projects and offices with stable identifiers", () => {
@@ -86,7 +75,7 @@ describe("workspace navigation", () => {
     expect(findWorkspace(company, "Data & Analytics").map((r) => r.kind)).not.toContain("domain");
   });
   it("keeps default results short and caps large searches", () => {
-    expect(findWorkspace(starterCompany, "")).toHaveLength(6);
+    expect(findWorkspace(starterCompany, "")).toHaveLength(5);
     const company = {
       ...starterCompany,
       offices: [

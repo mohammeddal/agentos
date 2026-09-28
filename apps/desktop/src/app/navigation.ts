@@ -1,20 +1,9 @@
 import type { Company } from "../features/company/company-model";
 import { activeCompany } from "../features/company/company-directory";
 
-export type WorkspaceView =
-  | "start"
-  | "tasks"
-  | "projects"
-  | "map"
-  | "offices"
-  | "agents"
-  | "activity"
-  | "memory"
-  | "engines"
-  | "settings";
+export type WorkspaceView = "start" | "tasks" | "map" | "memory" | "engines" | "settings";
 export type WorkspaceRoute = {
   view: WorkspaceView;
-  officeId?: string;
   projectId?: string;
   chatId?: string;
   taskId?: string;
@@ -22,24 +11,15 @@ export type WorkspaceRoute = {
 export const destinations = [
   { view: "start", label: "Start", description: "Write a prompt or continue a chat" },
   { view: "map", label: "Company", description: "Offices, agents, and workflows" },
-  { view: "activity", label: "Activity", description: "Status, approvals, and rehearsals" },
   { view: "memory", label: "Library", description: "Memory and local capabilities" },
 ] as const;
 export function primaryView(view: WorkspaceView): WorkspaceView {
-  return ["map", "offices", "agents", "tasks"].includes(view)
-    ? "map"
-    : view === "engines"
-      ? "memory"
-      : view;
+  return ["map", "tasks"].includes(view) ? "map" : view === "engines" ? "memory" : view;
 }
 export const viewLabels: Record<WorkspaceView, string> = {
   start: "Start",
   tasks: "Workflows",
-  projects: "Projects",
   map: "Company Hub",
-  offices: "Offices",
-  agents: "Agents",
-  activity: "Activity",
   memory: "Memory",
   engines: "Capabilities",
   settings: "Settings",
@@ -47,11 +27,7 @@ export const viewLabels: Record<WorkspaceView, string> = {
 const paths: Record<WorkspaceView, string> = {
   start: "start",
   tasks: "tasks",
-  projects: "projects",
   map: "company/map",
-  offices: "company/offices",
-  agents: "company/agents",
-  activity: "activity",
   memory: "library/memory",
   engines: "library/engines",
   settings: "settings",
@@ -61,16 +37,16 @@ export function routeHash(route: WorkspaceRoute): string {
   if (route.taskId) return `#/workflows/${encodeURIComponent(route.taskId)}`;
   if (route.view === "start" && route.projectId)
     return `#/start?project=${encodeURIComponent(route.projectId)}`;
-  if (route.officeId) return `#/company/offices/${encodeURIComponent(route.officeId)}`;
-  if (route.view === "projects" && route.projectId)
-    return `#/projects/${encodeURIComponent(route.projectId)}`;
   return `#/${paths[route.view]}`;
 }
 export function parseRoute(hash: string): WorkspaceRoute {
   const path = hash.replace(/^#\/?/, "");
+  // Workflows live inside offices on the map; the old list link opens the map.
+  if (path === "tasks") return { view: "map" };
   const exact = Object.entries(paths).find(([, value]) => value === path);
   if (exact) return { view: exact[0] as WorkspaceView };
-  if (path === "company/domains") return { view: "offices" };
+  // Offices, agents, and projects no longer have pages; old links land on their new homes.
+  if (/^company\/(domains|offices|agents)(\/[^/]+)?$/.test(path)) return { view: "map" };
   try {
     if (/^chats\/[^/]+$/.test(path))
       return { view: "start", chatId: decodeURIComponent(path.slice("chats/".length)) };
@@ -80,13 +56,8 @@ export function parseRoute(hash: string): WorkspaceRoute {
       const projectId = new URLSearchParams(path.slice(6)).get("project");
       return projectId ? { view: "start", projectId } : { view: "start" };
     }
-    if (/^company\/offices\/[^/]+$/.test(path))
-      return {
-        view: "offices",
-        officeId: decodeURIComponent(path.slice("company/offices/".length)),
-      };
     if (/^projects\/[^/]+$/.test(path))
-      return { view: "projects", projectId: decodeURIComponent(path.slice("projects/".length)) };
+      return { view: "start", projectId: decodeURIComponent(path.slice("projects/".length)) };
   } catch {
     /* Malformed links return to the safe start page. */
   }
@@ -109,18 +80,14 @@ export function findWorkspace(company: Company, text: string): FindResult[] {
       detail: d.description,
       route: { view: d.view },
     })),
-    ...(["projects", "agents", "offices", "engines", "settings"] as const).map((view) => ({
+    ...(["engines", "settings"] as const).map((view) => ({
       id: `page:${view}`,
       kind: "page" as const,
       title: viewLabels[view],
       detail:
         view === "engines"
           ? "Library · MCPs, skills, agents, connectors"
-          : view === "settings"
-            ? "Engines, project inventory, and notifications"
-            : view === "projects"
-              ? "Project details and directories"
-              : "Company directory",
+          : "Engines, project inventory, and notifications",
       route: { view },
     })),
   ];

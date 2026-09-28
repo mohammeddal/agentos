@@ -65,6 +65,10 @@ export type CompanyProject = {
   domains: string[];
   agentIds: string[];
   createdAt: string;
+  /** Absolute folder the project works in, chosen by the user (Codex-style). */
+  directory?: string;
+  /** Git branch to work on; other branches run in an app-owned worktree. */
+  branch?: string;
 };
 export type CompanyTask = {
   attachments?: Attachment[];
@@ -78,6 +82,8 @@ export type CompanyTask = {
   status: "planned";
   createdAt: string;
   projectId?: string;
+  /** The office whose room shows this workflow on the company map. */
+  officeId?: string;
   schedule?: TaskSchedule;
   handoffs?: HandoffStep[];
   approval?: ApprovalRule;
@@ -292,6 +298,8 @@ export function isCompanyTask(value: unknown): value is CompanyTask {
   if (task.modelDefaults !== undefined && !isModelDefaults(task.modelDefaults)) return false;
   if (task.stepModels !== undefined && !isStepModels(task.stepModels)) return false;
   if (task.canvas !== undefined && !isTaskCanvas(task.canvas)) return false;
+  if (task.officeId !== undefined && (typeof task.officeId !== "string" || !task.officeId))
+    return false;
   if (task.projectId !== undefined && (typeof task.projectId !== "string" || !task.projectId))
     return false;
   if (task.approval !== undefined && !isApprovalRule(task.approval)) return false;
@@ -333,6 +341,14 @@ export function isCompanyProject(value: unknown): value is CompanyProject {
   if (!value || typeof value !== "object") return false;
   const p = value as CompanyProject;
   if (!validLifecycle(p.lifecycle)) return false;
+  if (
+    (p.directory !== undefined &&
+      (typeof p.directory !== "string" ||
+        p.directory.length > 4096 ||
+        !p.directory.startsWith("/"))) ||
+    (p.branch !== undefined && (typeof p.branch !== "string" || p.branch.length > 200))
+  )
+    return false;
   return (
     typeof p.id === "string" &&
     /^[a-f0-9-]{36}$/.test(p.id) &&
