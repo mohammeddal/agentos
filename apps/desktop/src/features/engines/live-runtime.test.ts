@@ -476,12 +476,60 @@ describe("native execution plans", () => {
     expect(steps.every((step) => step.prompt.includes("Answer a question"))).toBe(true);
   });
   it("uses the canvas root custom prompt even without other blocks", () => {
-    const root = { ...newCanvasNode("task", 0, 0, "root"), prompt: "Changed instructions" };
+    const root = {
+      ...newCanvasNode("task", 0, 0, "root"),
+      prompt: "Changed instructions",
+      engine: "claude",
+    };
     const steps = compileTask(
       starterCompany,
-      task({ canvas: { version: 1, nodes: [root], edges: [] } }),
+      task({
+        assignment: { kind: "agents", targets: [] },
+        canvas: { version: 1, nodes: [root], edges: [] },
+      }),
     );
+    expect(steps[0]).toMatchObject({
+      id: "canvas-root-direct",
+      agentId: "",
+      engine: "claude",
+      approval: true,
+    });
     expect(steps[0]?.prompt).toContain("Changed instructions");
+  });
+  it("runs custom prompt and later task blocks directly without an agent", () => {
+    const root = { ...newCanvasNode("task", 0, 0, "root"), prompt: "Prepare the result" };
+    const prompt = {
+      ...newCanvasNode("prompt", 300, 0, "draft"),
+      title: "Draft",
+      prompt: "Write the first draft",
+      engine: "claude",
+    };
+    const verify = {
+      ...newCanvasNode("task", 600, 0, "verify"),
+      title: "Verify",
+      prompt: "Check the answer",
+      engine: "codex",
+    };
+    const steps = compileTask(
+      starterCompany,
+      task({
+        assignment: { kind: "agents", targets: [] },
+        approval: { kind: "none" },
+        canvas: {
+          version: 1,
+          nodes: [root, prompt, verify],
+          edges: [
+            { id: "1", from: "root", to: "draft", kind: "flow", condition: "success" },
+            { id: "2", from: "draft", to: "verify", kind: "flow", condition: "success" },
+          ],
+        },
+      }),
+    );
+    expect(steps.map((step) => [step.agentId, step.engine])).toEqual([
+      ["", "claude"],
+      ["", "codex"],
+    ]);
+    expect(steps[1]?.after).toEqual(["canvas-draft-direct"]);
   });
   it("maps only supported providers", () => {
     expect(engineId("Codex")).toBe("codex");

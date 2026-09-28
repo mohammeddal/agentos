@@ -1067,6 +1067,24 @@ export function TaskCanvas({
                   save={saveModels}
                 />
               )}
+              {(node.kind === "prompt" ||
+                (node.kind === "task" &&
+                  (node.id !== workflowRootId ||
+                    !graph.edges.some(
+                      (edge) => edge.kind === "flow" && edge.from === node.id,
+                    )))) && (
+                <label>
+                  Run directly with
+                  <select
+                    value={node.engine || "codex"}
+                    onChange={(event) => update(node.id, { engine: event.target.value })}
+                  >
+                    <option value="codex">Codex</option>
+                    <option value="claude">Claude Code</option>
+                  </select>
+                  <small>No office or agent is required for a direct task or prompt step.</small>
+                </label>
+              )}
               {node.kind === "context" && (
                 <section className="tc-context-source">
                   <div className="tc-resource-picker-heading">

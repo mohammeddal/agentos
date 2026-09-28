@@ -119,20 +119,18 @@ export function TaskForm({
   const team = taskParticipants(company, assignment);
   const automaticTitle = canvas ? inferredTaskTitle(canvas) : "";
   const resolvedTitle = title.trim() || automaticTitle;
-  const hasAssignment = assignment.targets.length > 0;
   const hasTitle = !!resolvedTitle;
-  const assignmentValid = hasTitle && hasAssignment;
   const gateError = approvalError(
     company,
     approval,
     team.map((a) => a.id),
   );
-  const canSave = assignmentValid && !scheduleResult.error && !handoffError && !gateError;
-  const saveBlocker = !hasAssignment
-    ? "Connect an office or agent first."
-    : !hasTitle
-      ? "Add a workflow name first."
-      : gateError || scheduleResult.error || handoffError || "";
+  // A workflow may execute directly on Codex or Claude without a company agent.
+  // Office and agent blocks are routing choices, not draft requirements.
+  const canSave = hasTitle && !scheduleResult.error && !handoffError && !gateError;
+  const saveBlocker = !hasTitle
+    ? "Add a workflow name first."
+    : gateError || scheduleResult.error || handoffError || "";
   function changeCanvas(next: TaskCanvasGraph) {
     const root = next.nodes.find((node) => node.kind === "task");
     setCanvas(next);

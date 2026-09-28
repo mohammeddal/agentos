@@ -258,6 +258,23 @@ function agentStep(
     approval: false,
   };
 }
+function directStep(
+  node: CanvasNode,
+  prompt: string,
+  after: string[] = [],
+  condition = "success",
+): LiveStep {
+  return {
+    id: `canvas-${node.id}-direct`,
+    label: node.title || (node.kind === "task" ? "Task" : "Custom prompt"),
+    engine: engineId(node.engine || "codex"),
+    prompt,
+    agentId: "",
+    after,
+    condition,
+    approval: false,
+  };
+}
 function rule(step: LiveStep, approval: ApprovalRule | undefined, company: Company) {
   step.approval = approval?.kind === "human";
   if (approval?.kind === "agent") {
@@ -300,7 +317,6 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
       "Add an office, domain, agent, custom prompt, or approval to start the workflow.",
     );
   const allAgents = company.offices.flatMap((o) => o.agents);
-  const baseTeam = taskParticipants(company, task.assignment);
   const attachedNodes = (id: string) =>
     graph.edges
       .filter((e) => e.kind === "attachment" && e.to === id)
@@ -352,8 +368,10 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
         .join("\n\n")
     : "";
   const rootPrompt = [root?.prompt || task.brief, rootContext].filter(Boolean).join("\n\n");
-  const workers = graph.nodes.filter((n) =>
-    ["office", "agent", "domain", "prompt"].includes(n.kind),
+  const workers = graph.nodes.filter(
+    (n) =>
+      ["office", "agent", "domain", "prompt"].includes(n.kind) ||
+      (n.kind === "task" && n.id !== root?.id),
   );
   if (!workers.length) {
     if (graph.nodes.some((n) => ["mcp", "skill", "connector"].includes(n.kind)))
@@ -363,8 +381,10 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
     if (graph.nodes.some((n) => n.kind === "approval"))
       throw new Error("Connect the approval checkpoint to an agent or domain.");
     if (root) {
-      const { canvas: _canvas, ...base } = task;
-      return compileTask(company, { ...base, brief: rootPrompt });
+      const step = directStep(root, rootPrompt);
+      step.attachments = scopedFiles(root.id);
+      rule(step, task.approval, company);
+      return [step];
     }
     throw new Error("Add an office, domain, agent, or custom prompt step to run this workflow.");
   }
@@ -428,6 +448,7 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
       endpoints.set(node.id, { after, gates, condition });
       continue;
     }
+    const direct = node.kind === "prompt" || node.kind === "task";
     const team =
       node.kind === "office"
         ? company.offices.find((office) => office.id === node.reference)?.agents || []
@@ -435,11 +456,35 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
           ? allAgents.filter((a) => a.id === node.reference)
           : node.kind === "domain"
             ? taskParticipants(company, { kind: "domains", targets: [node.reference] })
-            : baseTeam.slice(0, 1);
-    if (!team.length) throw new Error(`Choose an available agent for ${node.title}.`);
+            : [];
     const reviewerIds = [...new Set(gates.filter((g) => g.kind === "agent").map((g) => g.agentId))];
     if (reviewerIds.length > 1)
       throw new Error("Separate multiple reviewer checkpoints with an execution step.");
+    if (direct) {
+      const engine = engineId(node.engine || "codex");
+      const step = directStep(
+        node,
+        [
+          rootPrompt,
+          node.prompt,
+          root ? resources(root.id, engine) : "",
+          resources(node.id, engine),
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
+        after,
+        condition,
+      );
+      step.attachments = [
+        ...new Set([...(root ? scopedFiles(root.id) : []), ...scopedFiles(node.id)]),
+      ];
+      if (reviewerIds[0]) rule(step, { kind: "agent", agentId: reviewerIds[0] }, company);
+      step.approval = gates.some((gate) => gate.kind === "human");
+      result.push(step);
+      endpoints.set(node.id, { after: [step.id], gates: [], condition: "success" });
+      continue;
+    }
+    if (!team.length) throw new Error(`Choose an available agent for ${node.title}.`);
     for (const [i, agent] of team.entries()) {
       const step = agentStep(
         agent,
