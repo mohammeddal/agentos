@@ -50,12 +50,13 @@ function Actions({ label, children }: { label: string; children: ReactNode }) {
     <div
       className="co-dir-actions"
       ref={root}
-      onBlur={() => {
-        // WebKit may report no relatedTarget while a menu button is being clicked.
-        // Defer the focus check so the button action is delivered before unmounting the popup.
-        requestAnimationFrame(() => {
-          if (root.current && !root.current.contains(document.activeElement)) setOpen(false);
-        });
+      onBlur={(e) => {
+        // WebKit (Tauri) does not focus buttons on press, so pressing a menu item blurs to
+        // <body> with no relatedTarget. Closing then unmounts the item before its click fires.
+        // Only close when focus moves to a known element outside; outside presses are handled
+        // by the pointerdown listener.
+        if (e.relatedTarget instanceof Node && !root.current?.contains(e.relatedTarget))
+          setOpen(false);
       }}
       onKeyDown={(e) => {
         if (e.key === "Escape" && open) {
