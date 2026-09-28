@@ -185,6 +185,9 @@ export async function chatRequest(
   prompt: string,
   id: string = crypto.randomUUID(),
 ): Promise<LiveRequest> {
+  const message = chat.messages.find((candidate) => candidate.id === id);
+  const engine = message?.engine || chat.engine;
+  const modelChoice = message?.modelChoice || chat.modelChoice;
   const projectContext = await context(company, chat.projectId, []);
   const productContext = `AgentOS product reference:\n${agentosGuide}`;
   return {
@@ -203,11 +206,10 @@ export async function chatRequest(
       {
         id: "chat",
         label: "Chat",
-        engine: engineId(chat.engine),
-        ...chat.modelChoice,
+        engine: engineId(engine),
+        ...modelChoice,
         prompt,
-        attachments:
-          chat.messages.find((message) => message.id === id)?.attachments?.map((a) => a.id) || [],
+        attachments: message?.attachments?.map((a) => a.id) || [],
         agentId: "",
         after: [],
         condition: "success",

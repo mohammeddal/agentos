@@ -5,6 +5,13 @@ import { AssistantMessage } from "../../shared/AssistantMessage";
 import { AttachmentList } from "../attachments/Attachments";
 import { isActiveRun, useLiveRuntime } from "../engines/live-runtime";
 
+const engineLabel = (engine: string) =>
+  engine.toLowerCase() === "claude"
+    ? "Claude Code"
+    : engine.toLowerCase() === "codex"
+      ? "Codex"
+      : engine;
+
 export function ChatConversation({
   chat,
   archive,
@@ -77,7 +84,7 @@ export function ChatConversation({
             {run?.output && (
               <article className="co-chat-assistant">
                 <header className="co-chat-answer-header">
-                  <span>{chat.engine}</span>
+                  <span>{engineLabel(run.engine || message.engine || chat.engine)}</span>
                   <button
                     className="co-chat-copy"
                     onClick={() => void copyReply(run.output)}

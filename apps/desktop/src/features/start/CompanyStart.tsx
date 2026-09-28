@@ -178,9 +178,16 @@ export function CompanyStart({
           text: draft.text.trim(),
           createdAt: now,
           attachments: draft.attachments || [],
+          engine: draft.engine,
+          modelChoice: draft.modelChoice || {},
         };
         const saved: CompanyChat = chat
-          ? { ...chat, modelChoice: draft.modelChoice || {}, messages: [...chat.messages, message] }
+          ? {
+              ...chat,
+              engine: draft.engine,
+              modelChoice: draft.modelChoice || {},
+              messages: [...chat.messages, message],
+            }
           : {
               id: crypto.randomUUID(),
               engine: draft.engine,
@@ -332,7 +339,7 @@ export function CompanyStart({
                         Engine
                         <select
                           aria-label="Chat engine preference"
-                          disabled={!!chat}
+                          disabled={sending || running}
                           value={draft.engine}
                           onChange={(e) => update({ engine: e.target.value, modelChoice: {} })}
                         >

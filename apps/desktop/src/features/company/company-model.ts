@@ -47,7 +47,15 @@ export type CompanyChat = {
   projectId?: string;
   taskId?: string;
   createdAt: string;
-  messages: { id: string; text: string; createdAt: string; attachments?: Attachment[] }[];
+  messages: {
+    id: string;
+    text: string;
+    createdAt: string;
+    attachments?: Attachment[];
+    /** Provider used for this turn. Older chats fall back to the chat preference. */
+    engine?: string;
+    modelChoice?: ModelChoice;
+  }[];
 };
 export type CompanyProject = {
   lifecycle?: Lifecycle;
@@ -250,6 +258,8 @@ export function isCompanyChat(value: unknown): value is CompanyChat {
       (m) =>
         m &&
         (m.attachments === undefined || validAttachments(m.attachments)) &&
+        (m.engine === undefined || typeof m.engine === "string") &&
+        (m.modelChoice === undefined || isModelChoice(m.modelChoice)) &&
         typeof m.id === "string" &&
         typeof m.text === "string" &&
         !!m.text.trim() &&

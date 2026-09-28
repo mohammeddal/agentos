@@ -108,6 +108,29 @@ describe("native execution plans", () => {
     expect(request.context).toContain("Provider permissions");
     expect(request.providerPermissions).toEqual({ codex: "on-request", claude: "default" });
   });
+  it("uses a per-message engine and model when a conversation switches providers", async () => {
+    const chat = {
+      id: "chat",
+      engine: "Codex",
+      createdAt: new Date().toISOString(),
+      messages: [
+        {
+          id: "switched",
+          text: "Continue with Claude",
+          createdAt: new Date().toISOString(),
+          engine: "Claude Code",
+          modelChoice: { model: "claude-choice", effort: "high" },
+        },
+      ],
+    };
+    expect(isCompanyChat(chat)).toBe(true);
+    const request = await chatRequest(starterCompany, chat, "Continue with Claude", "switched");
+    expect(request.steps[0]).toMatchObject({
+      engine: "claude",
+      model: "claude-choice",
+      effort: "high",
+    });
+  });
   it("applies defaults separately per provider and overrides a repeated agent step", () => {
     const t = task({
       modelDefaults: {
