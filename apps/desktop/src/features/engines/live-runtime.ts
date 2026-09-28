@@ -541,6 +541,15 @@ export function compileTask(company: Company, task: CompanyTask, path: string[] 
   };
   return compileTaskPlan(company, task, path).map(apply);
 }
+/** Return the same fail-closed reason live execution would show, without starting a run. */
+export function taskRunError(company: Company, task: CompanyTask): string {
+  try {
+    compileTask(company, task);
+    return "";
+  } catch (error) {
+    return error instanceof Error ? error.message : "This workflow is not ready to run.";
+  }
+}
 function compileTaskPlan(company: Company, task: CompanyTask, path: string[] = []): LiveStep[] {
   if (path.includes(task.id) || path.length > 8)
     throw new Error("Linked tasks contain a cycle or exceed eight levels.");

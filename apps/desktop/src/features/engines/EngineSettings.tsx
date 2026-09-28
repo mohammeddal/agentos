@@ -235,7 +235,7 @@ export function EngineSettings({ focus }: { focus?: EngineSettingsFocus | null }
             );
           })}
           <small className="co-setting-footnote">
-            Existing chats keep the engine they were started with.
+            Existing chats can switch engines from Chat settings.
           </small>
         </section>
 

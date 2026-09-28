@@ -250,9 +250,12 @@ export function AgentForm({
               }
             }}
           >
-            {["Codex", "Claude Code", "Gemini", "Choose later"].map((v) => (
-              <option key={v}>{v}</option>
-            ))}
+            <option>Codex</option>
+            <option>Claude Code</option>
+            <option value="Gemini" disabled>
+              Gemini · Soon
+            </option>
+            <option>Choose later</option>
           </select>
         </label>
       </div>

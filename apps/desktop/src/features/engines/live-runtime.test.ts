@@ -10,6 +10,7 @@ import {
   engineId,
   refreshRequestMemory,
   startLive,
+  taskRunError,
 } from "./live-runtime";
 import { isCompanyTask, isCompanyChat } from "../company/company-model";
 import { modelChoiceError } from "./ModelPicker";
@@ -530,6 +531,25 @@ describe("native execution plans", () => {
       ["", "codex"],
     ]);
     expect(steps[1]?.after).toEqual(["canvas-draft-direct"]);
+  });
+  it("explains why an incomplete workflow cannot run without preventing draft persistence", () => {
+    const root = { ...newCanvasNode("task", 0, 0, "root"), prompt: "Prepare the result" };
+    const agent = newCanvasNode("agent", 300, 0, "agent");
+    const incomplete = task({
+      assignment: { kind: "agents", targets: [] },
+      canvas: {
+        version: 1,
+        nodes: [root, agent],
+        edges: [{ id: "1", from: "root", to: "agent", kind: "flow", condition: "success" }],
+      },
+    });
+    expect(taskRunError(starterCompany, incomplete)).toMatch(/available agent/i);
+    expect(
+      taskRunError(starterCompany, {
+        ...incomplete,
+        canvas: { version: 1, nodes: [root], edges: [] },
+      }),
+    ).toBe("");
   });
   it("maps only supported providers", () => {
     expect(engineId("Codex")).toBe("codex");

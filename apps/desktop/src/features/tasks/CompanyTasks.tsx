@@ -7,7 +7,7 @@ import {
   type TaskAssignment,
 } from "../company/company-model";
 import "./company-tasks.css";
-import { isActiveRun, useLiveRuntime } from "../engines/live-runtime";
+import { isActiveRun, taskRunError, useLiveRuntime } from "../engines/live-runtime";
 import type { ModelChoice } from "../engines/model-choice";
 import type { StepModelChoice } from "../engines/model-choice";
 import { approvalError, type ApprovalRule } from "./task-approvals";
@@ -158,8 +158,10 @@ export function TaskForm({
     approval,
     ...(canvas ? { canvas } : {}),
   };
+  const executionBlocker = canSave ? taskRunError(company, draftTask) : saveBlocker;
+  const canRun = canSave && !executionBlocker;
   async function submitTask(run: boolean) {
-    if (!canSave || attaching || submitting) return;
+    if (!(run ? canRun : canSave) || attaching || submitting) return;
     setSubmitting(run ? "start" : "save");
     setSubmitError("");
     try {
@@ -225,7 +227,7 @@ export function TaskForm({
             run={viewedRun}
             runs={taskRuns}
             selectRun={setViewRunId}
-            runAgain={start && canSave ? () => void submitTask(true) : undefined}
+            runAgain={start && canRun ? () => void submitTask(true) : undefined}
           />
         ) : (
           <>
@@ -287,13 +289,21 @@ export function TaskForm({
       )}
       <div className="co-task-submit">
         <p
-          className={notice ? "co-task-notice" : !canSave && saveBlocker ? "co-task-blocker" : ""}
+          className={
+            notice
+              ? "co-task-notice"
+              : (!canSave && saveBlocker) || (start && !canRun && executionBlocker)
+                ? "co-task-blocker"
+                : ""
+          }
           role="status"
         >
           {notice ? (
             <>✓ {notice}</>
           ) : !canSave && saveBlocker ? (
             <>Can’t save yet: {saveBlocker}</>
+          ) : start && !canRun && executionBlocker ? (
+            <>Can’t run yet: {executionBlocker} You can still save this draft.</>
           ) : schedule.kind === "cron" ? (
             <>Save the schedule, then enable it when you are ready.</>
           ) : existing ? (
@@ -317,8 +327,14 @@ export function TaskForm({
           <button
             type="submit"
             className="co-button co-button-primary"
-            disabled={!canSave || attaching || !!submitting}
-            title={saveBlocker || undefined}
+            disabled={
+              (start && schedule.kind === "manual" ? !canRun : !canSave) ||
+              attaching ||
+              !!submitting
+            }
+            title={
+              (start && schedule.kind === "manual" ? executionBlocker : saveBlocker) || undefined
+            }
           >
             {attaching
               ? "Adding files…"

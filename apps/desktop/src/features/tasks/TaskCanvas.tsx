@@ -986,6 +986,7 @@ export function TaskCanvas({
               <h3>Schedule</h3>
               <ScheduleEditor
                 compact
+                subject="workflow"
                 schedule={schedule}
                 change={changeSchedule}
                 preview={schedulePreview}

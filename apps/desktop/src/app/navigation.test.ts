@@ -9,8 +9,13 @@ import {
   type WorkspaceView,
 } from "./navigation";
 describe("workspace navigation", () => {
-  it("keeps three stable primary destinations and places workflows inside the company hub", () => {
-    expect(destinations.map((destination) => destination.view)).toEqual(["start", "map", "memory"]);
+  it("keeps focused primary destinations and places workflows inside the company hub", () => {
+    expect(destinations.map((destination) => destination.view)).toEqual([
+      "start",
+      "map",
+      "activity",
+      "memory",
+    ]);
     expect(destinations.map((destination) => destination.view)).not.toContain("projects");
     expect(destinations.map((destination) => destination.view)).not.toContain("tasks");
     expect(primaryView("tasks")).toBe("map");
@@ -18,7 +23,14 @@ describe("workspace navigation", () => {
     expect(primaryView("settings")).toBe("settings");
   });
   it("round trips every current page and redirects legacy domain links", () => {
-    for (const view of ["start", "map", "memory", "engines", "settings"] as WorkspaceView[])
+    for (const view of [
+      "start",
+      "map",
+      "activity",
+      "memory",
+      "engines",
+      "settings",
+    ] as WorkspaceView[])
       expect(parseRoute(routeHash({ view }))).toEqual({ view });
     for (const legacy of ["#/tasks", "#/company/domains", "#/company/offices", "#/company/agents"])
       expect(parseRoute(legacy)).toEqual({ view: "map" });
@@ -32,7 +44,7 @@ describe("workspace navigation", () => {
       expect(parseRoute(routeHash(route))).toEqual(route);
   });
   it("falls back safely for malformed and unknown links", () => {
-    for (const hash of ["", "#invalid", "#/activity", "#/projects/%zz", "#/projects/foo/bar"])
+    for (const hash of ["", "#invalid", "#/projects/%zz", "#/projects/foo/bar"])
       expect(parseRoute(hash)).toEqual({ view: "start" });
   });
   it("finds agents by name, engine and office without reading external files", () => {
@@ -75,7 +87,7 @@ describe("workspace navigation", () => {
     expect(findWorkspace(company, "Data & Analytics").map((r) => r.kind)).not.toContain("domain");
   });
   it("keeps default results short and caps large searches", () => {
-    expect(findWorkspace(starterCompany, "")).toHaveLength(5);
+    expect(findWorkspace(starterCompany, "")).toHaveLength(6);
     const company = {
       ...starterCompany,
       offices: [

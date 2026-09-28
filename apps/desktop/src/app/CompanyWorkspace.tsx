@@ -33,6 +33,7 @@ import { CompanyMemory } from "../features/memory/CompanyMemory";
 import { EngineLibrary } from "../features/engines/EngineLibrary";
 import { EngineSettings, type EngineSettingsFocus } from "../features/engines/EngineSettings";
 import { AgentActivity } from "../features/activity/AgentActivity";
+import { LiveHistory } from "../features/engines/LiveExecution";
 import { ProjectForm } from "../features/projects/CompanyProjects";
 import { CompanyStart } from "../features/start/CompanyStart";
 import { emptyPrompt, PROMPT_STORAGE, taskFromPrompt } from "../features/start/prompt-composer";
@@ -103,6 +104,7 @@ const descriptions: Record<WorkspaceView, string> = {
   start: "",
   tasks: "Build workflows from tasks, agents, context, and approvals.",
   map: "Your offices, agents, and workflows in one place.",
+  activity: "Runs stay summarized until you open the details you need.",
   memory: "Facts, lessons, and context worth keeping.",
   engines: "Discover the tools and skills already available locally.",
   settings: "Manage local engines, project discovery, and notifications.",
@@ -413,9 +415,11 @@ export function CompanyWorkspace() {
       ? "Search capabilities"
       : view === "memory"
         ? "Search memory"
-        : view === "tasks"
-          ? "Search workflows"
-          : "Search agents and workflows";
+        : view === "activity"
+          ? "Search runs"
+          : view === "tasks"
+            ? "Search workflows"
+            : "Search agents and workflows";
   return (
     <div className="company-app" data-theme={theme} data-terminal-open={terminalOpen || undefined}>
       <WorkspaceNavigation {...navigationProps} />
@@ -548,6 +552,8 @@ export function CompanyWorkspace() {
             <EngineSettings focus={engineSettingsFocus} />
           ) : view === "memory" ? (
             <CompanyMemory company={company} query={query} createRequest={memoryCreateRequest} />
+          ) : view === "activity" ? (
+            <LiveHistory query={query} summaryView />
           ) : isWorkflowBuilder ? (
             isNewWorkflow ? (
               <div className="co-workflow-builder-shell">

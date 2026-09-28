@@ -1,7 +1,14 @@
 import type { Company } from "../features/company/company-model";
 import { activeCompany } from "../features/company/company-directory";
 
-export type WorkspaceView = "start" | "tasks" | "map" | "memory" | "engines" | "settings";
+export type WorkspaceView =
+  | "start"
+  | "tasks"
+  | "map"
+  | "activity"
+  | "memory"
+  | "engines"
+  | "settings";
 export type WorkspaceRoute = {
   view: WorkspaceView;
   projectId?: string;
@@ -11,6 +18,7 @@ export type WorkspaceRoute = {
 export const destinations = [
   { view: "start", label: "Start", description: "Write a prompt or continue a chat" },
   { view: "map", label: "Company", description: "Offices, agents, and workflows" },
+  { view: "activity", label: "Activity", description: "Runs, approvals, and results" },
   { view: "memory", label: "Library", description: "Memory and local capabilities" },
 ] as const;
 export function primaryView(view: WorkspaceView): WorkspaceView {
@@ -20,6 +28,7 @@ export const viewLabels: Record<WorkspaceView, string> = {
   start: "Start",
   tasks: "Workflows",
   map: "Company Hub",
+  activity: "Activity",
   memory: "Memory",
   engines: "Capabilities",
   settings: "Settings",
@@ -28,6 +37,7 @@ const paths: Record<WorkspaceView, string> = {
   start: "start",
   tasks: "tasks",
   map: "company/map",
+  activity: "activity",
   memory: "library/memory",
   engines: "library/engines",
   settings: "settings",

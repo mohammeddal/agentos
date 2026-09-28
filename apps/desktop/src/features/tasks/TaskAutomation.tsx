@@ -53,16 +53,18 @@ export function ScheduleEditor({
   change,
   preview,
   compact = false,
+  subject = "task",
 }: {
   schedule: TaskSchedule;
   change: (schedule: TaskSchedule) => void;
   preview: { dates: string[]; error: string | null };
   compact?: boolean;
+  subject?: "task" | "workflow";
 }) {
   return (
     <section
       className={`co-automation-panel ${compact ? "is-compact" : ""}`}
-      aria-label="Task schedule"
+      aria-label={`${subject === "workflow" ? "Workflow" : "Task"} schedule`}
     >
       {!compact && (
         <div className="co-automation-intro">
@@ -198,8 +200,8 @@ export function ScheduleEditor({
       )}
       <div className="co-form-note">
         {schedule.kind === "cron"
-          ? "Save this schedule, then enable it in task details. AgentOS must stay open and your Mac awake; missed occurrences are skipped."
-          : "This task has no automatic trigger. Open task details and choose Run task to start it."}
+          ? `Save this schedule, then enable it in ${subject} details. AgentOS must stay open and your Mac awake; missed occurrences are skipped.`
+          : `This ${subject} has no automatic trigger. Open ${subject} details and choose Run to start it.`}
       </div>
     </section>
   );

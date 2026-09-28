@@ -1,5 +1,6 @@
 import {
   AudioLines,
+  Activity,
   BookOpen,
   Building2,
   CircleHelp,
@@ -16,6 +17,7 @@ import { WorkspaceDirectory, type DirectoryProps } from "./WorkspaceDirectory";
 const icons = {
   start: MessageSquare,
   map: Building2,
+  activity: Activity,
   memory: BookOpen,
 };
 
