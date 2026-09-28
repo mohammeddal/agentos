@@ -4,16 +4,20 @@ import {
   Bot,
   Building2,
   ChevronRight,
+  GitBranch,
+  Map,
   Menu,
   Pencil,
   Plus,
   Search,
   SquareTerminal,
   Trash2,
+  Users,
 } from "lucide-react";
 import {
   isCompany,
   starterCompany,
+  taskParticipants,
   type Company,
   type CompanyProject,
   type CompanyAgent,
@@ -66,6 +70,7 @@ import {
 } from "../features/company/company-directory";
 import { useLiveNotifications } from "../features/engines/live-notifications";
 import { activityAcknowledgementTokens } from "../features/activity/activity-badge";
+import { latestRun, runLabel } from "../features/engines/run-presentation";
 import { TerminalDock } from "../features/terminal/TerminalDock";
 import {
   destinations,
@@ -116,7 +121,7 @@ const descriptions: Record<WorkspaceView, string> = {
   start: "",
   tasks: "Build workflows from tasks, agents, context, and approvals.",
   projects: "Keep teams, workflows, and directories together.",
-  map: "Your offices and the agents working in them.",
+  map: "Your offices, agents, and workflows in one place.",
   offices: "Organize teams into dedicated spaces.",
   agents: "Find a specialist and inspect their work.",
   activity: "See what’s running, what needs you, and what finished.",
@@ -147,7 +152,6 @@ export function CompanyWorkspace() {
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [storageError, setStorageError] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  const createMenu = useRef<HTMLDetailsElement>(null);
   const office = company.offices.find((o) => o.id === selectedOffice);
   const allAgents = company.offices.flatMap((o) => o.agents.map((a) => ({ ...a, office: o })));
   const tasks = company.tasks || [];
@@ -170,6 +174,8 @@ export function CompanyWorkspace() {
     dialog?.type === "inspect-task" || dialog?.type === "canvas"
       ? tasks.find((t) => t.id === dialog.taskId)
       : undefined;
+  const workflowPage = route.taskId ? tasks.find((task) => task.id === route.taskId) : undefined;
+  const isWorkflowBuilder = view === "tasks" && !!route.taskId;
   const filteredOffices = company.offices.filter((o) =>
     `${o.name} ${o.domain} ${o.agents.map((a) => a.name).join(" ")}`
       .toLowerCase()
@@ -231,10 +237,7 @@ export function CompanyWorkspace() {
     setDialog(null);
     if (entry.kind === "project") openProject(entry.id);
     else if (entry.kind === "chat") go({ view: "start", chatId: entry.id });
-    else {
-      setView("tasks");
-      setDialog({ type: "inspect-task", taskId: entry.id });
-    }
+    else go({ view: "tasks", taskId: entry.id });
   }
   function createDirectoryEntry(kind: DirectoryKind, projectId?: string) {
     if (kind === "chat") {
@@ -281,9 +284,10 @@ export function CompanyWorkspace() {
         const keys = affectedRunKeys(storedCompany, entry);
         if (
           (route.chatId && keys.includes(`chat:${route.chatId}`)) ||
+          (route.taskId && keys.includes(`task:${route.taskId}`)) ||
           (route.projectId === entry.id && entry.kind === "project")
         )
-          go({ view: "start" });
+          go({ view: route.taskId ? "map" : "start" });
         if (dialog?.type === "inspect-task" || dialog?.type === "canvas")
           if (keys.includes(`task:${dialog.taskId}`)) setDialog(null);
       }
@@ -330,7 +334,6 @@ export function CompanyWorkspace() {
     );
   }
   function create(type: "task" | "project" | "office" | "agent") {
-    if (createMenu.current) createMenu.current.open = false;
     if (type === "agent") addAgent();
     else if (type === "task") setDialog({ type, domain: office?.domain });
     else setDialog({ type });
@@ -343,8 +346,8 @@ export function CompanyWorkspace() {
     } else if (result.kind === "project") openProject(result.id);
     else if (result.kind === "office") navigate(result.id);
     else if (result.kind === "task") {
-      setView("tasks");
-      setDialog({ type: "inspect-task", taskId: result.id });
+      setQuery("");
+      go({ view: "tasks", taskId: result.id });
     } else if (result.kind === "agent") {
       const a = allAgents.find((a) => a.id === result.id);
       if (a) setDialog({ type: "inspect-agent", officeId: a.office.id, agent: a });
@@ -358,17 +361,6 @@ export function CompanyWorkspace() {
       setStorageError(true);
     }
   }, [storedCompany]);
-  useEffect(() => {
-    const closeMenu = (event: PointerEvent) => {
-      const menu = createMenu.current;
-      if (menu && event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
-    };
-    document.addEventListener("pointerdown", closeMenu);
-    return () => document.removeEventListener("pointerdown", closeMenu);
-  }, []);
-  useEffect(() => {
-    if (createMenu.current) createMenu.current.open = false;
-  }, [view, selectedOffice]);
   useEffect(() => {
     document.documentElement.dataset.companyTheme = theme;
     try {
@@ -403,7 +395,7 @@ export function CompanyWorkspace() {
       company: storedCompany,
       selectedChat: route.chatId,
       selectedProject: view === "projects" ? selectedProject : undefined,
-      selectedTask: inspectedTask?.id,
+      selectedTask: route.taskId || inspectedTask?.id,
       openEntry: openDirectoryEntry,
       createEntry: createDirectoryEntry,
       lifecycle: updateLifecycle,
@@ -434,8 +426,9 @@ export function CompanyWorkspace() {
     toggleTheme: () => setTheme((t) => (t === "light" ? "dark" : "light")),
   };
   const group = primaryView(view);
-  const primary =
-    office || view === "agents"
+  const primary = isWorkflowBuilder
+    ? null
+    : office || view === "agents"
       ? { type: "agent" as const, label: "New agent" }
       : view === "tasks"
         ? { type: "task" as const, label: "New workflow" }
@@ -511,7 +504,7 @@ export function CompanyWorkspace() {
         )}
         <main
           id="workspace-content"
-          className={`co-content ${!office && view === "map" ? "co-map-mode" : !office && view === "start" ? "co-start-mode" : ""}`}
+          className={`co-content ${!office && view === "map" ? "co-map-mode" : !office && view === "start" ? "co-start-mode" : ""} ${isWorkflowBuilder ? "co-workflow-page" : ""}`}
         >
           {selectedOffice && !office && (
             <p className="co-form-error">
@@ -521,6 +514,12 @@ export function CompanyWorkspace() {
           {(office || (view !== "start" && view !== "projects")) && (
             <section className="co-page-heading">
               <div>
+                {view === "tasks" && (
+                  <button className="co-back" onClick={() => setView("map")}>
+                    <ArrowLeft size={13} />
+                    Company Hub
+                  </button>
+                )}
                 {office && (
                   <button className="co-back" onClick={() => setView("offices")}>
                     <ArrowLeft size={13} />
@@ -528,11 +527,18 @@ export function CompanyWorkspace() {
                   </button>
                 )}
                 <div className="co-page-title-line">
-                  <h1>{office?.name || viewLabels[view]}</h1>
+                  <h1>
+                    {isWorkflowBuilder ? "Workflow Builder" : office?.name || viewLabels[view]}
+                  </h1>
                   {!office && descriptions[view] && (
-                    <HelpTip label={`About ${viewLabels[view]}`}>{descriptions[view]}</HelpTip>
+                    <HelpTip
+                      label={`About ${isWorkflowBuilder ? "Workflow Builder" : viewLabels[view]}`}
+                    >
+                      {descriptions[view]}
+                    </HelpTip>
                   )}
                 </div>
+                {isWorkflowBuilder && workflowPage && <p>{workflowPage.title}</p>}
                 {office && (
                   <p>
                     {office.agents.length} {office.agents.length === 1 ? "agent" : "agents"}
@@ -551,31 +557,18 @@ export function CompanyWorkspace() {
                     </button>
                   )}
                   {view === "map" && (
-                    <details
-                      className="co-create-menu"
-                      ref={createMenu}
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape") {
-                          e.currentTarget.open = false;
-                          e.currentTarget.querySelector("summary")?.focus();
-                        }
-                      }}
+                    <button
+                      className="co-button co-button-primary"
+                      onClick={() => create("office")}
                     >
-                      <summary className="co-button">Create…</summary>
-                      <div>
-                        {(["task", "project", "office", "agent"] as const).map((type) => (
-                          <button key={type} onClick={() => create(type)}>
-                            New {type === "task" ? "workflow" : type}
-                          </button>
-                        ))}
-                      </div>
-                    </details>
+                      <Plus size={15} /> New office
+                    </button>
                   )}
                 </div>
               )}
             </section>
           )}
-          {!office && group === "map" && (
+          {!office && (["map", "offices", "agents"] as WorkspaceView[]).includes(view) && (
             <nav className="co-page-tabs" aria-label="Company sections">
               {(["map", "offices", "agents"] as const).map((tab) => (
                 <button
@@ -583,7 +576,14 @@ export function CompanyWorkspace() {
                   aria-current={view === tab ? "page" : undefined}
                   onClick={() => setView(tab)}
                 >
-                  {viewLabels[tab]}
+                  {tab === "map" ? (
+                    <Map size={14} />
+                  ) : tab === "offices" ? (
+                    <Building2 size={14} />
+                  ) : (
+                    <Users size={14} />
+                  )}
+                  {tab === "map" ? "Map" : viewLabels[tab]}
                 </button>
               ))}
             </nav>
@@ -601,55 +601,56 @@ export function CompanyWorkspace() {
               ))}
             </nav>
           )}
-          {(office || (view !== "start" && view !== "projects" && view !== "settings")) && (
-            <div className="co-section-toolbar">
-              {(office || ["tasks", "projects"].includes(view) || group === "map") && (
-                <div className="co-section-title">
-                  <span className="co-directory-count">
-                    {office
-                      ? `${office.agents.length} agents`
-                      : view === "tasks"
-                        ? `${tasks.length} ${tasks.length === 1 ? "workflow" : "workflows"}`
-                        : view === "projects"
-                          ? `${company.projects?.length || 0} projects`
-                          : group === "map"
-                            ? `${company.offices.length} offices · ${allAgents.length} agents`
-                            : "Saved on this device"}
-                  </span>
+          {!isWorkflowBuilder &&
+            (office || (view !== "start" && view !== "projects" && view !== "settings")) && (
+              <div className="co-section-toolbar">
+                {(office || ["tasks", "projects", "map", "offices", "agents"].includes(view)) && (
+                  <div className="co-section-title">
+                    <span className="co-directory-count">
+                      {office
+                        ? `${office.agents.length} agents`
+                        : view === "tasks"
+                          ? `${tasks.length} ${tasks.length === 1 ? "workflow" : "workflows"}`
+                          : view === "projects"
+                            ? `${company.projects?.length || 0} projects`
+                            : ["map", "offices", "agents"].includes(view)
+                              ? `${company.offices.length} offices · ${allAgents.length} agents`
+                              : "Saved on this device"}
+                    </span>
+                  </div>
+                )}
+                <div className="co-search">
+                  <Search size={14} />
+                  <input
+                    ref={searchRef}
+                    aria-label={searchLabel}
+                    placeholder={searchLabel + "…"}
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                  {query && (
+                    <button
+                      aria-label="Clear search"
+                      onClick={() => {
+                        setQuery("");
+                        searchRef.current?.focus();
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
-              )}
-              <div className="co-search">
-                <Search size={14} />
-                <input
-                  ref={searchRef}
-                  aria-label={searchLabel}
-                  placeholder={searchLabel + "…"}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-                {query && (
+                {office && (
                   <button
-                    aria-label="Clear search"
-                    onClick={() => {
-                      setQuery("");
-                      searchRef.current?.focus();
-                    }}
+                    className="co-icon-button"
+                    aria-label="Edit office"
+                    onClick={() => setDialog({ type: "edit-office", office })}
                   >
-                    ×
+                    <Pencil size={15} />
                   </button>
                 )}
               </div>
-              {office && (
-                <button
-                  className="co-icon-button"
-                  aria-label="Edit office"
-                  onClick={() => setDialog({ type: "edit-office", office })}
-                >
-                  <Pencil size={15} />
-                </button>
-              )}
-            </div>
-          )}
+            )}
           {!office && view === "start" ? (
             <CompanyStart
               key={route.chatId || `new:${route.projectId || "company"}:${composerVersion}`}
@@ -658,7 +659,7 @@ export function CompanyWorkspace() {
               openChat={(chatId) => go({ view: "start", chatId })}
               company={company}
               change={setCompany}
-              editTask={(task) => setDialog({ type: "inspect-task", taskId: task.id })}
+              editTask={(task) => go({ view: "tasks", taskId: task.id })}
               lifecycleChat={(chat, lifecycle) => {
                 const entry = directoryEntries(storedCompany).find(
                   (candidate) => candidate.kind === "chat" && candidate.id === chat.id,
@@ -675,7 +676,7 @@ export function CompanyWorkspace() {
               createTask={(projectId, domain, agentId) =>
                 setDialog({ type: "task", projectId, domain, agentId })
               }
-              editTask={(task) => setDialog({ type: "inspect-task", taskId: task.id })}
+              editTask={(task) => go({ view: "tasks", taskId: task.id })}
               inspectAgent={(id) => {
                 const a = allAgents.find((a) => a.id === id);
                 if (a) setDialog({ type: "inspect-agent", officeId: a.office.id, agent: a });
@@ -694,24 +695,114 @@ export function CompanyWorkspace() {
               company={company}
               query={query}
             />
+          ) : !office && isWorkflowBuilder ? (
+            workflowPage ? (
+              <div className="co-workflow-builder-shell">
+                <TaskForm
+                  key={workflowPage.id}
+                  company={company}
+                  existing={workflowPage}
+                  initialDomain={undefined}
+                  storageError={storageError}
+                  openResourceSettings={(task, kind, engine) => {
+                    upsertTask(task);
+                    openResourceSettings(kind, engine);
+                  }}
+                  save={upsertTask}
+                  start={async (task) => {
+                    const nextCompany = {
+                      ...company,
+                      tasks: company.tasks?.some((candidate) => candidate.id === task.id)
+                        ? company.tasks.map((candidate) =>
+                            candidate.id === task.id ? task : candidate,
+                          )
+                        : [task, ...(company.tasks || [])],
+                    };
+                    upsertTask(task);
+                    await startLive(await taskRequest(nextCompany, task));
+                  }}
+                />
+              </div>
+            ) : (
+              <section className="co-workflow-missing">
+                <GitBranch size={24} />
+                <h2>Workflow unavailable</h2>
+                <p>It may have been archived or removed.</p>
+                <button className="co-button" onClick={() => setView("map")}>
+                  Back to Company Hub
+                </button>
+              </section>
+            )
           ) : !office && view === "tasks" ? (
             <CompanyTasks
               company={company}
               query={query}
-              edit={(task) => setDialog({ type: "inspect-task", taskId: task.id })}
+              edit={(task) => go({ view: "tasks", taskId: task.id })}
             />
           ) : !office && view === "map" ? (
-            <CompanyFloorplan
-              company={company}
-              query={query}
-              openOffice={navigate}
-              addOffice={() => setDialog({ type: "office" })}
-              addAgent={(officeId) => setDialog({ type: "agent", officeId })}
-              inspectAgent={(officeId, agent) =>
-                setDialog({ type: "inspect-agent", officeId, agent })
-              }
-              editAgent={(officeId, agent) => setDialog({ type: "agent", officeId, agent })}
-            />
+            <>
+              <CompanyFloorplan
+                company={company}
+                query={query}
+                openOffice={navigate}
+                addOffice={() => setDialog({ type: "office" })}
+                addAgent={(officeId) => setDialog({ type: "agent", officeId })}
+                inspectAgent={(officeId, agent) =>
+                  setDialog({ type: "inspect-agent", officeId, agent })
+                }
+                editAgent={(officeId, agent) => setDialog({ type: "agent", officeId, agent })}
+              />
+              <section className="co-hub-workflows" aria-labelledby="hub-workflows-title">
+                <header>
+                  <div>
+                    <GitBranch size={15} />
+                    <strong id="hub-workflows-title">Recent workflows</strong>
+                  </div>
+                  <div>
+                    <button className="co-button" onClick={() => setDialog({ type: "task" })}>
+                      <Plus size={13} /> New
+                    </button>
+                    <button className="co-button" onClick={() => setView("tasks")}>
+                      View all <ChevronRight size={13} />
+                    </button>
+                  </div>
+                </header>
+                <div className="co-hub-workflow-list">
+                  {tasks.slice(0, 4).map((task) => {
+                    const team = taskParticipants(company, task.assignment);
+                    return (
+                      <button
+                        key={task.id}
+                        className="co-hub-workflow"
+                        onClick={() => go({ view: "tasks", taskId: task.id })}
+                      >
+                        <span className="co-hub-workflow-icon">
+                          <GitBranch size={15} />
+                        </span>
+                        <span>
+                          <strong>{task.title}</strong>
+                          <small>
+                            {team.length} {team.length === 1 ? "agent" : "agents"} ·{" "}
+                            {task.assignment.kind === "domains"
+                              ? task.assignment.targets[0] || "Unassigned"
+                              : "Direct assignment"}
+                          </small>
+                        </span>
+                        <em>{runLabel(latestRun(live.runs, `task:${task.id}`))}</em>
+                      </button>
+                    );
+                  })}
+                  {!tasks.length && (
+                    <button
+                      className="co-hub-workflow co-hub-workflow-empty"
+                      onClick={() => setDialog({ type: "task" })}
+                    >
+                      <Plus size={15} /> Create your first workflow
+                    </button>
+                  )}
+                </div>
+              </section>
+            </>
           ) : office || view === "agents" ? (
             <div className="co-agent-grid">
               {filteredAgents.map((a) => (
@@ -1050,7 +1141,8 @@ export function CompanyWorkspace() {
               }}
               save={(task) => {
                 upsertTask(task);
-                setDialog({ type: "inspect-task", taskId: task.id });
+                setDialog(null);
+                go({ view: "tasks", taskId: task.id });
               }}
               start={async (task) => {
                 const nextCompany = {
@@ -1063,7 +1155,8 @@ export function CompanyWorkspace() {
                 };
                 upsertTask(task);
                 await startLive(await taskRequest(nextCompany, task));
-                setDialog({ type: "inspect-task", taskId: task.id });
+                setDialog(null);
+                go({ view: "tasks", taskId: task.id });
               }}
             />
           )}

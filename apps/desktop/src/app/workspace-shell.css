@@ -215,6 +215,9 @@
   overflow-x: auto;
 }
 .co-page-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   white-space: nowrap;
   background: none;
   border: 0;

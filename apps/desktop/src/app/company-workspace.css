@@ -765,6 +765,135 @@ svg {
   font-size: 10px;
   margin-bottom: 23px;
 }
+.co-workflow-page {
+  max-width: none;
+  padding-bottom: 24px;
+}
+.co-workflow-page .co-page-heading {
+  margin-bottom: 16px;
+}
+.co-workflow-builder-shell {
+  overflow: hidden;
+  border: 1px solid var(--co-border);
+  border-radius: 10px;
+  background: var(--co-card);
+  box-shadow: 0 1px 2px #00000008;
+}
+.co-workflow-builder-shell > .co-task-form {
+  padding-top: 0;
+}
+.co-workflow-missing {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 72px 24px;
+  border: 1px dashed var(--co-border);
+  border-radius: 10px;
+  background: var(--co-card);
+  text-align: center;
+}
+.co-workflow-missing h2,
+.co-workflow-missing p {
+  margin: 0;
+}
+.co-workflow-missing p {
+  color: var(--co-muted);
+}
+.co-hub-workflows {
+  margin: 14px 0 28px;
+  overflow: hidden;
+  border: 1px solid var(--co-border);
+  border-radius: 8px;
+  background: var(--co-card);
+}
+.co-hub-workflows > header {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 12px 8px 16px;
+  border-bottom: 1px solid var(--co-border);
+}
+.co-hub-workflows > header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.co-hub-workflows > header strong {
+  font-size: 11px;
+  font-weight: 600;
+}
+.co-hub-workflows .co-button {
+  min-height: 29px;
+  padding: 6px 9px;
+  font-size: 9px;
+}
+.co-hub-workflow-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+.co-hub-workflow {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid var(--co-border);
+  border-radius: 7px;
+  background: var(--co-card);
+  color: var(--co-text);
+  text-align: left;
+}
+.co-hub-workflow:hover {
+  border-color: var(--co-accent);
+  background: var(--co-soft);
+}
+.co-hub-workflow-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--co-soft);
+  color: var(--co-secondary);
+}
+.co-hub-workflow > span:nth-child(2) {
+  min-width: 0;
+}
+.co-hub-workflow strong,
+.co-hub-workflow small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.co-hub-workflow strong {
+  font-size: 10px;
+  font-weight: 600;
+}
+.co-hub-workflow small {
+  margin-top: 3px;
+  color: var(--co-muted);
+  font-size: 8px;
+}
+.co-hub-workflow em {
+  padding: 3px 5px;
+  border: 1px solid var(--co-border);
+  border-radius: 999px;
+  color: var(--co-muted);
+  font-size: 7px;
+  font-style: normal;
+  white-space: nowrap;
+}
+.co-hub-workflow-empty {
+  grid-column: 1 / -1;
+  justify-content: center;
+  color: var(--co-muted);
+}
 .co-icon-button {
   border: 1px solid var(--co-border);
   border-radius: 5px;
@@ -1179,6 +1308,9 @@ svg {
   .co-agent-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .co-hub-workflow-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 @media (max-width: 860px) {
   .company-app {
@@ -1263,6 +1395,13 @@ svg {
   }
   .co-office-grid,
   .co-agent-grid {
+    grid-template-columns: 1fr;
+  }
+  .co-hub-workflows > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .co-hub-workflow-list {
     grid-template-columns: 1fr;
   }
   .co-dialog-backdrop {

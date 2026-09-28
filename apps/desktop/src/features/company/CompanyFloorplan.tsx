@@ -3,6 +3,8 @@ import {
   Activity,
   ArrowRight,
   Bot,
+  ChevronLeft,
+  ChevronRight,
   Focus,
   Minus,
   MousePointer2,
@@ -54,6 +56,7 @@ export function CompanyFloorplan({
   const live = useLiveRuntime();
   const [overrides, setOverrides] = useState<Record<string, "working" | "approval" | "idle">>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [insightsOpen, setInsightsOpen] = useState(true);
   const [zoom, setZoom] = useState(100);
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [approvalError, setApprovalError] = useState("");
@@ -382,7 +385,10 @@ export function CompanyFloorplan({
                           state={status(agent)}
                           selected={selectedId === agent.id}
                           dim={!matches(office, agent)}
-                          onSelect={() => setSelectedId(agent.id)}
+                          onSelect={() => {
+                            setSelectedId(agent.id);
+                            setInsightsOpen(true);
+                          }}
                         />
                       ))}
                       {!office.agents.length && (
@@ -534,206 +540,231 @@ export function CompanyFloorplan({
             </div>
           </footer>
         </div>
-        <aside className="fp-inspector" aria-label="Map activity" ref={inspector}>
+        <aside
+          className={`fp-inspector ${insightsOpen ? "" : "is-collapsed"}`}
+          aria-label="Map activity"
+          ref={inspector}
+        >
           <header>
             <span>{selected ? "AGENT DETAILS" : "AT A GLANCE"}</span>
-            {selected && (
-              <button aria-label="Close agent details" onClick={() => setSelectedId(null)}>
-                <X size={15} />
+            <div>
+              {selected && insightsOpen && (
+                <button aria-label="Close agent details" onClick={() => setSelectedId(null)}>
+                  <X size={15} />
+                </button>
+              )}
+              <button
+                className="fp-inspector-toggle"
+                aria-label={insightsOpen ? "Collapse map insights" : "Expand map insights"}
+                aria-expanded={insightsOpen}
+                onClick={() => setInsightsOpen((open) => !open)}
+              >
+                {insightsOpen ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
               </button>
-            )}
+            </div>
           </header>
-          {selected ? (
-            <>
-              <div className={`fp-selected-avatar tone-${selected.office.color}`}>
-                <Bot size={26} />
-              </div>
-              <h3>{selected.name}</h3>
-              <p className="fp-agent-role">{selected.role}</p>
-              <span className={`fp-state-badge ${status(selected)}`}>
-                {stateLabel[status(selected)]}
-                {preview ? " · preview" : ""}
-              </span>
-              <dl>
-                <div>
-                  <dt>Office</dt>
-                  <dd>{selected.office.name}</dd>
+          {insightsOpen &&
+            (selected ? (
+              <>
+                <div className={`fp-selected-avatar tone-${selected.office.color}`}>
+                  <Bot size={26} />
                 </div>
-                <div>
-                  <dt>Engine</dt>
-                  <dd>{selected.engine}</dd>
-                </div>
-              </dl>
-              {!preview && selectedRun && (
-                <section className="fp-current-work" aria-label="Current agent work">
-                  <header>
-                    <span>
-                      <Activity size={13} />{" "}
-                      {isActiveRun(selectedRun) ? "Current task" : "Latest task"}
-                    </span>
-                    <em className={status(selected)}>{stateLabel[status(selected)]}</em>
-                  </header>
-                  <h4>{selectedRun.request.title}</h4>
-                  <dl>
-                    <div>
-                      <dt>Step</dt>
-                      <dd>{selectedStep?.label || "Preparing work"}</dd>
-                    </div>
-                    <div>
-                      <dt>Updated</dt>
-                      <dd>{new Date(selectedRun.updatedAt).toLocaleTimeString()}</dd>
-                    </div>
-                  </dl>
-                  {selectedApproval && (
-                    <div className="fp-approval-callout">
-                      <ShieldAlert size={15} />
-                      <span>
-                        <strong>{selectedApproval.title}</strong>
-                        <small>{selectedApproval.detail}</small>
-                        <span className="fp-approval-actions">
-                          <button disabled={approvalBusy} onClick={() => void decideApproval(true)}>
-                            {approvalBusy ? "Updating…" : "Approve"}
-                          </button>
-                          <button
-                            disabled={approvalBusy}
-                            onClick={() => void decideApproval(false)}
-                          >
-                            Reject
-                          </button>
-                        </span>
-                      </span>
-                    </div>
-                  )}
-                  {approvalError && (
-                    <p className="fp-approval-error" role="alert">
-                      {approvalError}
-                    </p>
-                  )}
-                  {(selectedResult?.output || selectedRun.output) && (
-                    <div className="fp-work-output">
-                      <span>Latest output</span>
-                      <p>{(selectedResult?.output || selectedRun.output).slice(0, 280)}</p>
-                    </div>
-                  )}
-                  {!selectedResult?.output && !selectedRun.output && selectedEvent && (
-                    <div className="fp-work-output">
-                      <span>Latest update</span>
-                      <p>{selectedEvent.text.slice(0, 280)}</p>
-                    </div>
-                  )}
-                </section>
-              )}
-              {!preview && !selectedRun && (
-                <div className="fp-state-description">
-                  No attributed task yet. This agent will show current work, recent output, and
-                  approval requests here after a live run starts.
-                </div>
-              )}
-              {preview && (
-                <div className="fp-state-description">
-                  {status(selected) === "working"
-                    ? "Focused on a task. Live runs show the task, step, and latest update here."
-                    : status(selected) === "approval"
-                      ? "Waiting at an approval checkpoint. The live inspector shows the request and reviewer action."
-                      : "Available for the next task."}
-                </div>
-              )}
-              {preview && (
-                <div className="fp-state-controls">
-                  <span>TRY A PREVIEW STATE</span>
-                  <div>
-                    {(["working", "approval", "idle"] as const).map((s) => (
-                      <button
-                        key={s}
-                        aria-pressed={status(selected) === s}
-                        onClick={() => setOverrides((v) => ({ ...v, [selected.id]: s }))}
-                      >
-                        {stateLabel[s]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <button
-                className="fp-inspector-action"
-                onClick={() => inspectAgent(selected.office.id, selected)}
-              >
-                Open full activity <ArrowRight size={13} />
-              </button>
-              <button
-                className="fp-inspector-secondary"
-                onClick={() => editAgent(selected.office.id, selected)}
-              >
-                Configure agent <ArrowRight size={13} />
-              </button>
-              <button
-                className="fp-inspector-secondary"
-                onClick={() => openOffice(selected.office.id)}
-              >
-                Open office <ArrowRight size={13} />
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="fp-summary">
-                <strong>{agents.length}</strong>
-                <span>
-                  {agents.length === 1 ? "teammate" : "teammates"} across {company.offices.length}{" "}
-                  {company.offices.length === 1 ? "office" : "offices"}
+                <h3>{selected.name}</h3>
+                <p className="fp-agent-role">{selected.role}</p>
+                <span className={`fp-state-badge ${status(selected)}`}>
+                  {stateLabel[status(selected)]}
+                  {preview ? " · preview" : ""}
                 </span>
-              </div>
-              <div className="fp-status-totals">
-                <div>
-                  <span className="fp-legend working">Working</span>
-                  <strong>{working}</strong>
-                </div>
-                <div>
-                  <span className="fp-legend approval">Needs approval</span>
-                  <strong>{approvals}</strong>
-                </div>
-                <div>
-                  <span className="fp-legend idle">Idle</span>
-                  <strong>{idle}</strong>
-                </div>
-                {!preview && (
+                <dl>
                   <div>
-                    <span className="fp-legend offline">Not connected</span>
-                    <strong>{offline}</strong>
+                    <dt>Office</dt>
+                    <dd>{selected.office.name}</dd>
+                  </div>
+                  <div>
+                    <dt>Engine</dt>
+                    <dd>{selected.engine}</dd>
+                  </div>
+                </dl>
+                {!preview && selectedRun && (
+                  <section className="fp-current-work" aria-label="Current agent work">
+                    <header>
+                      <span>
+                        <Activity size={13} />{" "}
+                        {isActiveRun(selectedRun) ? "Current task" : "Latest task"}
+                      </span>
+                      <em className={status(selected)}>{stateLabel[status(selected)]}</em>
+                    </header>
+                    <h4>{selectedRun.request.title}</h4>
+                    <dl>
+                      <div>
+                        <dt>Step</dt>
+                        <dd>{selectedStep?.label || "Preparing work"}</dd>
+                      </div>
+                      <div>
+                        <dt>Updated</dt>
+                        <dd>{new Date(selectedRun.updatedAt).toLocaleTimeString()}</dd>
+                      </div>
+                    </dl>
+                    {selectedApproval && (
+                      <div className="fp-approval-callout">
+                        <ShieldAlert size={15} />
+                        <span>
+                          <strong>{selectedApproval.title}</strong>
+                          <small>{selectedApproval.detail}</small>
+                          <span className="fp-approval-actions">
+                            <button
+                              disabled={approvalBusy}
+                              onClick={() => void decideApproval(true)}
+                            >
+                              {approvalBusy ? "Updating…" : "Approve"}
+                            </button>
+                            <button
+                              disabled={approvalBusy}
+                              onClick={() => void decideApproval(false)}
+                            >
+                              Reject
+                            </button>
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                    {approvalError && (
+                      <p className="fp-approval-error" role="alert">
+                        {approvalError}
+                      </p>
+                    )}
+                    {(selectedResult?.output || selectedRun.output) && (
+                      <div className="fp-work-output">
+                        <span>Latest output</span>
+                        <p>{(selectedResult?.output || selectedRun.output).slice(0, 280)}</p>
+                      </div>
+                    )}
+                    {!selectedResult?.output && !selectedRun.output && selectedEvent && (
+                      <div className="fp-work-output">
+                        <span>Latest update</span>
+                        <p>{selectedEvent.text.slice(0, 280)}</p>
+                      </div>
+                    )}
+                  </section>
+                )}
+                {!preview && !selectedRun && (
+                  <div className="fp-state-description">
+                    No attributed task yet. This agent will show current work, recent output, and
+                    approval requests here after a live run starts.
                   </div>
                 )}
-              </div>
-              <div className="fp-roster-heading">{preview ? "AROUND THE OFFICE" : "YOUR TEAM"}</div>
-              <div className="fp-roster">
-                {agents.map((a) => (
-                  <button
-                    key={a.id}
-                    className={`fp-roster-agent ${status(a)}`}
-                    onClick={() => setSelectedId(a.id)}
-                  >
-                    <span className={`fp-roster-avatar tone-${a.office.color}`}>
-                      <Bot size={15} />
-                    </span>
-                    <span>
-                      <strong>{a.name}</strong>
-                      <small>
-                        {stateLabel[status(a)]} · {a.office.name}
-                      </small>
-                    </span>
-                    <i />
-                  </button>
-                ))}
-                {!agents.length && <p>Add an agent to bring your office to life.</p>}
-              </div>
-            </>
+                {preview && (
+                  <div className="fp-state-description">
+                    {status(selected) === "working"
+                      ? "Focused on a task. Live runs show the task, step, and latest update here."
+                      : status(selected) === "approval"
+                        ? "Waiting at an approval checkpoint. The live inspector shows the request and reviewer action."
+                        : "Available for the next task."}
+                  </div>
+                )}
+                {preview && (
+                  <div className="fp-state-controls">
+                    <span>TRY A PREVIEW STATE</span>
+                    <div>
+                      {(["working", "approval", "idle"] as const).map((s) => (
+                        <button
+                          key={s}
+                          aria-pressed={status(selected) === s}
+                          onClick={() => setOverrides((v) => ({ ...v, [selected.id]: s }))}
+                        >
+                          {stateLabel[s]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <button
+                  className="fp-inspector-action"
+                  onClick={() => inspectAgent(selected.office.id, selected)}
+                >
+                  Open full activity <ArrowRight size={13} />
+                </button>
+                <button
+                  className="fp-inspector-secondary"
+                  onClick={() => editAgent(selected.office.id, selected)}
+                >
+                  Configure agent <ArrowRight size={13} />
+                </button>
+                <button
+                  className="fp-inspector-secondary"
+                  onClick={() => openOffice(selected.office.id)}
+                >
+                  Open office <ArrowRight size={13} />
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="fp-summary">
+                  <strong>{agents.length}</strong>
+                  <span>
+                    {agents.length === 1 ? "teammate" : "teammates"} across {company.offices.length}{" "}
+                    {company.offices.length === 1 ? "office" : "offices"}
+                  </span>
+                </div>
+                <div className="fp-status-totals">
+                  <div>
+                    <span className="fp-legend working">Working</span>
+                    <strong>{working}</strong>
+                  </div>
+                  <div>
+                    <span className="fp-legend approval">Needs approval</span>
+                    <strong>{approvals}</strong>
+                  </div>
+                  <div>
+                    <span className="fp-legend idle">Idle</span>
+                    <strong>{idle}</strong>
+                  </div>
+                  {!preview && (
+                    <div>
+                      <span className="fp-legend offline">Not connected</span>
+                      <strong>{offline}</strong>
+                    </div>
+                  )}
+                </div>
+                <div className="fp-roster-heading">
+                  {preview ? "AROUND THE OFFICE" : "YOUR TEAM"}
+                </div>
+                <div className="fp-roster">
+                  {agents.map((a) => (
+                    <button
+                      key={a.id}
+                      className={`fp-roster-agent ${status(a)}`}
+                      onClick={() => {
+                        setSelectedId(a.id);
+                        setInsightsOpen(true);
+                      }}
+                    >
+                      <span className={`fp-roster-avatar tone-${a.office.color}`}>
+                        <Bot size={15} />
+                      </span>
+                      <span>
+                        <strong>{a.name}</strong>
+                        <small>
+                          {stateLabel[status(a)]} · {a.office.name}
+                        </small>
+                      </span>
+                      <i />
+                    </button>
+                  ))}
+                  {!agents.length && <p>Add an agent to bring your office to life.</p>}
+                </div>
+              </>
+            ))}
+          {insightsOpen && (
+            <div className="fp-preview-note">
+              <Users size={15} />
+              <p>
+                {preview
+                  ? "You're viewing sample activity. Connect engines later to see your team's real status."
+                  : "Live task status. Open an agent to inspect output or approve a pending action."}
+              </p>
+            </div>
           )}
-          <div className="fp-preview-note">
-            <Users size={15} />
-            <p>
-              {preview
-                ? "You're viewing sample activity. Connect engines later to see your team's real status."
-                : "Live task status. Open an agent to inspect output or approve a pending action."}
-            </p>
-          </div>
         </aside>
       </div>
     </section>

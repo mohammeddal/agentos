@@ -17,22 +17,26 @@ export type WorkspaceRoute = {
   officeId?: string;
   projectId?: string;
   chatId?: string;
+  taskId?: string;
 };
 export const destinations = [
   { view: "start", label: "Start", description: "Write a prompt or continue a chat" },
-  { view: "tasks", label: "Workflows", description: "Runnable workflows and their task steps" },
-  { view: "map", label: "Company", description: "Offices and agents" },
+  { view: "map", label: "Company", description: "Offices, agents, and workflows" },
   { view: "activity", label: "Activity", description: "Status, approvals, and rehearsals" },
   { view: "memory", label: "Library", description: "Memory and local capabilities" },
 ] as const;
 export function primaryView(view: WorkspaceView): WorkspaceView {
-  return ["map", "offices", "agents"].includes(view) ? "map" : view === "engines" ? "memory" : view;
+  return ["map", "offices", "agents", "tasks"].includes(view)
+    ? "map"
+    : view === "engines"
+      ? "memory"
+      : view;
 }
 export const viewLabels: Record<WorkspaceView, string> = {
   start: "Start",
   tasks: "Workflows",
   projects: "Projects",
-  map: "Office map",
+  map: "Company Hub",
   offices: "Offices",
   agents: "Agents",
   activity: "Activity",
@@ -54,6 +58,7 @@ const paths: Record<WorkspaceView, string> = {
 };
 export function routeHash(route: WorkspaceRoute): string {
   if (route.chatId) return `#/chats/${encodeURIComponent(route.chatId)}`;
+  if (route.taskId) return `#/workflows/${encodeURIComponent(route.taskId)}`;
   if (route.view === "start" && route.projectId)
     return `#/start?project=${encodeURIComponent(route.projectId)}`;
   if (route.officeId) return `#/company/offices/${encodeURIComponent(route.officeId)}`;
@@ -69,6 +74,8 @@ export function parseRoute(hash: string): WorkspaceRoute {
   try {
     if (/^chats\/[^/]+$/.test(path))
       return { view: "start", chatId: decodeURIComponent(path.slice("chats/".length)) };
+    if (/^workflows\/[^/]+$/.test(path))
+      return { view: "tasks", taskId: decodeURIComponent(path.slice("workflows/".length)) };
     if (path.startsWith("start?")) {
       const projectId = new URLSearchParams(path.slice(6)).get("project");
       return projectId ? { view: "start", projectId } : { view: "start" };

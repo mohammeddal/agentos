@@ -9,10 +9,12 @@ import {
   type WorkspaceView,
 } from "./navigation";
 describe("workspace navigation", () => {
-  it("keeps five stable primary destinations and treats projects as sidebar directories", () => {
-    expect(destinations).toHaveLength(5);
+  it("keeps four stable primary destinations and places workflows inside the company hub", () => {
+    expect(destinations).toHaveLength(4);
     expect(destinations.map((destination) => destination.view)).not.toContain("projects");
+    expect(destinations.map((destination) => destination.view)).not.toContain("tasks");
     expect(primaryView("agents")).toBe("map");
+    expect(primaryView("tasks")).toBe("map");
     expect(primaryView("engines")).toBe("memory");
     expect(primaryView("settings")).toBe("settings");
   });
@@ -36,6 +38,7 @@ describe("workspace navigation", () => {
       { view: "projects" as const, projectId: "a project" },
       { view: "start" as const, projectId: "a project" },
       { view: "start" as const, chatId: "a chat" },
+      { view: "tasks" as const, taskId: "a workflow" },
     ])
       expect(parseRoute(routeHash(route))).toEqual(route);
   });

@@ -4,7 +4,6 @@ import {
   BookOpen,
   Building2,
   CircleHelp,
-  ClipboardList,
   MessageSquare,
   Moon,
   Search,
@@ -18,7 +17,6 @@ import { WorkspaceDirectory, type DirectoryProps } from "./WorkspaceDirectory";
 import { unreadActivityCount } from "../features/activity/activity-badge";
 const icons = {
   start: MessageSquare,
-  tasks: ClipboardList,
   map: Building2,
   activity: Activity,
   memory: BookOpen,
