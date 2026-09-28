@@ -4,6 +4,7 @@
 
 - [Live execution](LIVE-EXECUTION.md): native Codex/Claude setup, execution support, approval boundaries, and remaining limitations. Supersedes earlier draft-only notes.
 - [Usage](USAGE.md): navigation, prompts, tasks, canvas, projects, memory, capability discovery, and limitations.
+- [Chat product guide](../apps/desktop/src/content/agentos-guide.md): the bundled source of truth added to AgentOS chat context so provider answers describe the app accurately.
 - [Development](DEVELOPMENT.md): setup, code map, verification, storage and integration boundaries.
 - [Design contract](DESIGN.md): the chosen direction and rules for future UI work.
 - [Cleanup record](CLEANUP.md): removal evidence, preserved features and recovery baseline.

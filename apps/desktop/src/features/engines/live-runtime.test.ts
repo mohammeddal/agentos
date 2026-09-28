@@ -104,6 +104,9 @@ describe("native execution plans", () => {
       "00000000-0000-0000-0000-000000000001",
     );
     expect(request.steps[0]).toMatchObject({ model: "catalog-model", effort: "low" });
+    expect(request.context).toContain("# AgentOS product guide");
+    expect(request.context).toContain("Provider permissions");
+    expect(request.providerPermissions).toEqual({ codex: "on-request", claude: "default" });
   });
   it("applies defaults separately per provider and overrides a repeated agent step", () => {
     const t = task({

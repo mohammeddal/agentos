@@ -5,7 +5,7 @@ import { AssistantMessage } from "../../shared/AssistantMessage";
 import { AttachmentList } from "../attachments/Attachments";
 import { isActiveRun, useLiveRuntime } from "../engines/live-runtime";
 
-export function ChatConversation({ chat, activity }: { chat: CompanyChat; activity: () => void }) {
+export function ChatConversation({ chat }: { chat: CompanyChat }) {
   const { runs } = useLiveRuntime();
   const [copyStatus, setCopyStatus] = useState("");
   async function copyReply(text: string) {
@@ -21,9 +21,6 @@ export function ChatConversation({ chat, activity }: { chat: CompanyChat; activi
     <section className="co-chat-conversation" aria-label="Conversation">
       <header>
         <span>{chat.engine}</span>
-        <button className="co-button" onClick={activity}>
-          View activity & logs
-        </button>
       </header>
       {chat.messages.map((message) => {
         const run = matching.find((r) => r.request.id === message.id);
@@ -53,11 +50,10 @@ export function ChatConversation({ chat, activity }: { chat: CompanyChat; activi
             {run && (isActiveRun(run) || run.error) && (
               <p className="co-chat-status">
                 {run.approvals.length
-                  ? "Approval needed in Activity."
+                  ? "Approval needed."
                   : run.error
-                    ? "This run needs attention. See Activity for details."
-                    : "Working…"}{" "}
-                <button onClick={activity}>Open Activity</button>
+                    ? "This run needs attention."
+                    : "Working…"}
               </p>
             )}
             {!run && <p className="co-chat-status">Saved prompt · No recorded reply</p>}

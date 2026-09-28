@@ -644,7 +644,6 @@ export function CompanyWorkspace() {
               selectedChatId={route.chatId}
               initialProjectId={route.projectId}
               openChat={(chatId) => go({ view: "start", chatId })}
-              activity={openActivity}
               company={company}
               change={setCompany}
               editTask={(task) => setDialog({ type: "inspect-task", taskId: task.id })}

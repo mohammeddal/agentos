@@ -47,7 +47,8 @@ function visit(file) {
       continue;
     }
     if (!specifier.startsWith(".")) continue;
-    const base = path.resolve(path.dirname(file), specifier);
+    const cleanSpecifier = specifier.split("?")[0];
+    const base = path.resolve(path.dirname(file), cleanSpecifier);
     const target = [
       base,
       base.replace(/\.js$/, ".ts"),
@@ -58,6 +59,7 @@ function visit(file) {
       `${base}/index.tsx`,
     ].find((p) => source.has(p));
     if (target) visit(target);
+    else if (fs.existsSync(base) && fs.statSync(base).isFile()) continue;
     else broken.push(`${path.relative(root, file)} -> ${specifier}`);
   }
 }

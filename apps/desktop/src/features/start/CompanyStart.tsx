@@ -27,7 +27,6 @@ export function CompanyStart({
   company,
   change,
   editTask,
-  activity,
   selectedChatId,
   initialProjectId,
   openChat,
@@ -35,7 +34,6 @@ export function CompanyStart({
   selectedChatId?: string | undefined;
   initialProjectId?: string | undefined;
   openChat: (id: string) => void;
-  activity: (runKey?: string) => void;
   company: Company;
   change: (update: (c: Company) => Company) => void;
   editTask: (task: CompanyTask) => void;
@@ -213,18 +211,6 @@ export function CompanyStart({
       setSending(false);
     }
   }
-  function convert() {
-    if (!chat) return;
-    if (
-      (draft.text.trim() || draft.attachments?.length) &&
-      !window.confirm("Replace the composer text with this chat’s latest prompt?")
-    )
-      return;
-    // One saved user prompt is the source; do not silently truncate a long conversation.
-    const latest = chat.messages[chat.messages.length - 1]!;
-    update({ makeTask: true, text: latest.text, attachments: latest.attachments || [] });
-    input.current?.focus();
-  }
   return (
     <section
       className={`co-start ${chat ? "co-start-conversation" : ""}`}
@@ -241,19 +227,7 @@ export function CompanyStart({
             This chat is archived, removed, or unavailable. Restore it from the sidebar directory.
           </p>
         )}
-        {chat && (
-          <>
-            <ChatConversation chat={chat} activity={() => activity(`chat:${chat.id}`)} />
-            <div className="co-chat-detail-actions">
-              {!linkedTask && (
-                <button className="co-button" onClick={convert}>
-                  <ClipboardList size={13} />
-                  Make latest prompt a task
-                </button>
-              )}
-            </div>
-          </>
-        )}
+        {chat && <ChatConversation chat={chat} />}
         {draft.makeTask && linkedTask && (
           <p className="co-form-note">
             This chat already has a task. Open its linked task to edit it, or start a new prompt.

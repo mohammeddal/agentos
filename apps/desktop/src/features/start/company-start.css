@@ -64,10 +64,6 @@
   scrollbar-gutter: stable;
 }
 .co-chat-conversation > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   padding-bottom: 8px;
   font-size: 11px;
   color: var(--co-muted);
@@ -101,15 +97,6 @@
 .co-start-setup {
   color: var(--co-muted);
   font-size: 11px;
-}
-.co-chat-status button {
-  border: 0;
-  background: none;
-  text-decoration: underline;
-  color: var(--co-accent);
-}
-.co-chat-detail-actions {
-  padding: 0 4px 10px;
 }
 .co-prompt-box {
   position: relative;

@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type { Company, CompanyAgent, Office } from "./company-model";
 import "./company-floorplan.css";
-import { isActiveRun, useLiveRuntime } from "../engines/live-runtime";
+import { controlLive, isActiveRun, useLiveRuntime } from "../engines/live-runtime";
 import { agentMapRuns, agentMapState, type AgentMapState } from "./company-map-state";
 
 const initialWorkers = new Set(["data-engineer", "investigator", "developer"]);
@@ -55,6 +55,8 @@ export function CompanyFloorplan({
   const [overrides, setOverrides] = useState<Record<string, "working" | "approval" | "idle">>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
+  const [approvalBusy, setApprovalBusy] = useState(false);
+  const [approvalError, setApprovalError] = useState("");
   const mapScroll = useRef<HTMLDivElement>(null);
   const inspector = useRef<HTMLElement>(null);
   const agents = company.offices.flatMap((office) =>
@@ -86,6 +88,20 @@ export function CompanyFloorplan({
   const selectedResult = selectedRun?.results.find((result) => result.id === selectedStep?.id);
   const selectedEvent = selectedRun?.events.at(-1);
   const selectedApproval = selectedRun?.approvals[0];
+  async function decideApproval(allow: boolean) {
+    if (!selectedRun || !selectedApproval || approvalBusy) return;
+    setApprovalBusy(true);
+    setApprovalError("");
+    try {
+      await controlLive(selectedRun.request.id, selectedApproval.id, allow);
+    } catch (cause) {
+      setApprovalError(
+        cause instanceof Error ? cause.message : "The approval could not be updated.",
+      );
+    } finally {
+      setApprovalBusy(false);
+    }
+  }
   useEffect(() => {
     if (selectedId && window.matchMedia("(max-width: 680px)").matches)
       inspector.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -574,8 +590,24 @@ export function CompanyFloorplan({
                       <span>
                         <strong>{selectedApproval.title}</strong>
                         <small>{selectedApproval.detail}</small>
+                        <span className="fp-approval-actions">
+                          <button disabled={approvalBusy} onClick={() => void decideApproval(true)}>
+                            {approvalBusy ? "Updating…" : "Approve"}
+                          </button>
+                          <button
+                            disabled={approvalBusy}
+                            onClick={() => void decideApproval(false)}
+                          >
+                            Reject
+                          </button>
+                        </span>
                       </span>
                     </div>
+                  )}
+                  {approvalError && (
+                    <p className="fp-approval-error" role="alert">
+                      {approvalError}
+                    </p>
                   )}
                   {(selectedResult?.output || selectedRun.output) && (
                     <div className="fp-work-output">
@@ -626,8 +658,7 @@ export function CompanyFloorplan({
                 className="fp-inspector-action"
                 onClick={() => inspectAgent(selected.office.id, selected)}
               >
-                {selectedApproval ? "Review approval" : "Open full activity"}{" "}
-                <ArrowRight size={13} />
+                Open full activity <ArrowRight size={13} />
               </button>
               <button
                 className="fp-inspector-secondary"
@@ -848,7 +879,7 @@ function Workstation({
         {state === "working"
           ? "● WORKING"
           : state === "approval"
-            ? "◆ APPROVAL"
+            ? "◆ NEEDS APPROVAL"
             : state === "idle"
               ? "◌ IDLE"
               : "○ NOT CONNECTED"}

@@ -10,6 +10,11 @@ import {
 } from "./engine-inventory";
 import { NotificationSettings } from "./live-notifications";
 import { refreshEngines, useLiveRuntime } from "./live-runtime";
+import {
+  readProviderPermissions,
+  saveProviderPermissions,
+  type ProviderPermissions,
+} from "./provider-permissions";
 import "./engine-library.css";
 
 const WORKSPACE_STORAGE = "agentos:inventory-workspace";
@@ -43,6 +48,7 @@ export function EngineSettings({ focus }: { focus?: EngineSettingsFocus | null }
   const [inventory, setInventory] = useState<Inventory | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [permissions, setPermissions] = useState<ProviderPermissions>(readProviderPermissions);
 
   useEffect(() => {
     if (focus?.engine) setEngine(focus.engine);
@@ -55,6 +61,20 @@ export function EngineSettings({ focus }: { focus?: EngineSettingsFocus | null }
       /* Selection remains available for this session. */
     }
   }, [engine]);
+
+  function setPermission<K extends keyof ProviderPermissions>(
+    provider: K,
+    value: ProviderPermissions[K],
+  ) {
+    const next = { ...permissions, [provider]: value };
+    setPermissions(next);
+    try {
+      saveProviderPermissions(next);
+      setError("");
+    } catch {
+      setError("Permission preferences could not be saved. They remain active for this session.");
+    }
+  }
 
   async function scan() {
     setBusy(true);
@@ -152,6 +172,45 @@ export function EngineSettings({ focus }: { focus?: EngineSettingsFocus | null }
             ))}
             {!live.native && <small>Open the installed app to check local engines.</small>}
           </div>
+        </section>
+
+        <section className="co-provider-permissions">
+          <h3>Provider permissions</h3>
+          <p>Choose how often each engine pauses during tasks. Chat stays read-only.</p>
+          <label>
+            <span>
+              <strong>Codex</strong>
+              <small>Always restricted to the task workspace.</small>
+            </span>
+            <select
+              value={permissions.codex}
+              onChange={(event) =>
+                setPermission("codex", event.target.value as ProviderPermissions["codex"])
+              }
+            >
+              <option value="on-request">Ask when needed</option>
+              <option value="never">No provider prompts</option>
+            </select>
+          </label>
+          <label>
+            <span>
+              <strong>Claude Code</strong>
+              <small>Workflow approval blocks still apply.</small>
+            </span>
+            <select
+              value={permissions.claude}
+              onChange={(event) =>
+                setPermission("claude", event.target.value as ProviderPermissions["claude"])
+              }
+            >
+              <option value="default">Ask permissions</option>
+              <option value="acceptEdits">Auto-accept workspace edits</option>
+            </select>
+          </label>
+          <small className="co-setting-footnote">
+            These defaults are copied into each new run. Explicit approval blocks on a workflow are
+            never skipped.
+          </small>
         </section>
 
         <section>

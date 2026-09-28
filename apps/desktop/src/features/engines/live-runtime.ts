@@ -18,6 +18,8 @@ import {
   contextTypeNames,
   type CanvasNode,
 } from "../tasks/task-canvas-model";
+import agentosGuide from "../../content/agentos-guide.md?raw";
+import { readProviderPermissions, type ProviderPermissions } from "./provider-permissions";
 
 export type LiveStep = {
   attachments?: string[];
@@ -43,6 +45,7 @@ export type LiveRequest = {
   context: string;
   contextWithoutMemory?: string;
   memoryScopes?: string[];
+  providerPermissions?: ProviderPermissions;
   steps: LiveStep[];
 };
 export type LiveRun = {
@@ -182,13 +185,20 @@ export async function chatRequest(
   prompt: string,
   id: string = crypto.randomUUID(),
 ): Promise<LiveRequest> {
+  const projectContext = await context(company, chat.projectId, []);
+  const productContext = `AgentOS product reference:\n${agentosGuide}`;
   return {
     id,
     key: `chat:${chat.id}`,
     title: prompt.slice(0, 120),
     mode: "chat",
     folder: folder(company, chat.projectId),
-    ...(await context(company, chat.projectId, [])),
+    contextWithoutMemory: [projectContext.contextWithoutMemory, productContext]
+      .filter(Boolean)
+      .join("\n\n"),
+    context: [projectContext.context, productContext].filter(Boolean).join("\n\n"),
+    memoryScopes: projectContext.memoryScopes,
+    providerPermissions: readProviderPermissions(),
     steps: [
       {
         id: "chat",
@@ -559,6 +569,7 @@ export async function taskRequest(
     title: task.title,
     mode: "task",
     folder: folder(company, task.projectId),
+    providerPermissions: readProviderPermissions(),
     ...(await context(
       company,
       task.projectId,
