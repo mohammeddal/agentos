@@ -64,6 +64,7 @@ import {
   type Lifecycle,
 } from "../features/company/company-directory";
 import { useLiveNotifications } from "../features/engines/live-notifications";
+import { activityAcknowledgementTokens } from "../features/activity/activity-badge";
 import { TerminalDock } from "../features/terminal/TerminalDock";
 import {
   destinations,
@@ -131,6 +132,7 @@ export function CompanyWorkspace() {
   const live = useLiveRuntime();
   const [directoryNotice, setDirectoryNotice] = useState("");
   const [activityKey, setActivityKey] = useState("");
+  const [acknowledgedActivity, setAcknowledgedActivity] = useState<Set<string>>(() => new Set());
   const [composerVersion, setComposerVersion] = useState(0);
   const [theme, setTheme] = useState(initialTheme);
   const [terminalOpen, setTerminalOpen] = useState(false);
@@ -194,6 +196,9 @@ export function CompanyWorkspace() {
     setDialog(null);
   }
   function openActivity(runKey = "") {
+    setAcknowledgedActivity(
+      (seen) => new Set([...seen, ...activityAcknowledgementTokens(live.runs)]),
+    );
     setActivityKey(runKey);
     setDialog(null);
     setView("activity");
@@ -402,10 +407,16 @@ export function CompanyWorkspace() {
       createEntry: createDirectoryEntry,
       lifecycle: updateLifecycle,
     },
+    acknowledgedActivity,
     view,
     theme,
     navigate: (next: WorkspaceView) => {
-      if (next === "activity") setActivityKey("");
+      if (next === "activity") {
+        setActivityKey("");
+        setAcknowledgedActivity(
+          (seen) => new Set([...seen, ...activityAcknowledgementTokens(live.runs)]),
+        );
+      }
       setDialog(null);
       setView(next);
     },
