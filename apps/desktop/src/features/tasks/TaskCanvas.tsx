@@ -28,6 +28,7 @@ import {
   Ticket,
   Trash2,
   BookOpen,
+  ChevronRight,
 } from "lucide-react";
 import { companyDomains, type Company, type CompanyTask } from "../company/company-model";
 import { AttachmentEditor } from "../attachments/Attachments";
@@ -566,16 +567,14 @@ export function TaskCanvas({
           {node && stepKinds.includes(node.kind) ? (
             <section className="tc-palette-inputs" aria-label={`Inputs for ${node.title}`}>
               <div className="tc-palette-inputs-heading">
-                <span>Inputs & capabilities</span>
-                <em>
+                <span>Inputs</span>
+                <em aria-label="Attached inputs">
                   {
                     graph.edges.filter((item) => item.kind === "attachment" && item.to === node.id)
                       .length
                   }
                 </em>
               </div>
-              <strong>{node.title || blockNames[node.kind]}</strong>
-              <small>Add directly to this step.</small>
               <div className="tc-palette-input-actions">
                 {(["context", "mcp", "skill", "connector"] as const).map((kind) => {
                   const Icon = icons[kind];
@@ -594,20 +593,27 @@ export function TaskCanvas({
               {graph.edges
                 .filter((item) => item.kind === "attachment" && item.to === node.id)
                 .map((item) => graph.nodes.find((candidate) => candidate.id === item.from)!)
-                .map((resource) => (
-                  <button
-                    type="button"
-                    className="tc-palette-attached"
-                    key={resource.id}
-                    onClick={() => {
-                      setSelected(resource.id);
-                      setEdgeId("");
-                    }}
-                  >
-                    <span>{blockNames[resource.kind]}</span>
-                    <strong>{resource.title}</strong>
-                  </button>
-                ))}
+                .map((resource) => {
+                  const ResourceIcon = icons[resource.kind];
+                  return (
+                    <button
+                      type="button"
+                      className="tc-palette-attached"
+                      key={resource.id}
+                      onClick={() => {
+                        setSelected(resource.id);
+                        setEdgeId("");
+                      }}
+                    >
+                      <ResourceIcon size={13} />
+                      <span>
+                        <strong>{resource.title}</strong>
+                        <small>{blockNames[resource.kind]}</small>
+                      </span>
+                      <ChevronRight size={12} />
+                    </button>
+                  );
+                })}
             </section>
           ) : null}
           {(
@@ -1236,7 +1242,7 @@ export function TaskCanvas({
                   </div>
                   <div className="tc-resource-picker-tools">
                     <label>
-                      Engine
+                      <span>Engine</span>
                       <select
                         value={engine}
                         onChange={(e) => {
@@ -1252,13 +1258,16 @@ export function TaskCanvas({
                       </select>
                     </label>
                     <label className="tc-resource-search">
-                      <Search size={13} />
-                      <input
-                        aria-label={`Search available ${blockNames[node.kind]}`}
-                        value={capabilityQuery}
-                        onChange={(event) => setCapabilityQuery(event.target.value)}
-                        placeholder="Search available…"
-                      />
+                      <span>Search</span>
+                      <span className="tc-resource-search-field">
+                        <Search size={13} />
+                        <input
+                          aria-label={`Search available ${blockNames[node.kind]}`}
+                          value={capabilityQuery}
+                          onChange={(event) => setCapabilityQuery(event.target.value)}
+                          placeholder="Search available…"
+                        />
+                      </span>
                     </label>
                   </div>
                   {discovering && <p role="status">Reading available capabilities…</p>}
@@ -1307,9 +1316,14 @@ export function TaskCanvas({
                     </div>
                   )}
                   {node.source && (
-                    <small className="tc-resource-selected">
-                      Selected · {node.capabilityStatus} in {node.engine} · {node.source}
-                    </small>
+                    <div className="tc-resource-selected" title={node.source}>
+                      <span>Selected</span>
+                      <strong>{node.title}</strong>
+                      <em>
+                        {node.capabilityStatus} ·{" "}
+                        {engineNames[node.engine as Engine] || node.engine}
+                      </em>
+                    </div>
                   )}
                   <button
                     type="button"
