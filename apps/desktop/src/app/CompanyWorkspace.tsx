@@ -35,7 +35,8 @@ import { HelpTip } from "../shared/HelpTip";
 import { CompanyTasks, TaskForm } from "../features/tasks/CompanyTasks";
 import { CompanyActivity } from "../features/activity/CompanyActivity";
 import { CompanyMemory } from "../features/memory/CompanyMemory";
-import { EngineLibrary, type LibraryFocus } from "../features/engines/EngineLibrary";
+import { EngineLibrary } from "../features/engines/EngineLibrary";
+import { EngineSettings, type EngineSettingsFocus } from "../features/engines/EngineSettings";
 import { AgentActivity } from "../features/activity/AgentActivity";
 import { CompanyProjects, ProjectForm } from "../features/projects/CompanyProjects";
 import { CompanyStart } from "../features/start/CompanyStart";
@@ -119,6 +120,7 @@ const descriptions: Record<WorkspaceView, string> = {
   activity: "See what’s running, what needs you, and what finished.",
   memory: "Facts, lessons, and context worth keeping.",
   engines: "Discover the tools and skills already available locally.",
+  settings: "Manage local engines, project discovery, and notifications.",
 };
 
 export function CompanyWorkspace() {
@@ -132,7 +134,7 @@ export function CompanyWorkspace() {
   const [composerVersion, setComposerVersion] = useState(0);
   const [theme, setTheme] = useState(initialTheme);
   const [terminalOpen, setTerminalOpen] = useState(false);
-  const [libraryFocus, setLibraryFocus] = useState<LibraryFocus | null>(null);
+  const [engineSettingsFocus, setEngineSettingsFocus] = useState<EngineSettingsFocus | null>(null);
   const [memoryCreateRequest, setMemoryCreateRequest] = useState(0);
   const { route, go } = useWorkspaceRoute();
   const view = route.view,
@@ -212,13 +214,12 @@ export function CompanyWorkspace() {
       go({ view: "memory" });
       return;
     }
-    setLibraryFocus((current) => ({
+    setEngineSettingsFocus((current) => ({
       id: (current?.id || 0) + 1,
       kind,
       engine,
-      openSettings: true,
     }));
-    go({ view: "engines" });
+    go({ view: "settings" });
   }
   function openDirectoryEntry(entry: DirectoryEntry) {
     setDialog(null);
@@ -411,12 +412,11 @@ export function CompanyWorkspace() {
     find: () => setDialog({ type: "find" }),
     rename: () => setDialog({ type: "rename" }),
     engineSettings: () => {
-      setLibraryFocus((current) => ({
+      setEngineSettingsFocus((current) => ({
         id: (current?.id || 0) + 1,
-        openSettings: true,
       }));
       setDialog(null);
-      setView("engines");
+      setView("settings");
     },
     help: () => setDialog({ type: "help" }),
     toggleTheme: () => setTheme((t) => (t === "light" ? "dark" : "light")),
@@ -589,7 +589,7 @@ export function CompanyWorkspace() {
               ))}
             </nav>
           )}
-          {(office || (view !== "start" && view !== "projects")) && (
+          {(office || (view !== "start" && view !== "projects" && view !== "settings")) && (
             <div className="co-section-toolbar">
               {(office || ["tasks", "projects"].includes(view) || group === "map") && (
                 <div className="co-section-title">
@@ -665,7 +665,9 @@ export function CompanyWorkspace() {
               }}
             />
           ) : !office && view === "engines" ? (
-            <EngineLibrary query={query} focus={libraryFocus} />
+            <EngineLibrary query={query} />
+          ) : !office && view === "settings" ? (
+            <EngineSettings focus={engineSettingsFocus} />
           ) : !office && view === "memory" ? (
             <CompanyMemory company={company} query={query} createRequest={memoryCreateRequest} />
           ) : !office && view === "activity" ? (

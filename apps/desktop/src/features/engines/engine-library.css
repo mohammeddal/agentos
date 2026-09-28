@@ -50,6 +50,23 @@
 .co-engine-actions {
   gap: 8px;
 }
+.co-engine-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--co-muted);
+  font-size: 10px;
+}
+.co-engine-source select {
+  min-width: 145px;
+  padding: 8px 30px 8px 10px;
+  border: 1px solid var(--co-border);
+  border-radius: 7px;
+  background: var(--co-card);
+  color: var(--co-text);
+  font: inherit;
+  font-size: 11px;
+}
 .co-engine-runtime-state {
   gap: 7px;
   padding: 0 5px;
@@ -75,6 +92,41 @@
   border-radius: 10px;
   background: var(--co-card);
   padding: 18px;
+}
+.co-engine-settings-page {
+  max-width: 1120px;
+}
+.co-settings-provider {
+  display: flex;
+  gap: 5px;
+  width: fit-content;
+  margin-top: 16px;
+  padding: 3px;
+  border: 1px solid var(--co-border);
+  border-radius: 8px;
+  background: var(--co-soft);
+}
+.co-settings-provider button {
+  border: 0;
+  border-radius: 5px;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--co-secondary);
+  font: inherit;
+  font-size: 11px;
+}
+.co-settings-provider button[aria-pressed="true"] {
+  background: var(--co-card);
+  color: var(--co-text);
+  box-shadow: 0 1px 3px #0000000d;
+}
+.co-settings-provider button:disabled {
+  opacity: 0.45;
+}
+.co-settings-provider span {
+  margin-left: 6px;
+  color: var(--co-muted);
+  font-size: 9px;
 }
 .co-engine-settings > header,
 .co-engine-setting-heading {

@@ -10,7 +10,8 @@ export type WorkspaceView =
   | "agents"
   | "activity"
   | "memory"
-  | "engines";
+  | "engines"
+  | "settings";
 export type WorkspaceRoute = {
   view: WorkspaceView;
   officeId?: string;
@@ -37,6 +38,7 @@ export const viewLabels: Record<WorkspaceView, string> = {
   activity: "Activity",
   memory: "Memory",
   engines: "Capabilities",
+  settings: "Settings",
 };
 const paths: Record<WorkspaceView, string> = {
   start: "start",
@@ -48,6 +50,7 @@ const paths: Record<WorkspaceView, string> = {
   activity: "activity",
   memory: "library/memory",
   engines: "library/engines",
+  settings: "settings",
 };
 export function routeHash(route: WorkspaceRoute): string {
   if (route.chatId) return `#/chats/${encodeURIComponent(route.chatId)}`;
@@ -99,16 +102,18 @@ export function findWorkspace(company: Company, text: string): FindResult[] {
       detail: d.description,
       route: { view: d.view },
     })),
-    ...(["projects", "agents", "offices", "engines"] as const).map((view) => ({
+    ...(["projects", "agents", "offices", "engines", "settings"] as const).map((view) => ({
       id: `page:${view}`,
       kind: "page" as const,
       title: viewLabels[view],
       detail:
         view === "engines"
           ? "Library · MCPs, skills, agents, connectors"
-          : view === "projects"
-            ? "Project details and directories"
-            : "Company directory",
+          : view === "settings"
+            ? "Engines, project inventory, and notifications"
+            : view === "projects"
+              ? "Project details and directories"
+              : "Company directory",
       route: { view },
     })),
   ];

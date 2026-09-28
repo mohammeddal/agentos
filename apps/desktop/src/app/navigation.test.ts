@@ -14,6 +14,7 @@ describe("workspace navigation", () => {
     expect(destinations.map((destination) => destination.view)).not.toContain("projects");
     expect(primaryView("agents")).toBe("map");
     expect(primaryView("engines")).toBe("memory");
+    expect(primaryView("settings")).toBe("settings");
   });
   it("round trips every current page and redirects legacy domain links", () => {
     for (const view of [
@@ -26,6 +27,7 @@ describe("workspace navigation", () => {
       "activity",
       "memory",
       "engines",
+      "settings",
     ] as WorkspaceView[])
       expect(parseRoute(routeHash({ view }))).toEqual({ view });
     expect(parseRoute("#/company/domains")).toEqual({ view: "offices" });
@@ -48,6 +50,7 @@ describe("workspace navigation", () => {
       ),
     ).toBe(true);
     expect(findWorkspace(starterCompany, "MCP")[0]?.route?.view).toBe("engines");
+    expect(findWorkspace(starterCompany, "notifications")[0]?.route?.view).toBe("settings");
     expect(findWorkspace(starterCompany, "project details")[0]?.route?.view).toBe("projects");
     expect(findWorkspace(starterCompany, "no-such-item")).toEqual([]);
   });
