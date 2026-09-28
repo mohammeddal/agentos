@@ -388,7 +388,7 @@ export function TaskExecution({
           disabled={!isTauri() || active || busy || !!planError}
           onClick={() => void start()}
         >
-          {active ? "Task active" : busy ? "Starting…" : "Run task"}
+          {active ? "Workflow active" : busy ? "Starting…" : "Run workflow"}
         </button>
       </header>
       {save && steps.length > 0 && (

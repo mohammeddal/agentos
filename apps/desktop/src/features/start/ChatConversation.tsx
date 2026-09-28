@@ -1,13 +1,23 @@
 import type { CompanyChat } from "../company/company-model";
-import { useState } from "react";
-import { Copy } from "lucide-react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { Archive, Copy, MoreHorizontal, Trash2 } from "lucide-react";
 import { AssistantMessage } from "../../shared/AssistantMessage";
 import { AttachmentList } from "../attachments/Attachments";
 import { isActiveRun, useLiveRuntime } from "../engines/live-runtime";
 
-export function ChatConversation({ chat }: { chat: CompanyChat }) {
+export function ChatConversation({
+  chat,
+  archive,
+  remove,
+}: {
+  chat: CompanyChat;
+  archive?: () => void;
+  remove?: () => void;
+}) {
   const { runs } = useLiveRuntime();
   const [copyStatus, setCopyStatus] = useState("");
+  const transcript = useRef<HTMLElement>(null);
+  const followsLatest = useRef(true);
   async function copyReply(text: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -17,10 +27,43 @@ export function ChatConversation({ chat }: { chat: CompanyChat }) {
     }
   }
   const matching = runs.filter((r) => r.request.key === `chat:${chat.id}`);
+  const latestState = `${chat.messages.length}:${matching.map((run) => `${run.status}:${run.output.length}`).join("|")}`;
+  useLayoutEffect(() => {
+    if (!followsLatest.current || !transcript.current) return;
+    transcript.current.scrollTop = transcript.current.scrollHeight;
+  }, [latestState]);
   return (
-    <section className="co-chat-conversation" aria-label="Conversation">
+    <section
+      ref={transcript}
+      className="co-chat-conversation"
+      aria-label="Conversation"
+      onScroll={(event) => {
+        const element = event.currentTarget;
+        followsLatest.current =
+          element.scrollHeight - element.scrollTop - element.clientHeight < 96;
+      }}
+    >
       <header>
         <span>{chat.engine}</span>
+        {(archive || remove) && (
+          <details className="co-chat-actions">
+            <summary aria-label="Chat actions" title="Chat actions">
+              <MoreHorizontal size={15} />
+            </summary>
+            <div>
+              {archive && (
+                <button type="button" onClick={archive}>
+                  <Archive size={13} /> Archive chat
+                </button>
+              )}
+              {remove && (
+                <button type="button" onClick={remove}>
+                  <Trash2 size={13} /> Delete chat
+                </button>
+              )}
+            </div>
+          </details>
+        )}
       </header>
       {chat.messages.map((message) => {
         const run = matching.find((r) => r.request.id === message.id);

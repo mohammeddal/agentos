@@ -125,6 +125,14 @@ describe("visual task blueprints", () => {
     expect(connectionError(sample(), "context", "review")).toMatch(/approval/);
     expect(isTaskCanvas(connectCanvas(sample(), "context", "task-root"))).toBe(true);
   });
+  it("uses the first task block as the workflow entry and allows later task steps", () => {
+    const nextTask = { ...newCanvasNode("task", 950, 350, "task-two"), title: "Verify result" };
+    const graph = { ...sample(), nodes: [...sample().nodes, nextTask] };
+    const connected = connectCanvas(graph, "agent", nextTask.id);
+    expect(canvasEntryNodes(connected).map((node) => node.id)).toEqual(["task-root"]);
+    expect(connectionError(connected, nextTask.id, "task-root")).toMatch(/workflow.*entry/i);
+    expect(isTaskCanvas(connected)).toBe(true);
+  });
   it("loads legacy approval attachments but reports them for repair", () => {
     const graph = sample();
     graph.edges.push({
@@ -241,7 +249,6 @@ describe("visual task blueprints", () => {
       {},
       { ...g, version: 2 },
       { ...g, nodes: [g.nodes[0], g.nodes[0]] },
-      { ...g, nodes: [...g.nodes, { ...g.nodes[0], id: "second-task" }] },
       { ...g, nodes: g.nodes.map((n) => ({ ...n, x: -1 })) },
       { ...g, nodes: g.nodes.map((n) => ({ ...n, prompt: "x".repeat(6001) })) },
       {

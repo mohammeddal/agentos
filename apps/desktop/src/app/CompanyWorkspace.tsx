@@ -59,6 +59,7 @@ import {
   activeCompany,
   affectedRunKeys,
   changeLifecycle,
+  directoryEntries,
   type DirectoryEntry,
   type DirectoryKind,
   type Lifecycle,
@@ -113,8 +114,8 @@ function initialTheme(): "light" | "dark" {
 }
 const descriptions: Record<WorkspaceView, string> = {
   start: "",
-  tasks: "Plan work, choose a team, and build a workflow.",
-  projects: "Keep teams, tasks, and directories together.",
+  tasks: "Build workflows from tasks, agents, context, and approvals.",
+  projects: "Keep teams, workflows, and directories together.",
   map: "Your offices and the agents working in them.",
   offices: "Organize teams into dedicated spaces.",
   agents: "Find a specialist and inspect their work.",
@@ -274,7 +275,7 @@ export function CompanyWorkspace() {
       localStorage.setItem(STORAGE, JSON.stringify(next));
       setCompany(next);
       setDirectoryNotice(
-        `${entry.kind === "project" ? "Project" : entry.kind === "chat" ? "Chat" : "Task"} ${lifecycle === "active" ? "restored. Schedules stay paused." : `${lifecycle}. Files and Activity history are kept.`}`,
+        `${entry.kind === "project" ? "Project" : entry.kind === "chat" ? "Chat" : "Workflow"} ${lifecycle === "active" ? "restored. Schedules stay paused." : `${lifecycle}. Files and Activity history are kept.`}`,
       );
       if (lifecycle !== "active") {
         const keys = affectedRunKeys(storedCompany, entry);
@@ -437,7 +438,7 @@ export function CompanyWorkspace() {
     office || view === "agents"
       ? { type: "agent" as const, label: "New agent" }
       : view === "tasks"
-        ? { type: "task" as const, label: "New task" }
+        ? { type: "task" as const, label: "New workflow" }
         : view === "offices"
           ? { type: "office" as const, label: "New office" }
           : null;
@@ -453,7 +454,7 @@ export function CompanyWorkspace() {
             : view === "activity"
               ? "Search activity"
               : view === "tasks"
-                ? "Search tasks"
+                ? "Search workflows"
                 : "Search offices";
   return (
     <div className="company-app" data-theme={theme} data-terminal-open={terminalOpen || undefined}>
@@ -564,7 +565,7 @@ export function CompanyWorkspace() {
                       <div>
                         {(["task", "project", "office", "agent"] as const).map((type) => (
                           <button key={type} onClick={() => create(type)}>
-                            New {type}
+                            New {type === "task" ? "workflow" : type}
                           </button>
                         ))}
                       </div>
@@ -608,7 +609,7 @@ export function CompanyWorkspace() {
                     {office
                       ? `${office.agents.length} agents`
                       : view === "tasks"
-                        ? `${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`
+                        ? `${tasks.length} ${tasks.length === 1 ? "workflow" : "workflows"}`
                         : view === "projects"
                           ? `${company.projects?.length || 0} projects`
                           : group === "map"
@@ -658,6 +659,12 @@ export function CompanyWorkspace() {
               company={company}
               change={setCompany}
               editTask={(task) => setDialog({ type: "inspect-task", taskId: task.id })}
+              lifecycleChat={(chat, lifecycle) => {
+                const entry = directoryEntries(storedCompany).find(
+                  (candidate) => candidate.kind === "chat" && candidate.id === chat.id,
+                );
+                if (entry) updateLifecycle(entry, lifecycle);
+              }}
             />
           ) : !office && view === "projects" ? (
             <CompanyProjects
@@ -778,7 +785,7 @@ export function CompanyWorkspace() {
           }
           title={
             dialog.type === "remove-entry"
-              ? `Remove ${dialog.entry.kind}?`
+              ? `Delete ${dialog.entry.kind === "task" ? "workflow" : dialog.entry.kind}?`
               : dialog.type === "delete-structure"
                 ? `Delete ${dialog.target.kind}?`
                 : dialog.type === "find"
@@ -786,9 +793,9 @@ export function CompanyWorkspace() {
                   : dialog.type === "navigation"
                     ? "Workspace"
                     : dialog.type === "canvas"
-                      ? `${inspectedTask?.title || "Task"} · Workflow map`
+                      ? `${inspectedTask?.title || "Workflow"} · Workflow map`
                       : dialog.type === "inspect-task"
-                        ? inspectedTask?.title || "Task unavailable"
+                        ? inspectedTask?.title || "Workflow unavailable"
                         : dialog.type === "project"
                           ? dialog.project
                             ? "Edit project"
@@ -797,8 +804,8 @@ export function CompanyWorkspace() {
                             ? `${dialog.agent.name} · Activity`
                             : dialog.type === "task"
                               ? dialog.task
-                                ? "Edit task"
-                                : "Create a task"
+                                ? "Edit workflow"
+                                : "Create a workflow"
                               : dialog.type === "office"
                                 ? "Create an office"
                                 : dialog.type === "edit-office"
@@ -816,9 +823,9 @@ export function CompanyWorkspace() {
           {dialog.type === "remove-entry" && (
             <div className="co-form">
               <p>
-                Remove “{dialog.entry.title.slice(0, 120)}” from your workspace?{" "}
+                Delete “{dialog.entry.title.slice(0, 120)}” from your workspace?{" "}
                 {dialog.entry.kind === "project"
-                  ? "Its chats and tasks will be hidden with it."
+                  ? "Its chats and workflows will be hidden with it."
                   : ""}
               </p>
               <p>
@@ -836,7 +843,7 @@ export function CompanyWorkspace() {
                   updateLifecycle(entry, "removed", true);
                 }}
               >
-                Remove {dialog.entry.kind}
+                Delete {dialog.entry.kind === "task" ? "workflow" : dialog.entry.kind}
               </button>
             </div>
           )}
@@ -926,10 +933,22 @@ export function CompanyWorkspace() {
                 }
                 canvas={() => setDialog({ type: "canvas", taskId: inspectedTask.id })}
                 edit={() => setDialog({ type: "task", task: inspectedTask })}
+                archive={() => {
+                  const entry = directoryEntries(storedCompany).find(
+                    (candidate) => candidate.kind === "task" && candidate.id === inspectedTask.id,
+                  );
+                  if (entry) updateLifecycle(entry, "archived");
+                }}
+                remove={() => {
+                  const entry = directoryEntries(storedCompany).find(
+                    (candidate) => candidate.kind === "task" && candidate.id === inspectedTask.id,
+                  );
+                  if (entry) updateLifecycle(entry, "removed");
+                }}
                 activity={() => openActivity()}
               />
             ) : (
-              <p className="co-form">This task is no longer available.</p>
+              <p className="co-form">This workflow is no longer available.</p>
             ))}
           {dialog.type === "canvas" &&
             (inspectedTask ? (
@@ -1000,7 +1019,7 @@ export function CompanyWorkspace() {
                 }
               />
             ) : (
-              <p className="co-form">This task is no longer available.</p>
+              <p className="co-form">This workflow is no longer available.</p>
             ))}
           {dialog.type === "project" && (
             <ProjectForm

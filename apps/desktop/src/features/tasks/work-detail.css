@@ -61,6 +61,12 @@
   font-size: 11px;
   color: var(--co-secondary);
 }
+.co-work-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
 .co-work-status {
   color: var(--co-accent);
 }

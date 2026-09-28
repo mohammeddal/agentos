@@ -237,8 +237,9 @@ export function connectionError(
     !allowLegacyApprovalAttachment
   )
     return "Attach resources to the work step before or after an approval, not to the approval itself.";
-  if (target.kind === "task" && !attachmentKinds.includes(source.kind))
-    return "The task is the flow entry. Only resources or restrictions can attach to it.";
+  const workflowRoot = graph.nodes.find((node) => node.kind === "task");
+  if (target.id === workflowRoot?.id && !attachmentKinds.includes(source.kind))
+    return "The workflow is the flow entry. Connect later task steps after it.";
   const seen = new Set<string>();
   function reaches(id: string): boolean {
     if (id === from) return true;
@@ -329,7 +330,6 @@ export function isTaskCanvas(value: unknown): value is TaskCanvasGraph {
     return false;
   if (
     new Set(graph.nodes.map((n) => n.id)).size !== graph.nodes.length ||
-    graph.nodes.filter((n) => n.kind === "task").length > 1 ||
     new Set(graph.edges.map((e) => e?.id)).size !== graph.edges.length
   )
     return false;

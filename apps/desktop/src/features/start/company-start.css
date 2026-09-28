@@ -22,6 +22,8 @@
   padding: 0 30px 24px;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 .co-start-intro {
   flex: 1;
@@ -61,12 +63,90 @@
 .co-start-conversation .co-chat-conversation {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  scroll-behavior: smooth;
+}
+.co-start-conversation .co-chat-conversation:hover {
+  scrollbar-color: color-mix(in srgb, var(--co-text) 22%, transparent) transparent;
+}
+.co-start-conversation .co-chat-conversation::-webkit-scrollbar {
+  width: 6px;
+}
+.co-start-conversation .co-chat-conversation::-webkit-scrollbar-track {
+  background: transparent;
+}
+.co-start-conversation .co-chat-conversation::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: transparent;
+}
+.co-start-conversation .co-chat-conversation:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--co-text) 22%, transparent);
 }
 .co-chat-conversation > header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding-bottom: 8px;
+  background: color-mix(in srgb, var(--co-bg) 92%, transparent);
+  backdrop-filter: blur(12px);
   font-size: 11px;
   color: var(--co-muted);
+}
+.co-chat-actions {
+  position: relative;
+}
+.co-chat-actions > summary {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  list-style: none;
+  cursor: pointer;
+}
+.co-chat-actions > summary::-webkit-details-marker {
+  display: none;
+}
+.co-chat-actions > summary:hover,
+.co-chat-actions[open] > summary {
+  background: var(--co-hover);
+  color: var(--co-text);
+}
+.co-chat-actions > div {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 160px;
+  padding: 5px;
+  border: 1px solid var(--co-border);
+  border-radius: 9px;
+  background: var(--co-card);
+  box-shadow: var(--co-shadow);
+}
+.co-chat-actions button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--co-text);
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+.co-chat-actions button:hover {
+  background: var(--co-hover);
 }
 .co-chat-turn {
   margin-top: 18px;

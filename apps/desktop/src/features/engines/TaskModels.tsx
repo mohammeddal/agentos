@@ -25,7 +25,7 @@ export function TaskModels({
       <summary>
         {compact
           ? "Model & reasoning for this block"
-          : "Models & reasoning · Task defaults and step overrides"}
+          : "Models & reasoning · Workflow defaults and step overrides"}
       </summary>
       <p>
         Use one default per engine. Expand step overrides when a particular agent needs a different
@@ -38,7 +38,7 @@ export function TaskModels({
             <ModelPicker
               engine={engine}
               value={task.modelDefaults?.[engine]}
-              label={`${engine} task default`}
+              label={`${engine} workflow default`}
               disabled={disabled}
               onChange={(choice) =>
                 save({ ...task, modelDefaults: { ...task.modelDefaults, [engine]: choice } })
@@ -100,8 +100,10 @@ export function TaskModels({
                 />
               ) : (
                 <p>
-                  {step.id.startsWith("link-") ? "Linked task settings" : "Inherits task default"} ·{" "}
-                  {step.model || "Recommended model"} · {step.effort || "Default"} effort
+                  {step.id.startsWith("link-")
+                    ? "Linked workflow settings"
+                    : "Inherits workflow default"}{" "}
+                  · {step.model || "Recommended model"} · {step.effort || "Default"} effort
                 </p>
               )}
             </div>

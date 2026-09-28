@@ -30,10 +30,12 @@ export function CompanyStart({
   selectedChatId,
   initialProjectId,
   openChat,
+  lifecycleChat,
 }: {
   selectedChatId?: string | undefined;
   initialProjectId?: string | undefined;
   openChat: (id: string) => void;
+  lifecycleChat?: (chat: CompanyChat, lifecycle: "archived" | "removed") => void;
   company: Company;
   change: (update: (c: Company) => Company) => void;
   editTask: (task: CompanyTask) => void;
@@ -161,7 +163,7 @@ export function CompanyStart({
         }));
         setCreatedTaskId(task.id);
         setNotice(
-          "Task created as Planned. It has not started; human approval is required before execution.",
+          "Workflow created as Planned. It has not started; human approval is required before execution.",
         );
         setDraft((d) => ({
           ...d,
@@ -217,7 +219,7 @@ export function CompanyStart({
   return (
     <section
       className={`co-start ${chat ? "co-start-conversation" : ""}`}
-      aria-label="Start a chat or task"
+      aria-label="Start a chat or workflow"
     >
       <div className="co-start-main">
         <div className="co-start-intro">
@@ -234,7 +236,13 @@ export function CompanyStart({
             This chat is archived, removed, or unavailable. Restore it from the sidebar directory.
           </p>
         )}
-        {chat && <ChatConversation chat={chat} />}
+        {chat && (
+          <ChatConversation
+            chat={chat}
+            archive={() => lifecycleChat?.(chat, "archived")}
+            remove={() => lifecycleChat?.(chat, "removed")}
+          />
+        )}
         {draft.makeTask && linkedTask && (
           <p className="co-form-note">
             This chat already has a task. Open its linked task to edit it, or start a new prompt.
@@ -356,7 +364,7 @@ export function CompanyStart({
                           }
                         />
                         <ClipboardList size={14} />
-                        Create as a task
+                        Create as a workflow
                       </label>
                       {!!company.projects?.length || projectMissing ? (
                         <label>
@@ -384,7 +392,7 @@ export function CompanyStart({
                           <label>
                             Assign to
                             <select
-                              aria-label="Quick task assignee"
+                              aria-label="Quick workflow assignee"
                               value={draft.target}
                               onChange={(e) => update({ target: e.target.value })}
                             >
@@ -418,7 +426,7 @@ export function CompanyStart({
                           .filter((engine) => ["Codex", "Claude Code"].includes(engine))
                           .map((engine) => (
                             <div key={engine} className="co-prompt-options">
-                              <small>{engine} · Task default</small>
+                              <small>{engine} · Workflow default</small>
                               <ModelPicker
                                 engine={engineId(engine)}
                                 value={draft.modelDefaults?.[engineId(engine)]}
@@ -452,14 +460,14 @@ export function CompanyStart({
                 )}
                 <button
                   className="co-composer-send"
-                  aria-label={draft.makeTask ? "Create task" : "Send message"}
+                  aria-label={draft.makeTask ? "Create workflow" : "Send message"}
                   title={
                     sending
                       ? "Starting…"
                       : running
                         ? "Engine working…"
                         : draft.makeTask
-                          ? "Create task"
+                          ? "Create workflow"
                           : "Send · Enter"
                   }
                   disabled={
@@ -485,7 +493,7 @@ export function CompanyStart({
               maxLength={3000}
               placeholder={
                 draft.makeTask
-                  ? "Describe the task…"
+                  ? "Describe the workflow…"
                   : chat
                     ? "Reply…"
                     : selectedProject

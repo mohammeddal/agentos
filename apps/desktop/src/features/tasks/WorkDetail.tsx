@@ -9,6 +9,8 @@ import {
   MessageSquare,
   Pencil,
   RefreshCw,
+  Archive,
+  Trash2,
 } from "lucide-react";
 import type { Company, CompanyChat, CompanyTask } from "../company/company-model";
 import { readRehearsals, REHEARSAL_STORAGE } from "../activity/run-inspection";
@@ -28,6 +30,8 @@ export function WorkDetail({
   activity,
   canvas,
   saveTask,
+  archive,
+  remove,
 }: {
   saveTask?: ((task: CompanyTask) => void) | undefined;
   canvas?: (() => void) | undefined;
@@ -37,6 +41,8 @@ export function WorkDetail({
   edit?: (() => void) | undefined;
   openTask?: ((task: CompanyTask) => void) | undefined;
   activity: () => void;
+  archive?: (() => void) | undefined;
+  remove?: (() => void) | undefined;
 }) {
   const [tab, setTab] = useState<"steps" | "updates" | "output" | "rehearsals">("steps");
   const [history, setHistory] = useState(readRehearsals);
@@ -91,10 +97,10 @@ export function WorkDetail({
   return (
     <section
       className={`co-work-detail ${chat ? "co-work-chat" : ""}`}
-      aria-label={task ? "Task details" : "Chat details"}
+      aria-label={task ? "Workflow details" : "Chat details"}
     >
       {canvas && (
-        <nav className="co-task-view-switch" aria-label="Task view">
+        <nav className="co-task-view-switch" aria-label="Workflow view">
           <button type="button" aria-pressed="true">
             Overview
           </button>
@@ -107,7 +113,7 @@ export function WorkDetail({
       )}
       <header className="co-work-header">
         <div>
-          <span className="co-section-kicker">TASK WORKSPACE</span>
+          <span className="co-section-kicker">WORKFLOW</span>
           <p>
             <span className="co-work-status">
               {lastLive?.status.replaceAll("_", " ") || "Planned · Not started"}
@@ -115,12 +121,24 @@ export function WorkDetail({
             <span>{lastLive ? lastLive.engine : "Ready for execution review"}</span>
           </p>
         </div>
-        {edit && (
-          <button className="co-button" onClick={edit}>
-            <Pencil size={13} />
-            Edit task
-          </button>
-        )}
+        <div className="co-work-header-actions">
+          {edit && (
+            <button className="co-button" onClick={edit}>
+              <Pencil size={13} />
+              Edit workflow
+            </button>
+          )}
+          {archive && (
+            <button className="co-button" onClick={archive}>
+              <Archive size={13} /> Archive
+            </button>
+          )}
+          {remove && (
+            <button className="co-button co-button-danger" onClick={remove}>
+              <Trash2 size={13} /> Delete
+            </button>
+          )}
+        </div>
       </header>
       {task && <AttachmentList value={task.attachments || []} />}
       {task && <TaskExecution company={company} task={task} save={saveTask} />}
@@ -138,7 +156,10 @@ export function WorkDetail({
           </span>
         </div>
       )}
-      <nav className="co-work-tabs" aria-label={task ? "Task detail panels" : "Chat detail panels"}>
+      <nav
+        className="co-work-tabs"
+        aria-label={task ? "Workflow detail panels" : "Chat detail panels"}
+      >
         {tabs.map(({ id, label, Icon }) => (
           <button type="button" key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>
             <Icon size={14} />
@@ -187,7 +208,7 @@ export function WorkDetail({
           </ol>
           {task && !task.canvas && !task.handoffs?.length && (
             <p className="co-work-caption">
-              No handoffs yet. Use Edit task → Workflow map to add conditional steps.
+              No handoffs yet. Use Edit workflow → Workflow map to add task steps and conditions.
             </p>
           )}
           {task?.canvas && (
@@ -223,7 +244,7 @@ export function WorkDetail({
           <div className="co-work-empty">
             <MessageSquare size={24} />
             <h3>No engine progress updates yet.</h3>
-            <p>Run this task to see real provider progress and tool events.</p>
+            <p>Run this workflow to see real provider progress and tool events.</p>
             <small>
               Private internal reasoning is not displayed. Rehearsal logs are recorded simulation
               events, not model thinking.
@@ -240,7 +261,7 @@ export function WorkDetail({
             <h3>{task ? "No live output yet." : "No assistant reply yet."}</h3>
             <p>
               {task
-                ? "This task has not run through an engine. No generated answer, command output, changed files, or artifacts have been recorded."
+                ? "This workflow has not run through an engine. No generated answer, command output, changed files, or artifacts have been recorded."
                 : "These prompts are local drafts. No model has processed them or generated a response."}
             </p>
             {runs.length > 0 && (

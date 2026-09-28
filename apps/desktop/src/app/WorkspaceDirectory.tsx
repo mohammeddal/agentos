@@ -113,6 +113,7 @@ function Actions({ label, children }: { label: string; children: ReactNode }) {
     </div>
   );
 }
+const itemName = (kind: DirectoryKind) => (kind === "task" ? "workflow" : kind);
 export type DirectoryProps = {
   company: Company;
   selectedChat?: string | undefined;
@@ -164,22 +165,26 @@ export function WorkspaceDirectory({
             {entry.kind === "project" && (
               <>
                 <button onClick={() => createEntry("chat", entry.id)}>New chat in project</button>
-                <button onClick={() => createEntry("task", entry.id)}>New task in project</button>
+                <button onClick={() => createEntry("task", entry.id)}>
+                  New workflow in project
+                </button>
               </>
             )}
             {entry.kind !== "project" && (
               <button onClick={() => createEntry(entry.kind, entry.projectId)}>
-                New {entry.kind}
+                New {itemName(entry.kind)}
               </button>
             )}
-            <button onClick={() => lifecycle(entry, "archived")}>Archive {entry.kind}</button>
+            <button onClick={() => lifecycle(entry, "archived")}>
+              Archive {itemName(entry.kind)}
+            </button>
           </>
         ) : (
-          <button onClick={() => lifecycle(entry, "active")}>Restore {entry.kind}</button>
+          <button onClick={() => lifecycle(entry, "active")}>Restore {itemName(entry.kind)}</button>
         )}
         {entry.lifecycle !== "removed" && (
           <button className="co-dir-danger" onClick={() => lifecycle(entry, "removed")}>
-            Remove {entry.kind}…
+            Delete {itemName(entry.kind)}…
           </button>
         )}
       </Actions>
@@ -199,7 +204,7 @@ export function WorkspaceDirectory({
         <button
           className="co-dir-item"
           title={entry.title}
-          aria-label={`Open ${entry.kind}: ${entry.title}`}
+          aria-label={`Open ${itemName(entry.kind)}: ${entry.title}`}
           aria-current={selected ? "page" : undefined}
           disabled={mode !== "active"}
           onClick={() => openEntry(entry)}
@@ -212,7 +217,7 @@ export function WorkspaceDirectory({
     );
   }
   return (
-    <section className="co-directory" aria-label="Projects, chats and tasks">
+    <section className="co-directory" aria-label="Projects, chats and workflows">
       <header>
         <span>{mode === "active" ? "Projects" : mode === "archived" ? "Archived" : "Removed"}</span>
         <div className="co-dir-header-actions">
@@ -229,7 +234,7 @@ export function WorkspaceDirectory({
           <Actions label="Directory">
             <button onClick={() => createEntry("project")}>New project</button>
             <button onClick={() => createEntry("chat")}>New chat</button>
-            <button onClick={() => createEntry("task")}>New task</button>
+            <button onClick={() => createEntry("task")}>New workflow</button>
             <hr />
             <button onClick={() => switchMode("active")}>Active items</button>
             <button onClick={() => switchMode("archived")}>Archived items</button>
@@ -240,7 +245,7 @@ export function WorkspaceDirectory({
       <input
         className="co-dir-search"
         aria-label="Filter directory"
-        placeholder="Filter projects, chats, tasks…"
+        placeholder="Filter projects, chats, workflows…"
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -255,7 +260,7 @@ export function WorkspaceDirectory({
           <p className="co-dir-note">
             {mode === "removed"
               ? "Recoverable removal. Files and Activity history are kept."
-              : "Restore items whenever you need them. Project archives include their chats and tasks."}
+              : "Restore items whenever you need them. Project archives include their chats and workflows."}
           </p>
           {hidden.slice(0, limit).map(row)}
           {!hidden.length && <p className="co-dir-note">No {mode} items.</p>}
@@ -305,7 +310,7 @@ export function WorkspaceDirectory({
                     {!children.length && (
                       <div className="co-dir-empty-actions">
                         <button onClick={() => createEntry("chat", project.id)}>+ Chat</button>
-                        <button onClick={() => createEntry("task", project.id)}>+ Task</button>
+                        <button onClick={() => createEntry("task", project.id)}>+ Workflow</button>
                       </div>
                     )}
                     {children.length > limit && (
@@ -322,19 +327,19 @@ export function WorkspaceDirectory({
             <p className="co-dir-note">
               {query
                 ? "No matching projects."
-                : "Create a project to group related chats and tasks."}
+                : "Create a project to group related chats and workflows."}
             </p>
           )}
           <div className="co-dir-section-title">
-            <span>Chats & tasks</span>
-            <Actions label="Chats and tasks">
+            <span>Chats & workflows</span>
+            <Actions label="Chats and workflows">
               <button onClick={() => createEntry("chat")}>New chat</button>
-              <button onClick={() => createEntry("task")}>New task</button>
+              <button onClick={() => createEntry("task")}>New workflow</button>
             </Actions>
           </div>
           {entries.slice(0, limit).map(row)}
           {!entries.length && (
-            <p className="co-dir-note">{query ? "No matching items." : "No chats or tasks."}</p>
+            <p className="co-dir-note">{query ? "No matching items." : "No chats or workflows."}</p>
           )}
           {entries.length > limit && (
             <button className="co-dir-back" onClick={() => setLimit(limit + 20)}>

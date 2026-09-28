@@ -76,7 +76,7 @@ const icons = {
   prompt: MessageSquare,
 };
 const descriptions = {
-  task: "Task-wide starting brief",
+  task: "A task step in this workflow",
   office: "One office team",
   agent: "A specialist",
   domain: "An entire team",
@@ -200,6 +200,7 @@ export function TaskCanvas({
   const shown = graph.nodes.map((n) =>
     moving?.id === n.id ? { ...n, x: moving.x, y: moving.y } : n,
   );
+  const workflowRootId = graph.nodes.find((candidate) => candidate.kind === "task")?.id;
   const entryIds = new Set(canvasEntryNodes(graph).map((entry) => entry.id));
   function commit(next: TaskCanvasGraph) {
     if (JSON.stringify(next) === JSON.stringify(graph)) return;
@@ -236,7 +237,8 @@ export function TaskCanvas({
   function update(id: string, patch: Partial<CanvasNode>) {
     const current = graph.nodes.find((candidate) => candidate.id === id);
     if (
-      current?.kind === "task" &&
+      current &&
+      current.id === workflowRootId &&
       changeTaskDetails &&
       (patch.title !== undefined || patch.prompt !== undefined)
     )
@@ -249,10 +251,6 @@ export function TaskCanvas({
   function add(kind: BlockKind, x?: number, y?: number) {
     if (graph.nodes.length >= 80) {
       setError("This draft supports up to 80 blocks.");
-      return;
-    }
-    if (kind === "task" && graph.nodes.some((candidate) => candidate.kind === "task")) {
-      setError("A workflow can contain only one Task start block.");
       return;
     }
     const columns = Math.max(
@@ -342,7 +340,7 @@ export function TaskCanvas({
       commit({ ...graph, edges: graph.edges.filter((e) => e.id !== edge.id) });
       setEdgeId("");
     } else if (node) {
-      const removedTask = node.kind === "task";
+      const removedTask = node.id === workflowRootId;
       commit(removeCanvasNode(graph, selected));
       setSelected("");
       setTaskSettings(removedTask);
@@ -386,13 +384,13 @@ export function TaskCanvas({
   }
   const taskSettingsPanel = (
     <>
-      <h3>Task settings</h3>
+      <h3>Workflow settings</h3>
       <p className="tc-task-settings-note">
-        These details belong to the task, not to a workflow block. Removing the Task start block
-        does not remove them.
+        These details belong to the workflow, while blocks on the map describe its task steps,
+        owners, context, and controls.
       </p>
       <label>
-        Task name
+        Workflow name
         <input
           maxLength={120}
           value={task.title}
@@ -403,7 +401,7 @@ export function TaskCanvas({
         />
       </label>
       <label>
-        Task outcome
+        Workflow outcome
         <textarea
           rows={6}
           maxLength={6000}
@@ -437,7 +435,7 @@ export function TaskCanvas({
       )}
       {changeApproval && (
         <label>
-          Before this task starts
+          Before this workflow starts
           <select
             value={
               task.approval?.kind === "agent"
@@ -473,7 +471,7 @@ export function TaskCanvas({
       )}
       {changeAttachments && onAttachmentsBusy && (
         <section className="tc-root-files">
-          <strong>Task files</strong>
+          <strong>Workflow files</strong>
           <AttachmentEditor
             compact
             value={task.attachments || []}
@@ -488,10 +486,10 @@ export function TaskCanvas({
     </>
   );
   return (
-    <section className="tc" aria-label="Visual task builder">
+    <section className="tc" aria-label="Visual workflow builder">
       <div className="tc-toolbar">
         {!embedded && (
-          <nav className="co-task-view-switch" aria-label="Task view">
+          <nav className="co-task-view-switch" aria-label="Workflow view">
             <button type="button" aria-pressed="false" onClick={back}>
               Overview
             </button>
@@ -519,7 +517,7 @@ export function TaskCanvas({
               setTaskSettings(true);
             }}
           >
-            <ClipboardList size={13} /> Task settings
+            <ClipboardList size={13} /> Workflow settings
           </button>
           <button type="button" className="co-button" onClick={fit}>
             Fit view
@@ -614,7 +612,7 @@ export function TaskCanvas({
           ) : null}
           {(
             [
-              { label: "Work", kinds: ["task", "office", "agent", "prompt"] },
+              { label: "Steps & team", kinds: ["task", "office", "agent", "prompt"] },
               { label: "Resources", kinds: ["context", "mcp", "skill", "connector"] },
               { label: "Control", kinds: ["approval", "restriction"] },
             ] as { label: string; kinds: BlockKind[] }[]
@@ -631,9 +629,6 @@ export function TaskCanvas({
                     type="button"
                     key={kind}
                     className="tc-palette-block"
-                    disabled={
-                      kind === "task" && graph.nodes.some((candidate) => candidate.kind === "task")
-                    }
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData("application/agentos-block", kind);
@@ -658,7 +653,7 @@ export function TaskCanvas({
           <div
             className="tc-canvas"
             ref={viewport}
-            aria-label="Task canvas"
+            aria-label="Workflow canvas"
             onDragOver={(e) => {
               e.preventDefault();
               e.dataTransfer.dropEffect = "copy";
@@ -748,7 +743,7 @@ export function TaskCanvas({
                       className={`tc-node tc-kind-${n.kind} ${selected === n.id ? "selected" : ""}`}
                       style={{ left: n.x, top: n.y }}
                       tabIndex={0}
-                      aria-label={`${blockNames[n.kind]} block: ${n.title}`}
+                      aria-label={`${n.id === workflowRootId ? "Workflow" : blockNames[n.kind]} block: ${n.title}`}
                       onClick={() => {
                         setSelected(n.id);
                         setEdgeId("");
@@ -777,7 +772,7 @@ export function TaskCanvas({
                           e.preventDefault();
                           commit(removeCanvasNode(graph, n.id));
                           setSelected("");
-                          if (n.kind === "task") setTaskSettings(true);
+                          if (n.id === workflowRootId) setTaskSettings(true);
                         }
                       }}
                     >
@@ -821,7 +816,7 @@ export function TaskCanvas({
                         }}
                       >
                         <Icon size={15} />
-                        <span>{blockNames[n.kind]}</span>
+                        <span>{n.id === workflowRootId ? "Workflow" : blockNames[n.kind]}</span>
                         {entryIds.has(n.id) && <em className="tc-entry">Start</em>}
                         <GripVertical size={13} />
                       </div>
@@ -979,9 +974,13 @@ export function TaskCanvas({
           <span className="co-section-kicker">{edge ? "CONNECTION" : "BLOCK SETTINGS"}</span>
           {node ? (
             <>
-              <h3>{blockNames[node.kind]}</h3>
+              <h3>{node.id === workflowRootId ? "Workflow" : blockNames[node.kind]}</h3>
               <label>
-                {node.kind === "task" ? "Task name" : "Block name"}
+                {node.id === workflowRootId
+                  ? "Workflow name"
+                  : node.kind === "task"
+                    ? "Task name"
+                    : "Block name"}
                 <input
                   maxLength={120}
                   value={node.title}
@@ -1041,77 +1040,6 @@ export function TaskCanvas({
                   </select>
                 </label>
               )}
-              {node.kind === "task" && changeProject && (
-                <label>
-                  Company project
-                  <select
-                    value={task.projectId || ""}
-                    onChange={(e) => changeProject(e.target.value)}
-                  >
-                    <option value="">No project · Company-wide</option>
-                    {task.projectId &&
-                      !company.projects?.some((project) => project.id === task.projectId) && (
-                        <option value={task.projectId}>Unavailable project (retained)</option>
-                      )}
-                    {(company.projects || []).map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              {node.kind === "task" && changeApproval && (
-                <label>
-                  Before this task starts
-                  <select
-                    value={
-                      task.approval?.kind === "agent"
-                        ? `agent:${task.approval.agentId}`
-                        : task.approval?.kind || "none"
-                    }
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      changeApproval(
-                        value === "human"
-                          ? { kind: "human" }
-                          : value.startsWith("agent:")
-                            ? { kind: "agent", agentId: value.slice(6) }
-                            : { kind: "none" },
-                      );
-                    }}
-                  >
-                    <option value="human">My approval</option>
-                    <option value="none">No approval</option>
-                    <optgroup label="Agent approval">
-                      {agents.map((agent) => (
-                        <option key={agent.id} value={`agent:${agent.id}`}>
-                          {agent.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                    {taskApprovalAgentId &&
-                      !agents.some((agent) => agent.id === taskApprovalAgentId) && (
-                        <option value={`agent:${taskApprovalAgentId}`}>Unavailable reviewer</option>
-                      )}
-                  </select>
-                  <small>Step-specific reviews can still be added as Approval blocks.</small>
-                </label>
-              )}
-              {node.kind === "task" && changeAttachments && onAttachmentsBusy && (
-                <section className="tc-root-files">
-                  <strong>Task files</strong>
-                  <AttachmentEditor
-                    compact
-                    value={task.attachments || []}
-                    onChange={changeAttachments}
-                    onBusy={onAttachmentsBusy}
-                  >
-                    {null}
-                  </AttachmentEditor>
-                  <small>Attach here, then scope files to individual Context blocks.</small>
-                </section>
-              )}
               {executionSteps.some((s) => s.id.startsWith(`canvas-${node.id}-`)) && (
                 <TaskModels
                   compact
@@ -1160,7 +1088,9 @@ export function TaskCanvas({
               )}
               <label>
                 {node.kind === "task"
-                  ? "Task outcome"
+                  ? node.id === workflowRootId
+                    ? "Workflow outcome"
+                    : "Task outcome"
                   : node.kind === "context"
                     ? contextType === "notes"
                       ? "Notes"
@@ -1171,7 +1101,9 @@ export function TaskCanvas({
                   maxLength={6000}
                   placeholder={
                     node.kind === "task"
-                      ? "Describe the outcome, context, and what done looks like…"
+                      ? node.id === workflowRootId
+                        ? "Describe the workflow outcome, context, and what done looks like…"
+                        : "Describe what this task step should produce…"
                       : node.kind === "context"
                         ? contextType === "notes"
                           ? "Paste the relevant facts, instructions, or source notes…"
@@ -1415,12 +1347,13 @@ export function TaskCanvas({
               )}
               <button type="button" className="co-button tc-delete" onClick={remove}>
                 <Trash2 size={13} />
-                {node.kind === "task" ? "Remove start block" : "Remove block"}
+                {node.id === workflowRootId ? "Remove workflow start" : "Remove block"}
               </button>
-              {node.kind === "task" && (
+              {node.id === workflowRootId && (
                 <small>
-                  Removing this block keeps the task name, outcome, project, files, and approval in
-                  Task settings. Any block without an incoming flow then becomes a start step.
+                  Removing this block keeps the workflow name, outcome, project, files, and approval
+                  in Workflow settings. Any block without an incoming flow then becomes a start
+                  step.
                 </small>
               )}
             </>

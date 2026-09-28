@@ -60,7 +60,7 @@ export function CompanyTasks({
         <span>
           <ClipboardList size={30} />
         </span>
-        <h2>No tasks yet.</h2>
+        <h2>No workflows yet.</h2>
       </section>
     );
   const matchesStatus = (task: CompanyTask, filter: RunFilter | "planned") => {
@@ -72,10 +72,10 @@ export function CompanyTasks({
   const visible = tasks.filter((task) => matchesStatus(task, statusFilter));
   return (
     <div className="co-task-list">
-      <div className="co-work-filters" role="group" aria-label="Filter tasks">
+      <div className="co-work-filters" role="group" aria-label="Filter workflows">
         {(
           [
-            { id: "all", label: "All tasks" },
+            { id: "all", label: "All workflows" },
             { id: "attention", label: "Needs attention" },
             { id: "active", label: "Running" },
             { id: "planned", label: "Planned" },
@@ -96,10 +96,10 @@ export function CompanyTasks({
         <div className="co-filter-empty">
           <p>
             {query
-              ? `No tasks match “${query}” in this view.`
+              ? `No workflows match “${query}” in this view.`
               : statusFilter === "attention"
-                ? "No tasks need your attention."
-                : "No tasks in this view."}
+                ? "No workflows need your attention."
+                : "No workflows in this view."}
           </p>
           {statusFilter !== "all" && (
             <button className="co-button" onClick={() => setStatusFilter("all")}>
@@ -121,7 +121,7 @@ export function CompanyTasks({
             className="co-task-card"
             key={task.id}
             onClick={() => edit(task)}
-            aria-label={`Open task: ${task.title}`}
+            aria-label={`Open workflow: ${task.title}`}
           >
             <span className="co-task-card-icon">
               <ClipboardList size={21} />
@@ -267,7 +267,7 @@ export function TaskForm({
   const saveBlocker = !hasAssignment
     ? "Connect an office or agent first."
     : !hasTitle
-      ? "Add a task name first."
+      ? "Add a workflow name first."
       : gateError || scheduleResult.error || handoffError || "";
   function changeCanvas(next: TaskCanvasGraph) {
     const root = next.nodes.find((node) => node.kind === "task");
@@ -279,7 +279,7 @@ export function TaskForm({
   }
   const draftTask: CompanyTask = {
     id: taskId,
-    title: resolvedTitle || "Untitled task",
+    title: resolvedTitle || "Untitled workflow",
     brief: brief.trim(),
     assignment,
     status: "planned",
@@ -317,7 +317,7 @@ export function TaskForm({
         void submitTask(schedule.kind === "manual" && !!start);
       }}
     >
-      <nav className="co-task-editor-nav" aria-label="Task editor">
+      <nav className="co-task-editor-nav" aria-label="Workflow editor">
         <button
           type="button"
           aria-label="Workflow map"
@@ -376,9 +376,9 @@ export function TaskForm({
             <>
               <section className="co-workflow-migration">
                 <div>
-                  <strong>Move this task to the workflow map</strong>
+                  <strong>Move this workflow to the visual map</strong>
                   <p>
-                    This older task has {handoffs.length} step handoffs. Convert it when you are
+                    This older workflow has {handoffs.length} step handoffs. Convert it when you are
                     ready to rebuild those routes visually.
                   </p>
                 </div>
@@ -395,7 +395,7 @@ export function TaskForm({
               </section>
               <div className="co-workflow-legacy-basics">
                 <label>
-                  Task name
+                  Workflow name
                   <input
                     required
                     maxLength={120}
@@ -404,7 +404,7 @@ export function TaskForm({
                   />
                 </label>
                 <label>
-                  Task outcome
+                  Workflow outcome
                   <textarea
                     rows={3}
                     maxLength={3000}
@@ -434,7 +434,7 @@ export function TaskForm({
           {schedule.kind === "cron" ? (
             <>Save the schedule, then enable it when you are ready.</>
           ) : existing ? (
-            <>Save changes or run the updated task now.</>
+            <>Save changes or run the updated workflow now.</>
           ) : (
             <>Run now, or save it as a draft for later.</>
           )}
@@ -468,10 +468,10 @@ export function TaskForm({
                       ? "Save & run"
                       : "Create & run"
                     : existing
-                      ? "Save task"
+                      ? "Save workflow"
                       : schedule.kind === "cron"
                         ? "Save schedule"
-                        : "Create task"}
+                        : "Create workflow"}
             <ArrowRight size={15} />
           </button>
         </div>

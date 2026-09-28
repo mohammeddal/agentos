@@ -20,7 +20,7 @@ export type WorkspaceRoute = {
 };
 export const destinations = [
   { view: "start", label: "Start", description: "Write a prompt or continue a chat" },
-  { view: "tasks", label: "Tasks", description: "Plans, workflows, and task details" },
+  { view: "tasks", label: "Workflows", description: "Runnable workflows and their task steps" },
   { view: "map", label: "Company", description: "Offices and agents" },
   { view: "activity", label: "Activity", description: "Status, approvals, and rehearsals" },
   { view: "memory", label: "Library", description: "Memory and local capabilities" },
@@ -30,7 +30,7 @@ export function primaryView(view: WorkspaceView): WorkspaceView {
 }
 export const viewLabels: Record<WorkspaceView, string> = {
   start: "Start",
-  tasks: "Tasks",
+  tasks: "Workflows",
   projects: "Projects",
   map: "Office map",
   offices: "Offices",
