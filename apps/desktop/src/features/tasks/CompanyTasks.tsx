@@ -264,6 +264,11 @@ export function TaskForm({
     team.map((a) => a.id),
   );
   const canSave = assignmentValid && !scheduleResult.error && !handoffError && !gateError;
+  const saveBlocker = !hasAssignment
+    ? "Connect an office or agent first."
+    : !hasTitle
+      ? "Add a task name first."
+      : gateError || scheduleResult.error || handoffError || "";
   function changeCanvas(next: TaskCanvasGraph) {
     const root = next.nodes.find((node) => node.kind === "task");
     setCanvas(next);
@@ -419,31 +424,6 @@ export function TaskForm({
             </>
           ))}
       </div>
-      {!canSave && (
-        <div className="co-task-save-errors">
-          {!hasAssignment ? (
-            <button type="button" onClick={() => setPanel("workflow")}>
-              Connect an office or agent to save.
-            </button>
-          ) : !hasTitle ? (
-            <button type="button" onClick={() => setPanel("workflow")}>
-              Add a task name in Task settings to save.
-            </button>
-          ) : gateError ? (
-            <button type="button" onClick={() => setPanel("workflow")}>
-              {gateError}
-            </button>
-          ) : scheduleResult.error ? (
-            <button type="button" onClick={() => setPanel("schedule")}>
-              Fix the schedule to save.
-            </button>
-          ) : (
-            <button type="button" onClick={() => setPanel("workflow")}>
-              Complete the workflow to save: {handoffError}
-            </button>
-          )}
-        </div>
-      )}
       {submitError && (
         <p role="alert" className="co-form-error co-task-submit-error">
           {submitError}
@@ -465,6 +445,7 @@ export function TaskForm({
               type="button"
               className="co-button"
               disabled={!canSave || attaching || !!submitting}
+              title={saveBlocker || undefined}
               onClick={() => void submitTask(false)}
             >
               {existing ? "Save changes" : "Save draft"}
@@ -474,6 +455,7 @@ export function TaskForm({
             type="submit"
             className="co-button co-button-primary"
             disabled={!canSave || attaching || !!submitting}
+            title={saveBlocker || undefined}
           >
             {attaching
               ? "Adding files…"

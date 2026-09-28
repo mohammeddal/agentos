@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { companyDomains, type Company, type CompanyTask } from "../company/company-model";
 import { AttachmentEditor } from "../attachments/Attachments";
+import { HelpTip } from "../../shared/HelpTip";
 import type { Attachment } from "../attachments/attachment-model";
 import { compileTask, type LiveStep } from "../engines/live-runtime";
 import { TaskModels } from "../engines/TaskModels";
@@ -377,12 +378,11 @@ export function TaskCanvas({
       discoveryRequest.current++;
     };
   }, [selected, engine]);
-  let executionIssue = "";
   let executionSteps: LiveStep[] = [];
   try {
     executionSteps = compileTask(company, { ...task, canvas: graph });
-  } catch (e) {
-    executionIssue = String(e).replace(/^Error: /, "");
+  } catch {
+    // Incomplete drafts remain editable; actionable items are listed only when present below.
   }
   const taskSettingsPanel = (
     <>
@@ -505,6 +505,10 @@ export function TaskCanvas({
           Workflow · {graph.nodes.length} {graph.nodes.length === 1 ? "block" : "blocks"}
         </span>
         <div className="tc-tools">
+          <HelpTip label="How workflow connections work" align="end">
+            Solid lines pass work to the next step. Dashed lines attach context or capabilities.
+            Steps without an incoming line start first.
+          </HelpTip>
           <button
             type="button"
             className="co-button"
@@ -559,14 +563,8 @@ export function TaskCanvas({
           </button>
         </div>
       </div>
-      <p className="tc-boundary">
-        {executionIssue ||
-          "Ready to run · Blocks without an incoming flow start in parallel. Each step can have its own inputs, model, and approval path."}
-      </p>
       <div className="tc-layout">
-        <aside className="tc-palette">
-          <span className="co-section-kicker">BUILDING BLOCKS</span>
-          <p>Drag onto the canvas or click to add.</p>
+        <aside className="tc-palette" aria-label="Workflow blocks">
           {node && stepKinds.includes(node.kind) ? (
             <section className="tc-palette-inputs" aria-label={`Inputs for ${node.title}`}>
               <div className="tc-palette-inputs-heading">
@@ -613,9 +611,7 @@ export function TaskCanvas({
                   </button>
                 ))}
             </section>
-          ) : (
-            <p className="tc-palette-input-empty">Select a work block to add its inputs.</p>
-          )}
+          ) : null}
           {(
             [
               { label: "Work", kinds: ["task", "office", "agent", "prompt"] },
@@ -657,10 +653,6 @@ export function TaskCanvas({
               })}
             </details>
           ))}
-          <div className="tc-legend">
-            <span>─ Flow / handoff</span>
-            <span>┄ Resource / constraint</span>
-          </div>
         </aside>
         <div className="tc-center">
           <div
@@ -1491,27 +1483,21 @@ export function TaskCanvas({
           </details>
         </aside>
       </div>
-      <footer className="tc-footer">
-        <span role="status">
-          {storageError
-            ? "Storage unavailable · session only"
-            : embedded
-              ? "Saved when you create or save this task"
-              : task.canvas
-                ? "Draft saved on this device"
-                : "Changes save automatically on this device"}
-        </span>
-        <details>
-          <summary>
-            {warnings.length
-              ? `${warnings.length} ${warnings.length === 1 ? "thing" : "things"} to configure`
-              : "No configuration warnings"}
-          </summary>
-          {warnings.map((warning, i) => (
-            <p key={i}>{warning}</p>
-          ))}
-        </details>
-      </footer>
+      {(storageError || warnings.length > 0) && (
+        <footer className="tc-footer">
+          {storageError && <span role="status">Storage unavailable · session only</span>}
+          {warnings.length > 0 && (
+            <details>
+              <summary>
+                {warnings.length} {warnings.length === 1 ? "item needs" : "items need"} attention
+              </summary>
+              {warnings.map((warning, i) => (
+                <p key={i}>{warning}</p>
+              ))}
+            </details>
+          )}
+        </footer>
+      )}
     </section>
   );
 }

@@ -327,17 +327,6 @@
   height: 15px;
   accent-color: var(--co-accent);
 }
-.co-task-save-errors {
-  font-size: 11px;
-  color: var(--co-muted);
-}
-.co-task-save-errors button {
-  background: transparent;
-  border: 0;
-  text-decoration: underline;
-  color: var(--co-accent);
-  padding: 0;
-}
 @media (max-width: 650px) {
   .co-workflow-builder {
     grid-template-columns: minmax(0, 1fr);
