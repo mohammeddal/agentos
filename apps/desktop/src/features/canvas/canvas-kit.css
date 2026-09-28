@@ -4,24 +4,24 @@
   --ck-status: var(--co-muted);
 }
 [data-status="working"] {
-  --ck-status: #4b9b72;
+  --ck-status: var(--st-working, #4b9b72);
 }
 [data-status="approval"] {
-  --ck-status: #d07a55;
+  --ck-status: var(--st-approval, #d07a55);
 }
 [data-status="done"] {
-  --ck-status: #5a8f6a;
+  --ck-status: var(--st-done, #5a8f6a);
 }
 [data-status="failed"] {
-  --ck-status: #c2410c;
+  --ck-status: var(--st-failed, #c2410c);
 }
 [data-status="idle"] {
-  --ck-status: #c49d5d;
+  --ck-status: var(--st-ready, #c49d5d);
 }
 [data-status="skipped"],
 [data-status="waiting"],
 [data-status="offline"] {
-  --ck-status: #8d9790;
+  --ck-status: var(--st-offline, #8d9790);
 }
 .ck-status {
   display: inline-flex;
@@ -172,4 +172,70 @@
   color: var(--co-muted);
   font-size: 11px;
   line-height: 1.6;
+}
+.ck-run-picker {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--co-muted);
+}
+.ck-run-picker select {
+  width: 100%;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--co-text);
+  background: var(--co-card);
+  border: 1px solid var(--co-border);
+  border-radius: 7px;
+  padding: 7px 8px;
+}
+.ck-step {
+  border: 1px solid var(--co-border);
+  border-radius: 8px;
+  background: var(--co-card);
+}
+.ck-step > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  list-style: none;
+}
+.ck-step > summary::-webkit-details-marker {
+  display: none;
+}
+.ck-step > summary span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.ck-step > summary small {
+  color: var(--co-muted);
+  font-size: 10px;
+}
+.ck-step > .ck-output,
+.ck-step > .ck-empty {
+  margin: 0 10px 10px;
+}
+.ck-approvals {
+  border: 1px solid color-mix(in srgb, var(--st-approval, #c47f2c) 45%, var(--co-border));
+  border-radius: 10px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--st-approval, #c47f2c) 8%, var(--co-card));
+}
+.ck-log-toggle > summary {
+  cursor: pointer;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--co-muted);
 }

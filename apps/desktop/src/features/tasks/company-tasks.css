@@ -380,3 +380,10 @@
     display: none;
   }
 }
+.co-task-submit p.co-task-notice {
+  color: var(--st-done, #5a8f6a);
+  font-weight: 600;
+}
+.co-task-submit p.co-task-blocker {
+  color: var(--st-approval, #c47f2c);
+}

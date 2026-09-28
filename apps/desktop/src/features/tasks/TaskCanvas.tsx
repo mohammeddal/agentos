@@ -65,7 +65,7 @@ import { ScheduleEditor } from "./TaskAutomation";
 import { CanvasStage, StatusPill, ZoomControls } from "../canvas/CanvasKit";
 import { canvasRunStatuses } from "../canvas/run-state";
 import type { LiveRun } from "../engines/live-runtime";
-import { WorkflowRunPanel } from "./WorkflowRunPanel";
+import { WorkflowRunPanel, runCanvasStatus } from "./WorkflowRunPanel";
 import type { TaskSchedule } from "./task-workflow";
 import "./task-canvas.css";
 
@@ -152,6 +152,8 @@ export function TaskCanvas({
   mode = "build",
   setMode,
   run,
+  runs = [],
+  selectRun,
   runAgain,
   embedded = false,
 }: {
@@ -174,6 +176,9 @@ export function TaskCanvas({
   mode?: "build" | "run";
   setMode?: (mode: "build" | "run") => void;
   run?: LiveRun | undefined;
+  /** Every run of this workflow, newest first, for looking back at previous runs. */
+  runs?: LiveRun[];
+  selectRun?: (id: string) => void;
   runAgain?: (() => void) | undefined;
   embedded?: boolean;
 }) {
@@ -183,9 +188,7 @@ export function TaskCanvas({
   const [selected, setSelected] = useState(graph.nodes[0]?.id || ""),
     [edgeId, setEdgeId] = useState("");
   const [taskSettings, setTaskSettings] = useState(!graph.nodes.length);
-  const [from, setFrom] = useState(""),
-    [to, setTo] = useState(""),
-    [connecting, setConnecting] = useState("");
+  const [connecting, setConnecting] = useState("");
   const [zoom, setZoom] = useState(0.85),
     [error, setError] = useState("");
   const [moving, setMoving] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -227,7 +230,12 @@ export function TaskCanvas({
   const workflowRootId = graph.nodes.find((candidate) => candidate.kind === "task")?.id;
   const entryIds = new Set(canvasEntryNodes(graph).map((entry) => entry.id));
   const running = mode === "run";
-  const statuses = running ? canvasRunStatuses(graph, run) : {};
+  const blockStatuses = running ? canvasRunStatuses(graph, run) : {};
+  // The workflow block carries the run's overall status.
+  const statuses =
+    running && run && workflowRootId && !blockStatuses[workflowRootId]
+      ? { ...blockStatuses, [workflowRootId]: runCanvasStatus(run) }
+      : blockStatuses;
   const scheduleAnchor =
     shown.find((n) => n.id === workflowRootId && entryIds.has(n.id)) ||
     shown.find((n) => entryIds.has(n.id));
@@ -886,10 +894,7 @@ export function TaskCanvas({
                       onClick={(e) => {
                         e.stopPropagation();
                         if (connecting) connect(connecting, n.id);
-                        else {
-                          setTo(n.id);
-                          setError("Choose an output port or a From block below.");
-                        }
+                        else setError("Start from a block’s output dot, then click this input.");
                       }}
                     />
                   )}
@@ -934,73 +939,23 @@ export function TaskCanvas({
               );
             })}
           </CanvasStage>
-          {!running && (
-            <details className="tc-connect-tools">
-              <summary>Connect using selectors</summary>
-              <div className="tc-connect">
-                <label>
-                  From
-                  <select
-                    aria-label="Connection from"
-                    value={from}
-                    onChange={(e) => setFrom(e.target.value)}
-                  >
-                    <option value="">Choose block</option>
-                    {graph.nodes.map((n, i) => (
-                      <option key={n.id} value={n.id}>
-                        {i + 1}. {n.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  To
-                  <select
-                    aria-label="Connection to"
-                    value={to}
-                    onChange={(e) => setTo(e.target.value)}
-                  >
-                    <option value="">Choose block</option>
-                    {graph.nodes
-                      .filter((n) => !attachmentKinds.includes(n.kind))
-                      .map((n) => (
-                        <option key={n.id} value={n.id}>
-                          {graph.nodes.indexOf(n) + 1}. {n.title}
-                        </option>
-                      ))}
-                  </select>
-                </label>
+          {(error || connecting) && (
+            <div className="tc-hint" role="status">
+              {error || "Choose an input dot to connect."}
+              {connecting && (
                 <button
                   type="button"
-                  className="co-button"
-                  disabled={!from || !to}
-                  onClick={() => connect(from, to)}
+                  onClick={() => {
+                    setConnecting("");
+                    setWire(null);
+                    setError("");
+                  }}
                 >
-                  Connect
+                  Cancel connection
                 </button>
-              </div>
-            </details>
+              )}
+            </div>
           )}
-          <div className="tc-hint" role="status">
-            {error ||
-              (running
-                ? "Run view · select a block to see its status and output."
-                : connecting
-                  ? "Choose an input dot to connect."
-                  : "Drag headers to move. Drag output → input to connect. Arrow keys move a focused block.")}
-            {connecting && (
-              <button
-                type="button"
-                onClick={() => {
-                  setConnecting("");
-                  setWire(null);
-                  setError("");
-                }}
-              >
-                Cancel connection
-              </button>
-            )}
-          </div>
         </div>
         <aside
           className="tc-inspector"
@@ -1018,7 +973,10 @@ export function TaskCanvas({
           </span>
           {running ? (
             <WorkflowRunPanel
+              runs={runs}
               run={run}
+              selectRun={selectRun || (() => {})}
+              isRoot={!!node && node.id === workflowRootId}
               node={node}
               status={node ? statuses[node.id] : undefined}
               runAgain={runAgain}

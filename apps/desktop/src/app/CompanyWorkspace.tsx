@@ -19,7 +19,7 @@ import {
 } from "../features/company/company-model";
 import "./company-workspace.css";
 import "./workspace-shell.css";
-import { CompanyFloorplan } from "../features/company/CompanyFloorplan";
+import { CompanyFloorplan, type MapFocus } from "../features/company/CompanyFloorplan";
 import {
   deleteStructure,
   structureDeletion,
@@ -124,6 +124,7 @@ export function CompanyWorkspace() {
   const live = useLiveRuntime();
   const [directoryNotice, setDirectoryNotice] = useState("");
   const [composerVersion, setComposerVersion] = useState(0);
+  const [mapFocus, setMapFocus] = useState<MapFocus | null>(null);
   const [newWorkflow, setNewWorkflow] = useState<(NewWorkflowInit & { key: number }) | null>(null);
   const [theme, setTheme] = useState(initialTheme);
   const [terminalOpen, setTerminalOpen] = useState(false);
@@ -135,7 +136,6 @@ export function CompanyWorkspace() {
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [storageError, setStorageError] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  const allAgents = company.offices.flatMap((o) => o.agents.map((a) => ({ ...a, office: o })));
   const tasks = company.tasks || [];
   const structureImpact =
     dialog?.type === "delete-structure"
@@ -325,8 +325,10 @@ export function CompanyWorkspace() {
       setQuery("");
       go({ view: "tasks", taskId: result.id });
     } else if (result.kind === "agent") {
-      const a = allAgents.find((a) => a.id === result.id);
-      if (a) setDialog({ type: "inspect-agent", officeId: a.office.id, agent: a });
+      // Agents live on the map: open it with that agent selected and in view.
+      setQuery("");
+      setMapFocus((current) => ({ kind: "agent", id: result.id, key: (current?.key || 0) + 1 }));
+      go({ view: "map" });
     }
   }
   useEffect(() => {
@@ -601,7 +603,8 @@ export function CompanyWorkspace() {
           ) : (
             <CompanyFloorplan
               company={company}
-              query={query}
+              focus={mapFocus}
+              openSettings={() => setView("settings")}
               editOffice={(o) => setDialog({ type: "edit-office", office: o })}
               addWorkflow={(o) =>
                 openNewWorkflow(o ? { agentId: o.agents[0]?.id, officeId: o.id } : {})

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { LiveRun } from "../engines/live-runtime";
-import { agentMapRuns, agentMapState, workflowOfficeId } from "./company-map-state";
+import {
+  RECENT_OUTCOME_MS,
+  agentMapRuns,
+  agentMapState,
+  agentRecentOutcome,
+  engineReady,
+  workflowOfficeId,
+} from "./company-map-state";
 import { starterCompany, type Company, type CompanyTask } from "./company-model";
 
 function run(change: Partial<LiveRun> = {}): LiveRun {
@@ -43,18 +50,51 @@ function run(change: Partial<LiveRun> = {}): LiveRun {
 
 describe("company map state", () => {
   it("makes approval more important than generic active work", () => {
-    expect(agentMapState([run({ status: "awaiting_approval" })], "reviewer")).toBe("approval");
-    expect(agentMapState([run()], "reviewer")).toBe("working");
+    expect(agentMapState([run({ status: "awaiting_approval" })], "reviewer", true)).toBe(
+      "approval",
+    );
+    expect(agentMapState([run()], "reviewer", true)).toBe("working");
   });
 
-  it("shows completed participants as idle and unknown agents as offline", () => {
-    const complete = run({
-      status: "completed",
-      currentAgentId: "",
-      results: [{ id: "step-1", label: "Review", status: "completed", output: "Done" }],
-    });
-    expect(agentMapState([complete], "reviewer")).toBe("idle");
-    expect(agentMapState([complete], "writer")).toBe("offline");
+  it("is ready or offline depending only on the engine, not on past work", () => {
+    expect(agentMapState([], "writer", true)).toBe("ready");
+    expect(agentMapState([], "writer", false)).toBe("offline");
+  });
+
+  it("reads engine availability from the native runtime", () => {
+    const engines = [
+      { engine: "codex", installed: true, path: "", detail: "" },
+      { engine: "claude", installed: false, path: "", detail: "" },
+    ];
+    expect(engineReady({ native: true, engines }, "Codex")).toBe(true);
+    expect(engineReady({ native: true, engines }, "Claude Code")).toBe(false);
+    expect(engineReady({ native: true, engines: [] }, "Codex")).toBe(true);
+    expect(engineReady({ native: false, engines }, "Codex")).toBe(false);
+    expect(engineReady({ native: true, engines }, "Gemini")).toBe(false);
+  });
+
+  it("marks recently finished work as done or failed, then lets it fade", () => {
+    const finished = (status: string, stepStatus: string, updatedAt: number) =>
+      run({
+        status,
+        currentAgentId: "",
+        updatedAt,
+        results: [{ id: "step-1", label: "Review", status: stepStatus, output: "" }],
+      });
+    expect(agentRecentOutcome([finished("completed", "completed", 1000)], "reviewer", 2000)).toBe(
+      "done",
+    );
+    expect(agentRecentOutcome([finished("failed", "failed", 1000)], "reviewer", 2000)).toBe(
+      "failed",
+    );
+    expect(
+      agentRecentOutcome(
+        [finished("completed", "completed", 1000)],
+        "reviewer",
+        1000 + RECENT_OUTCOME_MS + 1,
+      ),
+    ).toBeNull();
+    expect(agentRecentOutcome([run()], "reviewer", 2000)).toBeNull();
   });
 
   it("returns an agent's relevant runs newest first", () => {
@@ -101,9 +141,11 @@ describe("workflow placement on the company map", () => {
     expect(workflowOfficeId(company, task(["a1", "a2"], "o2"))).toBe("o2");
     expect(workflowOfficeId(company, task([], "o1"))).toBe("o1");
   });
-  it("falls back to the single office of its agents, and skips cross-office work", () => {
+  it("otherwise uses the office holding most of its agents, first office on a tie", () => {
     expect(workflowOfficeId(company, task(["a1"]))).toBe("o1");
-    expect(workflowOfficeId(company, task(["a1", "a2"]))).toBeUndefined();
+    expect(workflowOfficeId(company, task(["a2"]))).toBe("o2");
+    expect(workflowOfficeId(company, task(["a1", "a2"]))).toBe("o1");
     expect(workflowOfficeId(company, task(["a1"], "gone"))).toBe("o1");
+    expect(workflowOfficeId(company, task([]))).toBeUndefined();
   });
 });

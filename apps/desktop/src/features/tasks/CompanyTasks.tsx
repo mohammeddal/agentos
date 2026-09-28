@@ -8,7 +8,6 @@ import {
 } from "../company/company-model";
 import "./company-tasks.css";
 import { isActiveRun, useLiveRuntime } from "../engines/live-runtime";
-import { latestRun } from "../engines/run-presentation";
 import type { ModelChoice } from "../engines/model-choice";
 import type { StepModelChoice } from "../engines/model-choice";
 import { approvalError, type ApprovalRule } from "./task-approvals";
@@ -92,7 +91,18 @@ export function TaskForm({
   const [submitting, setSubmitting] = useState<"save" | "start" | "">("");
   const [submitError, setSubmitError] = useState("");
   const live = useLiveRuntime();
-  const lastRun = latestRun(live.runs, `task:${taskId}`);
+  const taskRuns = live.runs
+    .filter((r) => r.request.key === `task:${taskId}`)
+    .sort((a, b) => b.createdAt - a.createdAt);
+  const [viewRunId, setViewRunId] = useState("");
+  const lastRun = taskRuns[0];
+  const viewedRun = taskRuns.find((r) => r.request.id === viewRunId) || lastRun;
+  const [notice, setNotice] = useState("");
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 3000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   const [mode, setMode] = useState<"build" | "run">(() =>
     lastRun && isActiveRun(lastRun) ? "run" : "build",
   );
@@ -157,8 +167,13 @@ export function TaskForm({
     try {
       if (run && start) {
         await start(draftTask);
+        setViewRunId("");
         setMode("run");
-      } else save(draftTask);
+        setNotice("Run started. Watch each block in Run.");
+      } else {
+        save(draftTask);
+        setNotice(existing ? "Changes saved." : "Draft saved.");
+      }
       setSubmitting("");
     } catch (error) {
       setSubmitError(String(error).replace(/^Error: /, ""));
@@ -209,7 +224,9 @@ export function TaskForm({
             schedulePreview={scheduleResult}
             mode={mode}
             setMode={setMode}
-            run={lastRun}
+            run={viewedRun}
+            runs={taskRuns}
+            selectRun={setViewRunId}
             runAgain={start && canSave ? () => void submitTask(true) : undefined}
           />
         ) : (
@@ -271,8 +288,15 @@ export function TaskForm({
         </p>
       )}
       <div className="co-task-submit">
-        <p>
-          {schedule.kind === "cron" ? (
+        <p
+          className={notice ? "co-task-notice" : !canSave && saveBlocker ? "co-task-blocker" : ""}
+          role="status"
+        >
+          {notice ? (
+            <>✓ {notice}</>
+          ) : !canSave && saveBlocker ? (
+            <>Can’t save yet: {saveBlocker}</>
+          ) : schedule.kind === "cron" ? (
             <>Save the schedule, then enable it when you are ready.</>
           ) : existing ? (
             <>Save changes or run the updated workflow now.</>

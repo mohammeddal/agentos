@@ -782,6 +782,93 @@ svg {
 .co-workflow-builder-shell > .co-task-form {
   padding-top: 0;
 }
+/* Workflow page: the heading, toolbar, and save bar stay put; only the canvas scrolls. */
+.co-content.co-workflow-page {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 20px;
+}
+.co-workflow-page > * {
+  flex-shrink: 0;
+}
+.co-workflow-page > .co-workflow-builder-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.co-workflow-builder-shell > .co-task-form {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+.co-workflow-builder-shell > .co-task-form > * {
+  flex-shrink: 0;
+}
+.co-workflow-builder-shell > .co-task-form > .co-task-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.co-workflow-builder-shell .co-task-panel > .tc {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-inline: 0;
+  padding-top: 12px;
+}
+.co-workflow-builder-shell .tc > * {
+  flex-shrink: 0;
+}
+.co-workflow-builder-shell .tc > .tc-layout {
+  flex: 1;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+.co-workflow-builder-shell .tc-palette,
+.co-workflow-builder-shell .tc-inspector {
+  max-height: none;
+  min-height: 0;
+  overflow: auto;
+}
+.co-workflow-builder-shell .tc-center {
+  min-height: 0;
+}
+.co-workflow-builder-shell .tc-canvas {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+.co-workflow-builder-shell .co-task-submit {
+  position: static;
+  margin: 0;
+}
+.co-workflow-builder-shell .co-task-submit-error {
+  margin: 8px 28px 0;
+}
+/* Narrow windows stack the builder, so its area scrolls instead of squeezing the canvas. */
+@media (max-width: 780px) {
+  .co-workflow-builder-shell .co-task-panel > .tc,
+  .co-workflow-builder-shell .tc > .tc-layout {
+    flex: none;
+    grid-template-rows: auto;
+  }
+  .co-workflow-builder-shell .tc-canvas {
+    flex: none;
+    height: 380px;
+  }
+  .co-workflow-builder-shell .tc-palette,
+  .co-workflow-builder-shell .tc-inspector {
+    overflow: visible;
+  }
+}
 .co-workflow-missing {
   display: grid;
   justify-items: center;

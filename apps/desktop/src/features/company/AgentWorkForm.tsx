@@ -28,13 +28,13 @@ export function AgentWorkForm({
   }
   return (
     <form
-      className="fp-give-work"
+      className="map-give-work"
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
       }}
     >
-      <span>GIVE {agent.name.toUpperCase()} WORK</span>
+      <span>Give {agent.name} work</span>
       <textarea
         rows={3}
         maxLength={3000}
@@ -47,7 +47,7 @@ export function AgentWorkForm({
         <Play size={13} /> {busy ? "Starting…" : "Start"}
       </button>
       {error && (
-        <p className="fp-approval-error" role="alert">
+        <p className="map-error" role="alert">
           {error}
         </p>
       )}

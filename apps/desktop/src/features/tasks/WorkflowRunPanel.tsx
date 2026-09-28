@@ -4,7 +4,7 @@ import { StatusPill, type CanvasStatus } from "../canvas/CanvasKit";
 import { nodeSteps } from "../canvas/run-state";
 import { blockNames, type CanvasNode } from "./task-canvas-model";
 
-const runStatus = (run: LiveRun): CanvasStatus =>
+export const runCanvasStatus = (run: LiveRun): CanvasStatus =>
   run.status === "awaiting_approval"
     ? "approval"
     : isActiveRun(run)
@@ -15,15 +15,43 @@ const runStatus = (run: LiveRun): CanvasStatus =>
           ? "failed"
           : "skipped";
 
-/** Inspector content for Run mode: the whole run, or the selected block's part of it. */
+const stepStatus = (run: LiveRun, stepId: string): CanvasStatus => {
+  const result = run.results.find((r) => r.id === stepId);
+  if (!result) return isActiveRun(run) ? "waiting" : "skipped";
+  if (result.status === "running")
+    return run.status === "awaiting_approval" ? "approval" : "working";
+  if (result.status === "completed") return "done";
+  if (result.status === "failed") return "failed";
+  return "skipped";
+};
+
+const when = (at: number) =>
+  new Date(at).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+/**
+ * Inspector content for Run mode. The workflow block (or no selection) shows the whole run with
+ * every step's status and output; other blocks show their own part of it. A run picker lets you
+ * look back at previous runs on the same canvas.
+ */
 export function WorkflowRunPanel({
+  runs,
   run,
+  selectRun,
   node,
+  isRoot,
   status,
   runAgain,
 }: {
+  runs: LiveRun[];
   run: LiveRun | undefined;
+  selectRun: (id: string) => void;
   node: CanvasNode | undefined;
+  isRoot: boolean;
   status: CanvasStatus | undefined;
   runAgain?: (() => void) | undefined;
 }) {
@@ -46,8 +74,8 @@ export function WorkflowRunPanel({
       <>
         <h3>Not run yet</h3>
         <p className="ck-empty">
-          Run this workflow to watch each block light up as it works, waits for approval, finishes,
-          or fails.
+          Press Save & run to start it. Each block lights up as it works, waits for approval,
+          finishes, or fails, and its output appears here.
         </p>
         {runAgain && (
           <div className="ck-actions">
@@ -59,8 +87,8 @@ export function WorkflowRunPanel({
       </>
     );
   const approvals =
-    run.approvals.length && (!node || status === "approval") ? (
-      <section className="ck-section">
+    run.approvals.length > 0 ? (
+      <section className="ck-section ck-approvals">
         <span>Needs your approval</span>
         {run.approvals.map((approval) => (
           <div key={approval.id} className="ck-section">
@@ -88,54 +116,78 @@ export function WorkflowRunPanel({
         ))}
       </section>
     ) : null;
-  if (node) {
+  const picker = (
+    <label className="ck-run-picker">
+      <span>Viewing</span>
+      <select value={run.request.id} onChange={(event) => selectRun(event.target.value)}>
+        {runs.map((item, index) => (
+          <option key={item.request.id} value={item.request.id}>
+            {index === 0 ? "Latest · " : ""}
+            {when(item.createdAt)} · {item.status.replaceAll("_", " ")}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  const step = (stepId: string, label: string, engine: string, open: boolean) => {
+    const result = run.results.find((r) => r.id === stepId);
+    const state = stepStatus(run, stepId);
+    return (
+      <details className="ck-step" key={stepId} open={open}>
+        <summary>
+          <span>{label}</span>
+          <small>{engine}</small>
+          <StatusPill status={state} />
+        </summary>
+        {result?.output ? (
+          <pre className="ck-output">{result.output}</pre>
+        ) : (
+          <p className="ck-empty">
+            {state === "working"
+              ? "Working…"
+              : state === "skipped"
+                ? "Skipped: its condition was not met."
+                : state === "waiting"
+                  ? "Waiting for earlier steps."
+                  : "No output recorded."}
+          </p>
+        )}
+      </details>
+    );
+  };
+
+  if (node && !isRoot) {
     const steps = nodeSteps(run, node.id);
     return (
       <>
+        {picker}
         <h3>{node.title || blockNames[node.kind]}</h3>
         {status ? (
           <StatusPill status={status} />
         ) : (
           <p className="ck-empty">
-            {blockNames[node.kind]} blocks feed the steps they are attached to and have no run
-            status of their own.
+            {blockNames[node.kind]} blocks give the steps they are attached to extra context or
+            limits; they don’t run on their own. Select the workflow block to see the whole run.
           </p>
         )}
-        {approvals}
-        {steps.map((step) => {
-          const result = run.results.find((r) => r.id === step.id);
-          return (
-            <section className="ck-section" key={step.id}>
-              <span>
-                {step.label} · {step.engine}
-              </span>
-              {result?.output ? (
-                <pre className="ck-output">{result.output}</pre>
-              ) : (
-                <p className="ck-empty">
-                  {result?.status === "running"
-                    ? "Working…"
-                    : result?.status === "skipped"
-                      ? "Skipped: its condition was not met."
-                      : result
-                        ? "No output recorded."
-                        : "Not started."}
-                </p>
-              )}
-            </section>
-          );
-        })}
+        {status === "approval" && approvals}
+        {steps.map((s) => step(s.id, s.label, s.engine, true))}
         {error && <p className="ck-error">{error}</p>}
       </>
     );
   }
+  const active = isActiveRun(run);
+  const current = run.request.steps.find(
+    (s) => run.results.find((r) => r.id === s.id)?.status === "running",
+  );
   return (
     <>
+      {picker}
       <h3>{run.request.title}</h3>
-      <StatusPill status={runStatus(run)} />
+      <StatusPill status={runCanvasStatus(run)} />
       <p className="ck-empty">
-        Started {new Date(run.createdAt).toLocaleString()} · updated{" "}
-        {new Date(run.updatedAt).toLocaleTimeString()}. Select a block to see its output.
+        Started {when(run.createdAt)} · updated {new Date(run.updatedAt).toLocaleTimeString()}
+        {current ? ` · now on “${current.label}”` : ""}
       </p>
       {run.error && <p className="ck-error">{run.error}</p>}
       {approvals}
@@ -146,7 +198,18 @@ export function WorkflowRunPanel({
         </section>
       )}
       <section className="ck-section">
-        <span>Run log · {run.events.length}</span>
+        <span>Steps · {run.request.steps.length}</span>
+        {run.request.steps.map((s) =>
+          step(
+            s.id,
+            s.label,
+            s.engine,
+            stepStatus(run, s.id) === "working" || stepStatus(run, s.id) === "failed",
+          ),
+        )}
+      </section>
+      <details className="ck-section ck-log-toggle">
+        <summary>Run log · {run.events.length}</summary>
         {run.events.length ? (
           <ol className="ck-log">
             {run.events.map((event, index) => (
@@ -159,9 +222,9 @@ export function WorkflowRunPanel({
         ) : (
           <p className="ck-empty">No events recorded yet.</p>
         )}
-      </section>
+      </details>
       <div className="ck-actions">
-        {isActiveRun(run) ? (
+        {active ? (
           <button
             type="button"
             className="co-button"
