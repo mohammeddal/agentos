@@ -21,24 +21,16 @@ import "./workspace-directory.css";
 
 function Actions({ label, children }: { label: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [side, setSide] = useState<"top" | "bottom">("bottom");
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const popup = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
   useLayoutEffect(() => {
-    if (!open || !trigger.current || !popup.current) return;
+    if (!open || !popup.current || !trigger.current) return;
     const anchor = trigger.current.getBoundingClientRect();
-    const height = popup.current.offsetHeight;
-    const width = popup.current.offsetWidth;
-    setPosition({
-      left: Math.max(8, Math.min(anchor.right - width, window.innerWidth - width - 8)),
-      top: Math.max(
-        8,
-        anchor.bottom + height + 8 < window.innerHeight
-          ? anchor.bottom + 4
-          : anchor.top - height - 4,
-      ),
-    });
+    const boundary = root.current?.closest(".co-directory")?.getBoundingClientRect();
+    const roomBelow = (boundary?.bottom ?? window.innerHeight) - anchor.bottom;
+    setSide(roomBelow < popup.current.offsetHeight + 8 ? "top" : "bottom");
     popup.current.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
   }, [open]);
   useEffect(() => {
@@ -102,7 +94,7 @@ function Actions({ label, children }: { label: string; children: ReactNode }) {
         <div
           className="co-dir-popup"
           ref={popup}
-          style={position}
+          data-side={side}
           role="group"
           aria-label={`${label} actions`}
           onClick={() => setOpen(false)}

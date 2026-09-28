@@ -97,21 +97,28 @@
 .co-dir-actions {
   position: relative;
   flex-shrink: 0;
+  z-index: 1;
+}
+.co-dir-actions:has(.co-dir-popup) {
+  z-index: 20;
 }
 .co-dir-popup {
-  position: fixed;
+  position: absolute;
   z-index: 30;
-  top: 100%;
-  right: auto;
-  width: 220px;
-  max-width: calc(100vw - 16px);
+  top: calc(100% + 3px);
+  right: 0;
+  width: min(210px, calc(100vw - 24px));
   padding: 5px;
   background: var(--co-card);
   border: 1px solid var(--co-border);
   border-radius: 10px;
   box-shadow: var(--co-shadow);
-  max-height: min(360px, calc(100dvh - 16px));
+  max-height: min(360px, calc(100dvh - 24px));
   overflow-y: auto;
+}
+.co-dir-popup[data-side="top"] {
+  top: auto;
+  bottom: calc(100% + 3px);
 }
 .co-dir-popup button {
   display: block;
