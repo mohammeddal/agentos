@@ -58,8 +58,12 @@ function Actions({ label, children }: { label: string; children: ReactNode }) {
     <div
       className="co-dir-actions"
       ref={root}
-      onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false);
+      onBlur={() => {
+        // WebKit may report no relatedTarget while a menu button is being clicked.
+        // Defer the focus check so the button action is delivered before unmounting the popup.
+        requestAnimationFrame(() => {
+          if (root.current && !root.current.contains(document.activeElement)) setOpen(false);
+        });
       }}
       onKeyDown={(e) => {
         if (e.key === "Escape" && open) {

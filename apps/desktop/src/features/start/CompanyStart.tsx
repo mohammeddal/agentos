@@ -39,6 +39,9 @@ export function CompanyStart({
   editTask: (task: CompanyTask) => void;
 }) {
   const selectedChat = company.chats?.find((c) => c.id === selectedChatId);
+  const selectedProject = company.projects?.find(
+    (project) => project.id === (selectedChat?.projectId || initialProjectId),
+  );
   const storageKey = selectedChatId
     ? `${PROMPT_STORAGE}:chat:${selectedChatId}`
     : initialProjectId
@@ -219,7 +222,11 @@ export function CompanyStart({
       <div className="co-start-main">
         <div className="co-start-intro">
           <h1>
-            {chat ? chat.messages[0]?.text || "Conversation" : "What would you like to work on?"}
+            {chat
+              ? chat.messages[0]?.text || "Conversation"
+              : selectedProject
+                ? `What would you like to work on in ${selectedProject.name}?`
+                : "What would you like to work on?"}
           </h1>
         </div>
         {selectedChatId && !selectedChat && (
@@ -477,7 +484,13 @@ export function CompanyStart({
               rows={1}
               maxLength={3000}
               placeholder={
-                draft.makeTask ? "Describe the task…" : chat ? "Reply…" : "Ask AgentOS anything…"
+                draft.makeTask
+                  ? "Describe the task…"
+                  : chat
+                    ? "Reply…"
+                    : selectedProject
+                      ? `Ask AgentOS anything in ${selectedProject.name}…`
+                      : "Ask AgentOS anything…"
               }
               value={draft.text}
               disabled={sending}
