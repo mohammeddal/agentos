@@ -187,6 +187,7 @@ export function TaskForm({
   initialProjectId,
   initialAgentId,
   save,
+  start,
   storageError,
   openResourceSettings,
 }: {
@@ -196,6 +197,7 @@ export function TaskForm({
   initialProjectId?: string | undefined;
   initialAgentId?: string | undefined;
   save: (task: CompanyTask) => void;
+  start?: ((task: CompanyTask) => Promise<void>) | undefined;
   storageError: boolean;
   openResourceSettings?: (task: CompanyTask, kind: ResourceSetupKind, engine: Engine) => void;
 }) {
@@ -213,9 +215,7 @@ export function TaskForm({
   );
   const [projectId, setProjectId] = useState(existing?.projectId || initialProjectId || "");
   const [panel, setPanel] = useState<"schedule" | "workflow">("workflow");
-  const [approval, setApproval] = useState<ApprovalRule>(
-    existing?.approval || (existing ? { kind: "none" } : { kind: "human" }),
-  );
+  const [approval, setApproval] = useState<ApprovalRule>(existing?.approval || { kind: "none" });
   const [schedule, setSchedule] = useState<TaskSchedule>(existing?.schedule || { kind: "manual" });
   const [handoffs, setHandoffs] = useState<HandoffStep[]>(existing?.handoffs || []);
   const [seedAssignment] = useState<TaskAssignment>(() =>
@@ -240,6 +240,8 @@ export function TaskForm({
     });
   });
   const [previewTime, setPreviewTime] = useState(() => new Date());
+  const [submitting, setSubmitting] = useState<"save" | "start" | "">("");
+  const [submitError, setSubmitError] = useState("");
   useEffect(() => {
     const timer = window.setInterval(() => setPreviewTime(new Date()), 60_000);
     return () => window.clearInterval(timer);
@@ -286,6 +288,18 @@ export function TaskForm({
     approval,
     ...(canvas ? { canvas } : {}),
   };
+  async function submitTask(run: boolean) {
+    if (!canSave || attaching || submitting) return;
+    setSubmitting(run ? "start" : "save");
+    setSubmitError("");
+    try {
+      if (run && start) await start(draftTask);
+      else save(draftTask);
+    } catch (error) {
+      setSubmitError(String(error).replace(/^Error: /, ""));
+      setSubmitting("");
+    }
+  }
   return (
     <form
       className="co-form co-task-form"
@@ -295,23 +309,7 @@ export function TaskForm({
       }}
       onSubmit={(event) => {
         event.preventDefault();
-        if (canSave && !attaching)
-          save({
-            id: taskId,
-            attachments,
-            ...(canvas ? { canvas } : {}),
-            modelDefaults,
-            stepModels,
-            ...(projectId ? { projectId } : {}),
-            schedule,
-            handoffs: canvas ? [] : handoffs,
-            approval,
-            title: resolvedTitle,
-            brief: brief.trim(),
-            assignment,
-            status: "planned",
-            createdAt,
-          });
+        void submitTask(schedule.kind === "manual" && !!start);
       }}
     >
       <nav className="co-task-editor-nav" aria-label="Task editor">
@@ -446,19 +444,55 @@ export function TaskForm({
           )}
         </div>
       )}
+      {submitError && (
+        <p role="alert" className="co-form-error co-task-submit-error">
+          {submitError}
+        </p>
+      )}
       <div className="co-task-submit">
         <p>
-          Saved locally as <strong>Planned</strong>.<br /> Schedules and workflows run only after
-          you enable or start them.
+          {schedule.kind === "cron" ? (
+            <>Save the schedule, then enable it when you are ready.</>
+          ) : existing ? (
+            <>Save changes or run the updated task now.</>
+          ) : (
+            <>Run now, or save it as a draft for later.</>
+          )}
         </p>
-        <button
-          type="submit"
-          className="co-button co-button-primary"
-          disabled={!canSave || attaching}
-        >
-          {attaching ? "Adding files…" : existing ? "Save task" : "Create task"}
-          <ArrowRight size={15} />
-        </button>
+        <div className="co-task-submit-actions">
+          {start && schedule.kind === "manual" && (
+            <button
+              type="button"
+              className="co-button"
+              disabled={!canSave || attaching || !!submitting}
+              onClick={() => void submitTask(false)}
+            >
+              {existing ? "Save changes" : "Save draft"}
+            </button>
+          )}
+          <button
+            type="submit"
+            className="co-button co-button-primary"
+            disabled={!canSave || attaching || !!submitting}
+          >
+            {attaching
+              ? "Adding files…"
+              : submitting === "start"
+                ? "Starting…"
+                : submitting === "save"
+                  ? "Saving…"
+                  : start && schedule.kind === "manual"
+                    ? existing
+                      ? "Save & run"
+                      : "Create & run"
+                    : existing
+                      ? "Save task"
+                      : schedule.kind === "cron"
+                        ? "Save schedule"
+                        : "Create task"}
+            <ArrowRight size={15} />
+          </button>
+        </div>
       </div>
     </form>
   );

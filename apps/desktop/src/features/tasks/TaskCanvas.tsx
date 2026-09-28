@@ -973,7 +973,17 @@ export function TaskCanvas({
             )}
           </div>
         </div>
-        <aside className="tc-inspector">
+        <aside
+          className="tc-inspector"
+          onKeyDownCapture={(event) => {
+            if (
+              event.target instanceof HTMLInputElement ||
+              event.target instanceof HTMLTextAreaElement ||
+              event.target instanceof HTMLSelectElement
+            )
+              event.stopPropagation();
+          }}
+        >
           <span className="co-section-kicker">{edge ? "CONNECTION" : "BLOCK SETTINGS"}</span>
           {node ? (
             <>

@@ -48,7 +48,12 @@ import { QuickFind } from "./QuickFind";
 import { useWorkspaceRoute } from "./useWorkspaceRoute";
 import { useLiveSchedules } from "../features/engines/live-schedules";
 import { pauseSchedule } from "../features/engines/live-schedules";
-import { isActiveRun, useLiveRuntime } from "../features/engines/live-runtime";
+import {
+  isActiveRun,
+  startLive,
+  taskRequest,
+  useLiveRuntime,
+} from "../features/engines/live-runtime";
 import {
   activeCompany,
   affectedRunKeys,
@@ -1014,6 +1019,19 @@ export function CompanyWorkspace() {
               }}
               save={(task) => {
                 upsertTask(task);
+                setDialog({ type: "inspect-task", taskId: task.id });
+              }}
+              start={async (task) => {
+                const nextCompany = {
+                  ...company,
+                  tasks: company.tasks?.some((candidate) => candidate.id === task.id)
+                    ? company.tasks.map((candidate) =>
+                        candidate.id === task.id ? task : candidate,
+                      )
+                    : [task, ...(company.tasks || [])],
+                };
+                upsertTask(task);
+                await startLive(await taskRequest(nextCompany, task));
                 setDialog({ type: "inspect-task", taskId: task.id });
               }}
             />

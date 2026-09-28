@@ -221,6 +221,15 @@
   color: var(--co-muted);
   margin: 0;
 }
+.co-task-submit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.co-task-submit-error {
+  margin: 8px 0 0;
+}
 .co-tasks-empty {
   display: flex;
   align-items: center;
@@ -358,6 +367,10 @@
     padding: 12px 22px;
     margin: 0 -22px -28px;
     gap: 8px;
+  }
+  .co-task-submit-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
   .co-task-card {
     padding: 16px;
