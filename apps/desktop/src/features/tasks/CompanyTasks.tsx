@@ -16,6 +16,7 @@ import { ScheduleEditor, WorkflowEditor } from "./TaskAutomation";
 import { TaskCanvas, type ResourceSetupKind } from "./TaskCanvas";
 import type { Engine } from "../engines/engine-inventory";
 import {
+  inferredTaskTitle,
   taskCanvasAssignment,
   taskCanvasFromAssignment,
   type TaskCanvasGraph,
@@ -250,7 +251,11 @@ export function TaskForm({
   const handoffError = canvas ? null : workflowError(company, taskId, handoffs);
   const assignment = canvas ? taskCanvasAssignment(company, canvas) : seedAssignment;
   const team = taskParticipants(company, assignment);
-  const assignmentValid = !!title.trim() && assignment.targets.length > 0;
+  const automaticTitle = canvas ? inferredTaskTitle(canvas) : "";
+  const resolvedTitle = title.trim() || automaticTitle;
+  const hasAssignment = assignment.targets.length > 0;
+  const hasTitle = !!resolvedTitle;
+  const assignmentValid = hasTitle && hasAssignment;
   const gateError = approvalError(
     company,
     approval,
@@ -267,7 +272,7 @@ export function TaskForm({
   }
   const draftTask: CompanyTask = {
     id: taskId,
-    title: title.trim() || "Untitled task",
+    title: resolvedTitle || "Untitled task",
     brief: brief.trim(),
     assignment,
     status: "planned",
@@ -301,7 +306,7 @@ export function TaskForm({
             schedule,
             handoffs: canvas ? [] : handoffs,
             approval,
-            title: title.trim(),
+            title: resolvedTitle,
             brief: brief.trim(),
             assignment,
             status: "planned",
@@ -418,9 +423,13 @@ export function TaskForm({
       </div>
       {!canSave && (
         <div className="co-task-save-errors">
-          {!assignmentValid ? (
+          {!hasAssignment ? (
             <button type="button" onClick={() => setPanel("workflow")}>
-              Add a task name and connect an office or agent to save.
+              Connect an office or agent to save.
+            </button>
+          ) : !hasTitle ? (
+            <button type="button" onClick={() => setPanel("workflow")}>
+              Add a task name in Task settings to save.
             </button>
           ) : gateError ? (
             <button type="button" onClick={() => setPanel("workflow")}>

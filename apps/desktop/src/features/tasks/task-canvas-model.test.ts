@@ -6,6 +6,7 @@ import {
   connectCanvas,
   connectionError,
   fitCanvas,
+  inferredTaskTitle,
   initialTaskCanvas,
   isTaskCanvas,
   newCanvasNode,
@@ -158,6 +159,20 @@ describe("visual task blueprints", () => {
     const warnings = canvasWarnings(starterCompany, graph).join(" ");
     expect(warnings).not.toContain("Agent: not connected");
     expect(warnings).not.toContain("Custom prompt: not connected");
+  });
+  it("infers a clean task title from a one-agent workflow prompt", () => {
+    const agent = {
+      ...newCanvasNode("agent", 100, 100, "news"),
+      title: "AI News",
+      prompt: "**fetch latest ai news **",
+      reference: "analyst",
+    };
+    expect(inferredTaskTitle({ version: 1, nodes: [agent], edges: [] })).toBe(
+      "Fetch latest ai news",
+    );
+    expect(inferredTaskTitle({ version: 1, nodes: [{ ...agent, prompt: "" }], edges: [] })).toBe(
+      "AI News",
+    );
   });
   it("accepts incomplete drafts and reports missing references and disconnected blocks", () => {
     const g = sample();

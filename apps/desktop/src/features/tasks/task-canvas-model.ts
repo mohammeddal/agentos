@@ -110,6 +110,32 @@ export function canvasEntryNodes(graph: TaskCanvasGraph): CanvasNode[] {
   );
 }
 
+/**
+ * Give lightweight workflows a useful directory name without forcing a separate
+ * metadata step. An explicit task name still wins in the task form.
+ */
+export function inferredTaskTitle(graph: TaskCanvasGraph): string {
+  const work = graph.nodes.filter((node) => !attachmentKinds.includes(node.kind));
+  const task = work.find((node) => node.kind === "task");
+  const source =
+    task?.prompt.trim() ||
+    work.find((node) => node.prompt.trim())?.prompt.trim() ||
+    work
+      .find((node) => node.title.trim() && node.title.trim() !== blockNames[node.kind])
+      ?.title.trim() ||
+    "";
+  const firstLine = source.split(/\r?\n/).find((line) => line.trim()) || "";
+  const plain = firstLine
+    .replace(/^\s*(?:#{1,6}|[-+])\s+/, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/[\*`_~]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!plain) return "";
+  const title = plain[0]!.toUpperCase() + plain.slice(1);
+  return title.length > 120 ? `${title.slice(0, 119).trimEnd()}…` : title;
+}
+
 function reachableCanvasNodes(graph: TaskCanvasGraph): Set<string> {
   const reachable = new Set(canvasEntryNodes(graph).map((node) => node.id));
   let changed = true;
