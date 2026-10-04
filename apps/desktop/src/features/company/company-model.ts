@@ -30,6 +30,8 @@ export type CompanyAgent = {
   engine: string;
   prompt?: string;
   skills?: AgentSkillReference[];
+  /** The agent's own model; workflow defaults and step overrides still take precedence. */
+  modelChoice?: ModelChoice;
 };
 export type Office = {
   id: string;
@@ -42,6 +44,8 @@ export type TaskAssignment = { kind: "domains" | "agents"; targets: string[] };
 export type CompanyChat = {
   lifecycle?: Lifecycle;
   modelChoice?: ModelChoice;
+  /** Runs with workspace write access and per-action approvals instead of read-only. */
+  actions?: boolean;
   id: string;
   engine: string;
   projectId?: string;
@@ -75,6 +79,8 @@ export type CompanyTask = {
   lifecycle?: Lifecycle;
   modelDefaults?: Record<string, ModelChoice>;
   stepModels?: Record<string, StepModelChoice>;
+  /** Absolute folder this workflow saves to; overrides the project's folder when set. */
+  directory?: string;
   id: string;
   title: string;
   brief: string;
@@ -215,6 +221,7 @@ export function isCompany(value: unknown): value is Company {
             typeof a.role === "string" &&
             typeof a.engine === "string" &&
             (a.prompt === undefined || (typeof a.prompt === "string" && a.prompt.length <= 6000)) &&
+            (a.modelChoice === undefined || isModelChoice(a.modelChoice)) &&
             (a.skills === undefined ||
               (Array.isArray(a.skills) &&
                 a.skills.length <= 24 &&
@@ -250,6 +257,7 @@ export function isCompanyChat(value: unknown): value is CompanyChat {
   const chat = value as CompanyChat;
   if (!validLifecycle(chat.lifecycle)) return false;
   if (chat.modelChoice !== undefined && !isModelChoice(chat.modelChoice)) return false;
+  if (chat.actions !== undefined && typeof chat.actions !== "boolean") return false;
   return (
     typeof chat.id === "string" &&
     !!chat.id &&
@@ -301,6 +309,13 @@ export function isCompanyTask(value: unknown): value is CompanyTask {
   if (task.officeId !== undefined && (typeof task.officeId !== "string" || !task.officeId))
     return false;
   if (task.projectId !== undefined && (typeof task.projectId !== "string" || !task.projectId))
+    return false;
+  if (
+    task.directory !== undefined &&
+    (typeof task.directory !== "string" ||
+      !task.directory.startsWith("/") ||
+      task.directory.length > 4096)
+  )
     return false;
   if (task.approval !== undefined && !isApprovalRule(task.approval)) return false;
   if (task.schedule !== undefined && !isTaskSchedule(task.schedule)) return false;

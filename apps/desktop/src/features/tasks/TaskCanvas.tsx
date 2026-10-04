@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   CalendarClock,
   ArrowRight,
@@ -34,7 +34,10 @@ import { companyDomains, type Company, type CompanyTask } from "../company/compa
 import { AttachmentEditor } from "../attachments/Attachments";
 import { HelpTip } from "../../shared/HelpTip";
 import type { Attachment } from "../attachments/attachment-model";
-import { compileTask, type LiveStep } from "../engines/live-runtime";
+import { compileTask, engineId, workflowFolder, type LiveStep } from "../engines/live-runtime";
+import { mentionedTools, useInstalledTools } from "../engines/installed-tools";
+import { useResizableWidth } from "../../shared/useResizableWidth";
+import { projectRepository } from "../projects/project-repository";
 import { TaskModels } from "../engines/TaskModels";
 import type { ApprovalRule } from "./task-approvals";
 import {
@@ -141,6 +144,7 @@ export function TaskCanvas({
   storageError,
   saveModels,
   changeProject,
+  changeDirectory,
   changeAttachments,
   onAttachmentsBusy,
   changeApproval,
@@ -155,6 +159,7 @@ export function TaskCanvas({
   runs = [],
   selectRun,
   runAgain,
+  runFrom,
   embedded = false,
 }: {
   company: Company;
@@ -164,6 +169,8 @@ export function TaskCanvas({
   storageError: boolean;
   saveModels: (task: CompanyTask) => void;
   changeProject?: (projectId: string) => void;
+  /** Set or clear (empty string) the folder this workflow saves to. */
+  changeDirectory?: (directory: string) => void;
   changeAttachments?: (attachments: Attachment[]) => void;
   onAttachmentsBusy?: (busy: boolean) => void;
   changeApproval?: (rule: ApprovalRule) => void;
@@ -180,6 +187,8 @@ export function TaskCanvas({
   runs?: LiveRun[];
   selectRun?: (id: string) => void;
   runAgain?: (() => void) | undefined;
+  /** Reruns one step and everything after it, reusing earlier outputs from the latest run. */
+  runFrom?: ((stepId: string) => void) | undefined;
   embedded?: boolean;
 }) {
   const [graph, setGraph] = useState(() => initialTaskCanvas(task));
@@ -213,6 +222,55 @@ export function TaskCanvas({
   const node = graph.nodes.find((n) => n.id === selected),
     edge = graph.edges.find((e) => e.id === edgeId);
   const contextType: ContextType = node?.kind === "context" ? node.contextType || "notes" : "notes";
+  // Typing "use <tool>" in a step attaches that installed tool, so there is no separate discovery.
+  const agentEngine =
+    node?.kind === "agent"
+      ? company.offices.flatMap((o) => o.agents).find((a) => a.id === node.reference)?.engine
+      : node?.engine;
+  const toolEngine = engineId(agentEngine || "codex") === "claude" ? "claude" : "codex";
+  const installedTools = useInstalledTools(toolEngine);
+  const inspector = useResizableWidth("agentos:inspector-width", 400);
+  const [toolNotice, setToolNotice] = useState("");
+  useEffect(() => {
+    if (mode !== "build" || !node || !stepKinds.includes(node.kind)) return;
+    const timer = window.setTimeout(() => {
+      const attached = new Set(
+        graph.edges
+          .filter((e) => e.kind === "attachment" && e.to === node.id)
+          .map((e) => graph.nodes.find((n) => n.id === e.from)?.reference),
+      );
+      const missing = mentionedTools(node.prompt, installedTools).filter(
+        (tool) => !attached.has(tool.id),
+      );
+      if (!missing.length || graph.nodes.length + missing.length > 80) return;
+      let next = graph;
+      missing.forEach((tool, index) => {
+        const resource: CanvasNode = {
+          ...newCanvasNode(
+            tool.kind as BlockKind,
+            Math.min(2190, Math.max(0, node.x - 270)),
+            Math.min(1470, node.y + (attached.size + index) * 155),
+          ),
+          title: tool.name.slice(0, 120),
+          reference: tool.id,
+          source: tool.source,
+          engine: toolEngine,
+          capabilityStatus: tool.status,
+        };
+        next = connectCanvas({ ...next, nodes: [...next.nodes, resource] }, resource.id, node.id);
+      });
+      commit(next);
+      setToolNotice(
+        `Attached ${missing.map((tool) => tool.name).join(", ")} from your installed ${toolEngine === "claude" ? "Claude Code" : "Codex"} tools.`,
+      );
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [node?.id, node?.prompt, installedTools, mode]);
+  useEffect(() => {
+    if (!toolNotice) return;
+    const timer = window.setTimeout(() => setToolNotice(""), 4000);
+    return () => window.clearTimeout(timer);
+  }, [toolNotice]);
   const agents = company.offices.flatMap((o) => o.agents);
   const taskApprovalAgentId = task.approval?.kind === "agent" ? task.approval.agentId : "";
   const scopedFileIds = new Set(graph.nodes.flatMap((candidate) => candidate.attachmentIds || []));
@@ -480,6 +538,36 @@ export function TaskCanvas({
           </select>
         </label>
       )}
+      <div className="tc-output-folder">
+        <span>
+          <FolderOpen size={13} />
+          Saves files to
+        </span>
+        <code title={workflowFolder(company, task)}>{workflowFolder(company, task)}</code>
+        {changeDirectory && (
+          <div>
+            <button
+              type="button"
+              className="co-button"
+              onClick={async () => {
+                try {
+                  const picked = await projectRepository("pick");
+                  if (picked) changeDirectory(picked.path);
+                } catch (cause) {
+                  setError(String(cause).replace(/^Error: /, ""));
+                }
+              }}
+            >
+              {task.directory ? "Change folder…" : "Choose folder…"}
+            </button>
+            {task.directory && (
+              <button type="button" className="co-button" onClick={() => changeDirectory("")}>
+                Use {task.projectId ? "project" : "default"} folder
+              </button>
+            )}
+          </div>
+        )}
+      </div>
       {changeApproval && (
         <label>
           Before this workflow starts
@@ -601,7 +689,10 @@ export function TaskCanvas({
           <ZoomControls zoom={zoom} setZoom={setZoom} fit={fit} />
         </div>
       </div>
-      <div className={`tc-layout ${running ? "ck-no-palette" : ""}`}>
+      <div
+        className={`tc-layout ${running ? "ck-no-palette" : ""}`}
+        style={{ "--inspector-w": `${inspector.width}px` } as CSSProperties}
+      >
         {!running && (
           <aside className="tc-palette" aria-label="Workflow blocks">
             {scheduleBlock && (
@@ -939,6 +1030,11 @@ export function TaskCanvas({
               );
             })}
           </CanvasStage>
+          {toolNotice && !error && !connecting && (
+            <div className="tc-hint" role="status">
+              {toolNotice}
+            </div>
+          )}
           {(error || connecting) && (
             <div className="tc-hint" role="status">
               {error || "Choose an input dot to connect."}
@@ -968,6 +1064,18 @@ export function TaskCanvas({
               event.stopPropagation();
           }}
         >
+          <div
+            className="co-resize-handle"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize panel"
+            tabIndex={0}
+            onPointerDown={inspector.startResize}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") inspector.nudge(24);
+              if (event.key === "ArrowRight") inspector.nudge(-24);
+            }}
+          />
           <span className="co-section-kicker">
             {running ? (node ? "BLOCK RUN" : "RUN") : edge ? "CONNECTION" : "BLOCK SETTINGS"}
           </span>
@@ -980,6 +1088,7 @@ export function TaskCanvas({
               node={node}
               status={node ? statuses[node.id] : undefined}
               runAgain={runAgain}
+              runFrom={runFrom}
             />
           ) : selected === SCHEDULE_ID && schedule && changeSchedule && schedulePreview ? (
             <>

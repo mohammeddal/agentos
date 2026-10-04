@@ -7,12 +7,20 @@ export type MemoryEntry = {
   evidence: string;
   prevention: string;
   scope: string;
-  source: "manual" | "rehearsal";
+  source: "manual" | "rehearsal" | "run";
   sourceId: string;
   createdAt: string;
   updatedAt: string;
 };
-export type MemoryLibrary = { version: 1; enabled: boolean; entries: MemoryEntry[] };
+export type MemoryLibrary = {
+  version: 1;
+  enabled: boolean;
+  /** Strict review: only reviewed records with evidence reach agents. Off = plain notes. */
+  strict?: boolean;
+  /** Save lessons and failures from finished runs automatically (on unless set to false). */
+  learn?: boolean;
+  entries: MemoryEntry[];
+};
 export const emptyMemory: MemoryLibrary = { version: 1, enabled: true, entries: [] };
 export const memoryKinds = {
   fact: "Fact",
@@ -23,13 +31,14 @@ export const memoryKinds = {
 const entryMarker = "<!-- agentos-memory-entry-v1\n";
 const marker = "<!-- agentos-memory-v1\n";
 const normalize = (text: string) => text.trim().toLowerCase().replace(/\s+/g, " ");
-export function entryError(entry: MemoryEntry): string | null {
-  if (!entry.title.trim() || !entry.body.trim())
-    return "Add a title and a specific, self-contained statement.";
-  if (entry.status === "reviewed" && (!entry.evidence.trim() || entry.source === "rehearsal"))
-    return "Reviewed memory needs real evidence. Rehearsal observations must remain drafts.";
-  if (entry.status === "reviewed" && entry.kind === "lesson" && !entry.prevention.trim())
-    return "Describe what to do differently next time before reviewing a lesson.";
+export function entryError(entry: MemoryEntry, strict = false): string | null {
+  if (!entry.title.trim() || !entry.body.trim()) return "Add a name and some content.";
+  if (entry.status === "reviewed" && entry.source === "rehearsal")
+    return "Rehearsal observations must remain drafts.";
+  if (strict && entry.status === "reviewed" && !entry.evidence.trim())
+    return "Strict review: reviewed memory needs evidence.";
+  if (strict && entry.status === "reviewed" && entry.kind === "lesson" && !entry.prevention.trim())
+    return "Strict review: describe what to do differently next time before reviewing a lesson.";
   if (
     /(?:\bsk-[A-Za-z0-9_-]{16,}|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|\b(?:password|api[_ -]?key|access[_ -]?token)\s*[:=]\s*\S+)/i.test(
       [entry.body, entry.evidence, entry.prevention].join("\n"),
@@ -44,6 +53,8 @@ export function isMemoryLibrary(value: unknown): value is MemoryLibrary {
   return (
     library.version === 1 &&
     typeof library.enabled === "boolean" &&
+    (library.strict === undefined || typeof library.strict === "boolean") &&
+    (library.learn === undefined || typeof library.learn === "boolean") &&
     Array.isArray(library.entries) &&
     library.entries.length <= 500 &&
     new Set(library.entries.map((e) => e?.id)).size === library.entries.length &&
@@ -52,7 +63,7 @@ export function isMemoryLibrary(value: unknown): value is MemoryLibrary {
         !e ||
         !["fact", "lesson", "issue", "decision"].includes(e.kind) ||
         !["draft", "reviewed", "archived"].includes(e.status) ||
-        !["manual", "rehearsal"].includes(e.source)
+        !["manual", "rehearsal", "run"].includes(e.source)
       )
         return false;
       for (const key of [
@@ -77,12 +88,16 @@ export function isMemoryLibrary(value: unknown): value is MemoryLibrary {
     })
   );
 }
+/** Records agents may use: reviewed ones in strict mode, everything not archived otherwise. */
+export function usable(library: MemoryLibrary, entry: MemoryEntry): boolean {
+  return library.strict ? entry.status === "reviewed" : entry.status !== "archived";
+}
 export function conflictingIds(library: MemoryLibrary): Set<string> {
   const result = new Set<string>();
-  for (const entry of library.entries.filter((e) => e.status === "reviewed")) {
+  for (const entry of library.entries.filter((e) => usable(library, e))) {
     const peers = library.entries.filter(
       (e) =>
-        e.status === "reviewed" &&
+        usable(library, e) &&
         e.id !== entry.id &&
         e.scope === entry.scope &&
         e.kind === entry.kind &&
@@ -112,7 +127,7 @@ export function memoryContext(library: MemoryLibrary, scopes: string[], query = 
   const terms = normalize(query).split(" ").filter(Boolean);
   return library.entries.filter(
     (e) =>
-      e.status === "reviewed" &&
+      usable(library, e) &&
       !conflicts.has(e.id) &&
       (e.scope === "company" || scopes.includes(e.scope)) &&
       (!terms.length ||
@@ -167,7 +182,11 @@ export function renderEntryDocument(entry: MemoryEntry): string {
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
   };
-  return `${entryMarker}${JSON.stringify(metadata).replace(/</g, "\\u003c")}\n-->\n# ${entry.title.replace(/\n/g, " ").trim()}\n\n${documentText(entry.body)}\n\n## Evidence\n\n${documentText(entry.evidence)}\n\n## Next time\n\n${documentText(entry.prevention)}\n`;
+  const optional = [
+    entry.evidence.trim() ? `\n\n## Evidence\n\n${entry.evidence.trim()}` : "",
+    entry.prevention.trim() ? `\n\n## Next time\n\n${entry.prevention.trim()}` : "",
+  ].join("");
+  return `${entryMarker}${JSON.stringify(metadata).replace(/</g, "\\u003c")}\n-->\n# ${entry.title.replace(/\n/g, " ").trim()}\n\n${entry.body.trim()}${optional}\n`;
 }
 
 export function parseEntryDocument(markdown: string): MemoryEntry {
@@ -181,12 +200,16 @@ export function parseEntryDocument(markdown: string): MemoryEntry {
     throw new Error("The memory metadata is invalid.");
   }
   const content = markdown.slice(markerEnd + 5);
-  const evidenceAt = content.indexOf("\n## Evidence\n");
-  const nextTimeAt = content.indexOf("\n## Next time\n");
-  if (!content.startsWith("# ") || evidenceAt < 0 || nextTimeAt < evidenceAt)
-    throw new Error("Keep the title, Evidence, and Next time headings in the file.");
+  // Evidence and Next time are optional sections; plain notes have only a title and body.
+  const evidenceIndex = content.indexOf("\n## Evidence\n");
+  const nextTimeIndex = content.indexOf("\n## Next time\n");
+  const end = content.length;
+  const evidenceAt = evidenceIndex < 0 ? (nextTimeIndex < 0 ? end : nextTimeIndex) : evidenceIndex;
+  const nextTimeAt = nextTimeIndex < 0 ? end : nextTimeIndex;
+  if (!content.startsWith("# ") || nextTimeAt < evidenceAt)
+    throw new Error("Start the file with a “# Name” line; keep Evidence before Next time.");
   const titleEnd = content.indexOf("\n", 2);
-  if (titleEnd < 0) throw new Error("Add content below the title.");
+  if (titleEnd < 0) throw new Error("Add content below the name.");
   const cleanOptional = (value: string) => {
     const result = value.trim();
     return result === "Not supplied" ? "" : result;
@@ -194,9 +217,13 @@ export function parseEntryDocument(markdown: string): MemoryEntry {
   const entry: MemoryEntry = {
     ...metadata,
     title: content.slice(2, titleEnd).trim(),
-    body: content.slice(titleEnd + 1, evidenceAt).trim(),
-    evidence: cleanOptional(content.slice(evidenceAt + "\n## Evidence\n".length, nextTimeAt)),
-    prevention: cleanOptional(content.slice(nextTimeAt + "\n## Next time\n".length)),
+    body: cleanOptional(content.slice(titleEnd + 1, evidenceAt)),
+    evidence:
+      evidenceIndex < 0
+        ? ""
+        : cleanOptional(content.slice(evidenceAt + "\n## Evidence\n".length, nextTimeAt)),
+    prevention:
+      nextTimeIndex < 0 ? "" : cleanOptional(content.slice(nextTimeAt + "\n## Next time\n".length)),
   };
   if (!isMemoryLibrary({ version: 1, enabled: true, entries: [entry] }))
     throw new Error(entryError(entry) || "This memory file contains invalid metadata.");

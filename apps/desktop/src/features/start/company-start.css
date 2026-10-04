@@ -470,3 +470,52 @@
   font-size: 11px;
   color: var(--co-muted);
 }
+.co-prompt-task-toggle > span {
+  display: grid;
+  gap: 2px;
+}
+.co-prompt-task-toggle small {
+  color: var(--co-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.co-composer-stop {
+  background: var(--co-text);
+}
+.co-chat-approval {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--co-border);
+  border-radius: 8px;
+  background: var(--co-soft);
+  font-size: 11px;
+}
+.co-chat-approval pre {
+  max-height: 160px;
+  overflow: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+  color: var(--co-secondary);
+}
+.co-chat-approval > div {
+  display: flex;
+  gap: 8px;
+}
+.co-chat-mode {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--co-soft);
+  color: var(--co-secondary);
+  font-size: 10px;
+}
+.co-prompt-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}

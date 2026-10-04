@@ -594,3 +594,44 @@
 .co-company-bar > .co-button {
   flex-shrink: 0;
 }
+.co-nav-badge {
+  margin-left: auto;
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #b7791f;
+  color: #fff;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Drag the panel's left edge to resize it. */
+.co-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 8px;
+  z-index: 4;
+  cursor: col-resize;
+}
+.co-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 2px;
+  height: 36px;
+  margin-top: -18px;
+  border-radius: 2px;
+  background: var(--co-border);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.co-resize-handle:hover::after,
+.co-resize-handle:focus-visible::after {
+  opacity: 1;
+  background: var(--co-secondary);
+}

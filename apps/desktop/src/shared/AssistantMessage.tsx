@@ -1,5 +1,6 @@
 import Markdown from "react-markdown";
 import "./assistant-message.css";
+import { stripMemoryBlocks } from "../features/memory/run-learning";
 
 /** Provider text is untrusted. No raw HTML, embedded images, or local navigation. */
 export function AssistantMessage({ text }: { text: string }) {
@@ -26,7 +27,7 @@ export function AssistantMessage({ text }: { text: string }) {
           h2: ({ children }) => <h3>{children}</h3>,
         }}
       >
-        {text}
+        {stripMemoryBlocks(text)}
       </Markdown>
     </div>
   );

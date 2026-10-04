@@ -1,9 +1,11 @@
 import type { CompanyChat } from "../company/company-model";
+import { AlwaysAllowButton } from "../engines/AlwaysAllowButton";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Archive, Copy, MoreHorizontal, Trash2 } from "lucide-react";
 import { AssistantMessage } from "../../shared/AssistantMessage";
 import { AttachmentList } from "../attachments/Attachments";
-import { isActiveRun, useLiveRuntime } from "../engines/live-runtime";
+import { RunOutcome } from "../engines/RunOutcome";
+import { controlLive, isActiveRun, useLiveRuntime, type LiveRun } from "../engines/live-runtime";
 
 const engineLabel = (engine: string) =>
   engine.toLowerCase() === "claude"
@@ -11,6 +13,55 @@ const engineLabel = (engine: string) =>
     : engine.toLowerCase() === "codex"
       ? "Codex"
       : engine;
+
+/** Approve or reject actions a chat that can make changes is waiting on. */
+function ChatApprovals({ run }: { run: LiveRun }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function decide(id: string, allow: boolean) {
+    setBusy(true);
+    setError("");
+    try {
+      await controlLive(run.request.id, id, allow);
+    } catch (cause) {
+      setError(String(cause).replace(/^Error: /, ""));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      {run.approvals.map((approval) => (
+        <section className="co-chat-approval" key={approval.id} aria-label="Approval needed">
+          <strong>{approval.title}</strong>
+          <pre>{approval.detail}</pre>
+          <div>
+            <button
+              className="co-button co-button-primary"
+              disabled={busy}
+              onClick={() => void decide(approval.id, true)}
+            >
+              Approve once
+            </button>
+            <button
+              className="co-button"
+              disabled={busy}
+              onClick={() => void decide(approval.id, false)}
+            >
+              Reject
+            </button>
+            <AlwaysAllowButton run={run} approval={approval} disabled={busy} onError={setError} />
+          </div>
+        </section>
+      ))}
+      {error && (
+        <p className="co-chat-error" role="alert">
+          {error}
+        </p>
+      )}
+    </>
+  );
+}
 
 export function ChatConversation({
   chat,
@@ -51,7 +102,10 @@ export function ChatConversation({
       }}
     >
       <header>
-        <span>{chat.engine}</span>
+        <span>
+          {chat.engine}
+          {chat.actions && <em className="co-chat-mode">Can make changes</em>}
+        </span>
         {(archive || remove) && (
           <details className="co-chat-actions">
             <summary aria-label="Chat actions" title="Chat actions">
@@ -106,6 +160,8 @@ export function ChatConversation({
                     : "Working…"}
               </p>
             )}
+            {run && isActiveRun(run) && run.approvals.length > 0 && <ChatApprovals run={run} />}
+            {run && chat.actions && !!run.files?.length && <RunOutcome run={run} />}
             {run?.error && (
               <p className="co-chat-error" role="alert">
                 {run.error}

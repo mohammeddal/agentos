@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { ArrowRight, Bot, GitBranch, Play, ShieldAlert, X } from "lucide-react";
+import { AlwaysAllowButton } from "../engines/AlwaysAllowButton";
+import { ArrowRight, Bot, GitBranch, Play, ShieldAlert, Square, X } from "lucide-react";
 import {
   taskParticipants,
   type Company,
@@ -9,6 +10,8 @@ import {
 } from "./company-model";
 import { controlLive, isActiveRun, type LiveRun } from "../engines/live-runtime";
 import { runLabel } from "../engines/run-presentation";
+import { RunOutcome } from "../engines/RunOutcome";
+import { stripMemoryBlocks } from "../memory/run-learning";
 import { AgentWorkForm } from "./AgentWorkForm";
 import { agentStateLabels, type AgentMapState, type AgentOutcome } from "./company-map-state";
 
@@ -79,12 +82,43 @@ function Approvals({ run }: { run: LiveRun | undefined }) {
               >
                 Reject
               </button>
+              <AlwaysAllowButton
+                run={run!}
+                approval={approval}
+                disabled={busy}
+                onError={setError}
+              />
             </div>
           </div>
         </div>
       ))}
       {error && <p className="map-error">{error}</p>}
     </section>
+  );
+}
+
+/** Cancels a live run; the provider process is terminated and the run is marked canceled. */
+function StopButton({ run }: { run: LiveRun }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function stop() {
+    setBusy(true);
+    setError("");
+    try {
+      await controlLive(run.request.id);
+    } catch (cause) {
+      setError(String(cause).replace(/^Error: /, ""));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <button className="co-button" disabled={busy} onClick={() => void stop()}>
+        <Square size={12} fill="currentColor" /> {busy ? "Stopping…" : "Stop"}
+      </button>
+      {error && <p className="map-error">{error}</p>}
+    </>
   );
 }
 
@@ -118,8 +152,9 @@ function RecentRuns({ runs }: { runs: LiveRun[] }) {
                 </small>
               </summary>
               {run.error && <p className="map-error">{run.error}</p>}
+              <RunOutcome run={run} />
               {run.output ? (
-                <pre className="map-output">{run.output}</pre>
+                <pre className="map-output">{stripMemoryBlocks(run.output)}</pre>
               ) : (
                 !run.error && <p className="map-muted">No output recorded.</p>
               )}
@@ -227,6 +262,9 @@ export function AgentPanel({
           <strong className="map-now">{current.request.title}</strong>
           {step && <p className="map-muted">Step: {step.label}</p>}
           {output && <pre className="map-output">{output.slice(0, 500)}</pre>}
+          <div className="map-actions">
+            <StopButton run={current} />
+          </div>
         </Section>
       )}
       {state === "offline" ? (
@@ -334,6 +372,7 @@ export function WorkflowPanel({
         >
           <Play size={13} /> {active ? "Running…" : busy ? "Starting…" : "Run now"}
         </button>
+        {active && <StopButton run={latest} />}
         <button className="co-button" onClick={open}>
           Open workflow <ArrowRight size={13} />
         </button>

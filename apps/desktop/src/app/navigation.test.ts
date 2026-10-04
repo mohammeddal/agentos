@@ -12,6 +12,7 @@ describe("workspace navigation", () => {
   it("keeps focused primary destinations and places workflows inside the company hub", () => {
     expect(destinations.map((destination) => destination.view)).toEqual([
       "start",
+      "inbox",
       "map",
       "activity",
       "memory",

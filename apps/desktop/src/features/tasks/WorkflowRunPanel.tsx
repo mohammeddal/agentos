@@ -1,8 +1,12 @@
 import { useState } from "react";
+import { AlwaysAllowButton } from "../engines/AlwaysAllowButton";
 import { controlLive, isActiveRun, type LiveRun } from "../engines/live-runtime";
 import { StatusPill, type CanvasStatus } from "../canvas/CanvasKit";
 import { nodeSteps } from "../canvas/run-state";
 import { blockNames, type CanvasNode } from "./task-canvas-model";
+import { RunOutcome } from "../engines/RunOutcome";
+import { stripMemoryBlocks } from "../memory/run-learning";
+import { AssistantMessage } from "../../shared/AssistantMessage";
 
 export const runCanvasStatus = (run: LiveRun): CanvasStatus =>
   run.status === "awaiting_approval"
@@ -46,6 +50,7 @@ export function WorkflowRunPanel({
   isRoot,
   status,
   runAgain,
+  runFrom,
 }: {
   runs: LiveRun[];
   run: LiveRun | undefined;
@@ -54,6 +59,7 @@ export function WorkflowRunPanel({
   isRoot: boolean;
   status: CanvasStatus | undefined;
   runAgain?: (() => void) | undefined;
+  runFrom?: ((stepId: string) => void) | undefined;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -111,6 +117,7 @@ export function WorkflowRunPanel({
               >
                 Reject
               </button>
+              <AlwaysAllowButton run={run} approval={approval} disabled={busy} onError={setError} />
             </div>
           </div>
         ))}
@@ -139,8 +146,15 @@ export function WorkflowRunPanel({
           <small>{engine}</small>
           <StatusPill status={state} />
         </summary>
+        {runFrom && !isActiveRun(run) && (
+          <div className="ck-actions">
+            <button type="button" className="co-button" onClick={() => runFrom(stepId)}>
+              Run from here
+            </button>
+          </div>
+        )}
         {result?.output ? (
-          <pre className="ck-output">{result.output}</pre>
+          <pre className="ck-output">{stripMemoryBlocks(result.output)}</pre>
         ) : (
           <p className="ck-empty">
             {state === "working"
@@ -189,16 +203,18 @@ export function WorkflowRunPanel({
         Started {when(run.createdAt)} · updated {new Date(run.updatedAt).toLocaleTimeString()}
         {current ? ` · now on “${current.label}”` : ""}
       </p>
+
       {run.error && <p className="ck-error">{run.error}</p>}
       {approvals}
+      <RunOutcome run={run} />
       {run.output && (
-        <section className="ck-section">
+        <section className="ck-section ck-result">
           <span>Result</span>
-          <pre className="ck-output">{run.output}</pre>
+          <AssistantMessage text={run.output} />
         </section>
       )}
-      <section className="ck-section">
-        <span>Steps · {run.request.steps.length}</span>
+      <details className="ck-section ck-log-toggle" open={active || !!run.error}>
+        <summary>Steps · {run.request.steps.length}</summary>
         {run.request.steps.map((s) =>
           step(
             s.id,
@@ -207,7 +223,7 @@ export function WorkflowRunPanel({
             stepStatus(run, s.id) === "working" || stepStatus(run, s.id) === "failed",
           ),
         )}
-      </section>
+      </details>
       <details className="ck-section ck-log-toggle">
         <summary>Run log · {run.events.length}</summary>
         {run.events.length ? (

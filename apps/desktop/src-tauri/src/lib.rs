@@ -38,6 +38,7 @@ pub fn run() {
             live_runtime::live_engines,
             live_runtime::live_start,
             live_runtime::live_control,
+            live_runtime::live_reveal,
             provider_models::live_models,
             attachments::save_attachment,
             attachments::attachment_preview,

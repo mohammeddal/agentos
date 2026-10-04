@@ -1,0 +1,86 @@
+.co-inbox {
+  display: grid;
+  gap: 10px;
+  max-width: 860px;
+}
+.co-inbox h2 {
+  margin: 14px 0 2px;
+  color: var(--co-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.co-inbox-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--co-border);
+  border-radius: 10px;
+  background: var(--co-card);
+}
+.co-inbox-item > svg {
+  margin-top: 2px;
+  color: #b7791f;
+}
+.co-inbox-item[data-kind="failed"] > svg {
+  color: #b42318;
+}
+.co-inbox-item > div:not(.co-inbox-actions) {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.co-inbox-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--co-muted);
+  font-size: 10px;
+}
+.co-inbox-item strong {
+  font-size: 12px;
+}
+.co-inbox-item p {
+  margin: 0;
+  color: var(--co-secondary);
+  font-size: 11px;
+}
+.co-inbox-item summary {
+  color: var(--co-secondary);
+  font-size: 10px;
+  cursor: pointer;
+}
+.co-inbox-item pre {
+  max-height: 180px;
+  overflow: auto;
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+}
+.co-inbox-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.co-inbox-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 36px;
+  border: 1px dashed var(--co-border);
+  border-radius: 10px;
+  color: var(--co-muted);
+  font-size: 12px;
+}
+@media (max-width: 640px) {
+  .co-inbox-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .co-inbox-actions {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+  }
+}

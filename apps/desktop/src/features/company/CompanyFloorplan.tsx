@@ -1,3 +1,4 @@
+import { useResizableWidth } from "../../shared/useResizableWidth";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Clock3, Maximize2, Minus, Play, Plus, Settings2 } from "lucide-react";
 import {
@@ -35,6 +36,7 @@ type Props = {
   focus?: MapFocus | null | undefined;
   addOffice: () => void;
   editOffice: (office: Office) => void;
+  deleteOffice: (office: Office) => void;
   addAgent: (officeId: string) => void;
   addWorkflow: (office: Office | null) => void;
   editAgent: (officeId: string, agent: CompanyAgent) => void;
@@ -50,6 +52,7 @@ export function CompanyFloorplan({
   focus,
   addOffice,
   editOffice,
+  deleteOffice,
   addAgent,
   addWorkflow,
   editAgent,
@@ -60,6 +63,7 @@ export function CompanyFloorplan({
   openSettings,
 }: Props) {
   const live = useLiveRuntime();
+  const panel = useResizableWidth("agentos:map-panel-width", 420);
   const [selection, setSelection] = useState<Selection>(null);
   const [highlight, setHighlight] = useState<AgentMapState | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
@@ -457,6 +461,13 @@ export function CompanyFloorplan({
                             <button role="menuitem" onClick={() => editOffice(office)}>
                               Edit office
                             </button>
+                            <button
+                              role="menuitem"
+                              className="map-menu-danger"
+                              onClick={() => deleteOffice(office)}
+                            >
+                              Delete office
+                            </button>
                           </div>
                         )}
                       </div>
@@ -548,7 +559,24 @@ export function CompanyFloorplan({
             </div>
           </div>
         </div>
-        <aside className="map-panel" aria-label="Details" hidden={!panelOpen}>
+        <aside
+          className="map-panel"
+          aria-label="Details"
+          hidden={!panelOpen}
+          style={{ width: panel.width }}
+        >
+          <div
+            className="co-resize-handle"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize panel"
+            tabIndex={0}
+            onPointerDown={panel.startResize}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") panel.nudge(24);
+              if (event.key === "ArrowRight") panel.nudge(-24);
+            }}
+          />
           {selectedAgent ? (
             <AgentPanel
               key={selectedAgent.agent.id}
@@ -591,15 +619,6 @@ export function CompanyFloorplan({
   );
 }
 
-const skins = ["#f1d3b3", "#e2b98f", "#c58c62", "#9a6440", "#6f4630"];
-const hairs = ["#2f2622", "#5a3b28", "#8b5a2b", "#c9a36b", "#9b9b9b", "#1f1f24"];
-/** A stable, varied look per agent so the floor feels like a real team. */
-function personLook(id: string) {
-  let hash = 0;
-  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return { skin: skins[hash % skins.length]!, hair: hairs[(hash >> 3) % hairs.length]! };
-}
-
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 /** A short, human trigger label for common schedules; anything unusual reads "Scheduled". */
 export function triggerLabel(task: CompanyTask): string {
@@ -619,7 +638,16 @@ export function triggerLabel(task: CompanyTask): string {
   return "Scheduled";
 }
 
-/** An office chair seen from above: five-star base, seat, and backrest. */
+const skins = ["#f2d4b8", "#e0b48c", "#c48a5e", "#8f5b3a", "#6a4128"];
+const hairs = ["#2b2420", "#4a3324", "#7a5230", "#b89262", "#8c8c8c", "#1c1c20"];
+/** A stable look per agent so each person on the floor is recognisable. */
+function personLook(id: string) {
+  let hash = 0;
+  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return { skin: skins[hash % skins.length]!, hair: hairs[(hash >> 3) % hairs.length]! };
+}
+
+/** An office chair from above. */
 function Chair({
   x,
   y,
@@ -632,90 +660,58 @@ function Chair({
   scale?: number;
 }) {
   return (
-    <g transform={`translate(${x} ${y}) rotate(${rotate}) scale(${scale})`} className="rl-chair">
-      {[0, 72, 144, 216, 288].map((angle) => (
-        <g key={angle} transform={`rotate(${angle})`}>
-          <rect x="-1.2" y="0" width="2.4" height="13" rx="1.2" className="rl-chair-leg" />
-          <circle cx="0" cy="13" r="1.9" className="rl-chair-wheel" />
-        </g>
-      ))}
-      <rect
-        x="-12"
-        y="-11"
-        width="24"
-        height="21"
-        rx="8"
-        className="rl-chair-seat"
-        filter="url(#rl-soft)"
-      />
-      <path d="M-13 4 Q0 14 13 4 L13 8 Q0 19 -13 8 Z" className="rl-chair-back" />
+    <g transform={`translate(${x} ${y}) rotate(${rotate}) scale(${scale})`}>
+      <rect className="fp-chair" x="-11" y="-10" width="22" height="20" rx="7" />
+      <rect className="fp-chair-back" x="-12" y="6" width="24" height="6" rx="3" />
     </g>
   );
 }
 
-/** Top-down workstation with a seated person working at it. */
+/** A person seated at a desk, seen from above, facing the desk. */
+function Person({ x, y, look }: { x: number; y: number; look: { skin: string; hair: string } }) {
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      <path className="fp-arm" d="M-11 -2 C-13 -10 -9 -17 -5 -20" />
+      <path className="fp-arm" d="M11 -2 C13 -10 9 -17 5 -20" />
+      <circle cx="-5" cy="-20.5" r="2.4" style={{ fill: look.skin }} />
+      <circle cx="5" cy="-20.5" r="2.4" style={{ fill: look.skin }} />
+      <ellipse className="fp-shoulders" cx="0" cy="0" rx="15" ry="8.5" />
+      <circle cx="0" cy="-3" r="7.4" style={{ fill: look.skin }} />
+      <path
+        d="M-7.4 -2.2 A7.4 7.4 0 1 1 7.4 -2.2 C5 0.6 -5 0.6 -7.4 -2.2 Z"
+        style={{ fill: look.hair }}
+      />
+    </g>
+  );
+}
+
+/** A workstation in plan view: desk, monitor, keyboard, chair, and the agent at work. */
 function DeskArt({ look }: { look: { skin: string; hair: string } }) {
   return (
     <svg className="map-desk-art" viewBox="0 0 124 80" aria-hidden="true">
-      <ellipse className="map-halo" cx="62" cy="58" rx="34" ry="16" />
-      <g filter="url(#rl-shadow)">
-        <rect x="8" y="2" width="108" height="32" rx="3" fill="url(#rl-wood)" className="rl-desk" />
-      </g>
-      <rect x="8" y="2" width="108" height="32" rx="3" fill="url(#rl-grain)" opacity="0.5" />
-      <ellipse className="map-spill" cx="62" cy="16" rx="26" ry="9" />
-      <g transform="rotate(-6 26 17)">
-        <rect x="16" y="7" width="17" height="21" rx="1.2" className="rl-notebook" />
-        <path d="M19 12h11M19 15h11M19 18h9M19 21h10" className="rl-notebook-lines" />
-      </g>
-      <rect x="57" y="8" width="10" height="3" rx="1" className="rl-stand" />
+      <ellipse className="fp-status" cx="62" cy="50" rx="27" ry="20" />
+      <rect className="fp-desk" x="18" y="4" width="88" height="28" rx="2.5" />
+      <rect className="fp-monitor" x="44" y="7" width="36" height="4.5" rx="1.5" />
+      <rect className="fp-screen" x="46" y="8" width="32" height="2.5" rx="1" />
+      <rect className="fp-keyboard" x="50" y="18" width="24" height="7" rx="1.5" />
       <rect
-        x="40"
-        y="4"
-        width="44"
-        height="6.5"
-        rx="2"
-        fill="url(#rl-monitor)"
-        filter="url(#rl-soft)"
+        className="fp-paper"
+        x="24"
+        y="10"
+        width="13"
+        height="16"
+        rx="1"
+        transform="rotate(-8 30 18)"
       />
-      <rect className="map-screen" x="42" y="5.2" width="40" height="3.2" rx="1.2" />
-      <rect x="48" y="17" width="28" height="9" rx="1.6" className="rl-keyboard" />
-      <path d="M50.5 19.6h23M50.5 22h23M52 24.4h20" className="rl-keys" />
-      <ellipse cx="82" cy="22" rx="2.8" ry="3.8" className="rl-mouse" />
-      <circle cx="100" cy="12" r="5" className="rl-mug" />
-      <circle cx="100" cy="12" r="3.3" className="rl-coffee" />
-      <path d="M104.6 10.5q3 1.5 0 3" className="rl-mug-handle" />
-      <circle cx="108" cy="27" r="3.4" className="rl-pot" />
-      <circle cx="106.6" cy="25.8" r="2.6" className="rl-leaf" />
-      <circle cx="109.6" cy="26.4" r="2.2" className="rl-leaf rl-leaf-2" />
-      <circle cx="108" cy="28.8" r="2.2" className="rl-leaf" />
-      <Chair x={62} y={52} />
-      <path d="M46 49 C43 41 47 32 54 27" className="map-arm" />
-      <path d="M78 49 C81 41 77 32 70 27" className="map-arm" />
-      <path d="M46 49 C43 41 47 32 54 27" className="rl-arm-shade" />
-      <path d="M78 49 C81 41 77 32 70 27" className="rl-arm-shade" />
-      <ellipse cx="54.5" cy="26.2" rx="2.8" ry="2.4" style={{ fill: look.skin }} />
-      <ellipse cx="69.5" cy="26.2" rx="2.8" ry="2.4" style={{ fill: look.skin }} />
-      <path
-        className="map-shirt"
-        d="M42 53 C42 43 51 40 62 40 C73 40 82 43 82 53 C82 58 73 60 62 60 C51 60 42 58 42 53 Z"
-      />
-      <path
-        d="M42 53 C42 43 51 40 62 40 C73 40 82 43 82 53 C82 58 73 60 62 60 C51 60 42 58 42 53 Z"
-        fill="url(#rl-cloth)"
-      />
-      <ellipse cx="53.3" cy="45.5" rx="1.6" ry="2.4" style={{ fill: look.skin }} />
-      <ellipse cx="70.7" cy="45.5" rx="1.6" ry="2.4" style={{ fill: look.skin }} />
-      <circle cx="62" cy="45" r="8.6" style={{ fill: look.skin }} filter="url(#rl-soft)" />
-      <circle cx="62" cy="46.4" r="8.4" style={{ fill: look.hair }} />
-      <circle cx="62" cy="46.4" r="8.4" fill="url(#rl-hair-shine)" />
-      <circle className="map-badge" cx="75" cy="36" r="3.8" />
+      <circle className="fp-cup" cx="96" cy="14" r="3.6" />
+      <Chair x={62} y={56} />
+      <Person x={62} y={50} look={look} />
     </svg>
   );
 }
 
-/** A round meeting table in wood, with one office chair per agent on the workflow's team. */
+/** A workflow as a meeting table with one chair per agent on its team. */
 function MeetingTable({ seats }: { seats: number }) {
-  // One chair per team member (a single empty chair when no one is assigned yet).
   const count = Math.min(8, Math.max(1, seats));
   return (
     <svg className="map-table-art" viewBox="0 0 130 74" aria-hidden="true">
@@ -732,187 +728,70 @@ function MeetingTable({ seats }: { seats: number }) {
           />
         );
       })}
-      <g filter="url(#rl-shadow)">
-        <circle cx="65" cy="37" r="21" fill="url(#rl-wood-round)" className="rl-desk" />
-      </g>
-      <circle cx="65" cy="37" r="21" fill="url(#rl-table-sheen)" />
-      <circle className="map-table-ring" cx="65" cy="37" r="22.5" />
+      <circle className="fp-table" cx="65" cy="37" r="21" />
+      <circle className="map-table-ring" cx="65" cy="37" r="24" />
     </svg>
   );
 }
 
-/** A potted plant seen from above. */
-function Plant({ x, y, size = 1 }: { x: number; y: number; size?: number }) {
-  return (
-    <g transform={`translate(${x} ${y}) scale(${size})`} filter="url(#rl-shadow)">
-      <circle r="11" className="rl-pot" />
-      {[0, 60, 120, 180, 240, 300].map((angle, i) => (
-        <ellipse
-          key={angle}
-          rx="4.6"
-          ry="9.5"
-          transform={`rotate(${angle}) translate(0 -6)`}
-          className={i % 2 ? "rl-leaf rl-leaf-2" : "rl-leaf"}
-        />
-      ))}
-      <circle r="3" className="rl-leaf rl-leaf-2" />
-    </g>
-  );
-}
-
 type Line = { key: string; live: boolean; d: string };
-const tones = ["sage", "blue", "coral", "lavender", "gold"];
 
-/** The architectural drawing under the interactive layer: building, hallway, rooms, doors, windows. */
+/** Architectural plan under the interactive layer: exterior walls, corridor, rooms, doors, windows. */
 function FloorPlan({ layout, lines }: { layout: MapLayout; lines: Line[] }) {
   const { building, hallway } = layout;
-  const bottom = building.y + building.height;
-  const entrance = { x: hallway.x + hallway.width / 2, width: 58 };
   return (
     <svg className="map-plan" width={MAP.width} height={layout.height} aria-hidden="true">
       <defs>
-        <filter id="rl-shadow" x="-30%" y="-30%" width="160%" height="170%">
-          <feDropShadow
-            dx="0"
-            dy="2.2"
-            stdDeviation="2.2"
-            floodColor="#1c140c"
-            floodOpacity="0.22"
-          />
-        </filter>
-        <filter id="rl-soft" x="-30%" y="-30%" width="160%" height="170%">
-          <feDropShadow dx="0" dy="1" stdDeviation="1" floodColor="#1c140c" floodOpacity="0.25" />
-        </filter>
-        <linearGradient id="rl-wood" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" className="rl-wood-a" />
-          <stop offset="1" className="rl-wood-b" />
-        </linearGradient>
-        <pattern id="rl-grain" width="108" height="6" patternUnits="userSpaceOnUse">
-          <path
-            d="M0 1.5 C30 0.8 60 2.4 108 1.2 M0 4.4 C40 5.4 70 3.6 108 4.8"
-            className="rl-grain"
-          />
-        </pattern>
-        <radialGradient id="rl-wood-round" cx="0.4" cy="0.35" r="0.75">
-          <stop offset="0" className="rl-wood-a" />
-          <stop offset="1" className="rl-wood-b" />
-        </radialGradient>
-        <radialGradient id="rl-table-sheen" cx="0.35" cy="0.3" r="0.6">
-          <stop offset="0" stopColor="#fff" stopOpacity="0.35" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="rl-monitor" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#4a4f4c" />
-          <stop offset="1" stopColor="#1f2220" />
-        </linearGradient>
-        <linearGradient id="rl-cloth" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#fff" stopOpacity="0.28" />
-          <stop offset="0.55" stopColor="#fff" stopOpacity="0" />
-          <stop offset="1" stopColor="#000" stopOpacity="0.22" />
-        </linearGradient>
-        <radialGradient id="rl-hair-shine" cx="0.4" cy="0.3" r="0.7">
-          <stop offset="0" stopColor="#fff" stopOpacity="0.35" />
-          <stop offset="0.5" stopColor="#fff" stopOpacity="0.06" />
-          <stop offset="1" stopColor="#000" stopOpacity="0.2" />
-        </radialGradient>
-        {tones.map((tone) => (
-          <pattern
-            key={tone}
-            id={`plan-floor-${tone}`}
-            width="180"
-            height="48"
-            patternUnits="userSpaceOnUse"
-          >
-            <rect width="180" height="48" className={`plan-floor tone-${tone}`} />
-            <rect y="12" width="180" height="12" className="plan-plank-shade" />
-            <rect x="90" y="36" width="90" height="12" className="plan-plank-shade plank-2" />
-            <rect x="0" y="0" width="70" height="12" className="plan-plank-shade plank-2" />
-            <path
-              d="M0 11.5H180M0 23.5H180M0 35.5H180M0 47.5H180M70.5 0V11.5M140.5 12V23.5M30.5 24V35.5M90.5 36V47.5"
-              className="plan-seam"
-            />
-          </pattern>
-        ))}
-        <pattern id="plan-hall" width="40" height="40" patternUnits="userSpaceOnUse">
-          <rect width="40" height="40" className="plan-hall" />
-          <rect width="20" height="20" className="plan-tile-shade" />
-          <rect x="20" y="20" width="20" height="20" className="plan-tile-shade" />
-          <path d="M40 0V40H0M20 0V40M0 20H40" className="plan-seam" />
-        </pattern>
-        <pattern
-          id="plan-hatch"
-          width="9"
-          height="9"
-          patternUnits="userSpaceOnUse"
-          patternTransform="rotate(45)"
-        >
-          <line x1="0" y1="0" x2="0" y2="9" className="plan-hatch" />
+        <pattern id="fp-tile" width="24" height="24" patternUnits="userSpaceOnUse">
+          <path d="M24 0V24H0" className="fp-tile-line" />
         </pattern>
       </defs>
       <rect
-        className="plan-building"
+        className="fp-building"
         x={building.x}
         y={building.y}
         width={building.width}
         height={building.height}
-        rx="10"
       />
       <rect
-        className="plan-hallway"
+        className="fp-corridor"
         x={hallway.x}
-        y={building.y + 4}
+        y={building.y}
         width={hallway.width}
-        height={building.height - 8}
-        fill="url(#plan-hall)"
+        height={building.height}
       />
-      <path className="plan-hall-line" d={`M${entrance.x} ${building.y + 18}V${bottom - 30}`} />
       {layout.rooms.map((room) => {
         const x0 = room.x;
         const x1 = room.x + room.width;
         const y0 = room.y;
         const y1 = room.y + room.height;
-        const d1 = y1 - 50;
-        const d2 = y1 - 20;
-        const tone = tones.includes(room.office.color) ? room.office.color : "sage";
-        const walls =
-          room.column === 0
-            ? `M${x1} ${d1}V${y0}H${x0}V${y1}H${x1}V${d2}`
-            : `M${x0} ${d1}V${y0}H${x1}V${y1}H${x0}V${d2}`;
-        const door =
-          room.column === 0
-            ? `M${x1} ${d1}h-30A30 30 0 0 0 ${x1} ${d1 + 30}`
-            : `M${x0} ${d1}h30A30 30 0 0 1 ${x0} ${d1 + 30}`;
-        const outerX = room.column === 0 ? building.x : building.x + building.width;
+        const left = room.column === 0;
+        const doorTop = y1 - 56;
+        const doorBottom = y1 - 22;
+        const doorX = left ? x1 : x0;
+        // Interior walls with a doorway onto the corridor.
+        const walls = left
+          ? `M${x1} ${doorTop}V${y0}H${x0}V${y1}H${x1}V${doorBottom}`
+          : `M${x0} ${doorTop}V${y0}H${x1}V${y1}H${x0}V${doorBottom}`;
+        const leaf = doorBottom - doorTop;
+        const swing = left
+          ? `M${doorX} ${doorTop}h-${leaf}A${leaf} ${leaf} 0 0 0 ${doorX} ${doorBottom}`
+          : `M${doorX} ${doorTop}h${leaf}A${leaf} ${leaf} 0 0 1 ${doorX} ${doorBottom}`;
+        const outerX = left ? building.x : building.x + building.width;
         return (
-          <g key={room.office.id}>
+          <g key={room.office.id} className="plan-room" data-tone={room.office.color}>
+            <rect x={x0} y={y0} width={room.width} height={room.height} className="fp-room" />
+            <rect x={x0} y={y0} width={room.width} height={room.height} fill="url(#fp-tile)" />
+            <path className="fp-wall" d={walls} />
+            <path className="fp-door" d={swing} />
             <rect
-              x={x0}
-              y={y0}
-              width={room.width}
-              height={room.height}
-              fill={`url(#plan-floor-${tone})`}
+              className="fp-window"
+              x={outerX - 2.5}
+              y={y0 + 40}
+              width="5"
+              height={Math.max(24, room.height - 120)}
             />
-            <path className="plan-wall" d={walls} />
-            <path className="plan-door" d={door} />
-            <rect
-              className="plan-window"
-              x={outerX - 3}
-              y={y0 + 34}
-              width="6"
-              height={Math.max(20, room.height - 110)}
-              rx="1"
-            />
-            <Plant x={room.column === 0 ? x0 + 18 : x1 - 18} y={y1 - 18} size={0.9} />
-            {room.y === MAP.margin && (
-              <rect
-                className="plan-window"
-                x={x0 + 60}
-                y={building.y - 3}
-                width={room.width - 120}
-                height="6"
-                rx="1"
-              />
-            )}
+            <rect className="fp-accent" x={x0 + 6} y={y0 + 6} width="4" height="22" rx="2" />
           </g>
         );
       })}
@@ -922,25 +801,15 @@ function FloorPlan({ layout, lines }: { layout: MapLayout; lines: Line[] }) {
         y={layout.addOffice.y}
         width={layout.addOffice.width}
         height={layout.addOffice.height}
-        fill="url(#plan-hatch)"
-        rx="3"
+        rx="4"
       />
       <rect
-        className="plan-entrance"
-        x={entrance.x - entrance.width / 2}
-        y={bottom - 6}
-        width={entrance.width}
-        height="12"
+        className="fp-outer"
+        x={building.x}
+        y={building.y}
+        width={building.width}
+        height={building.height}
       />
-      <path
-        className="plan-door"
-        d={`M${entrance.x - entrance.width / 2} ${bottom}a${entrance.width / 2} ${entrance.width / 2} 0 0 1 ${entrance.width / 2} -${entrance.width / 2}M${entrance.x + entrance.width / 2} ${bottom}a${entrance.width / 2} ${entrance.width / 2} 0 0 0 -${entrance.width / 2} -${entrance.width / 2}`}
-      />
-      <Plant x={entrance.x - 48} y={bottom - 22} size={0.8} />
-      <Plant x={entrance.x + 48} y={bottom - 22} size={0.8} />
-      <text className="plan-label" x={entrance.x} y={bottom - 36} textAnchor="middle">
-        ENTRANCE
-      </text>
       <g className="map-lines">
         {lines.map((line) => (
           <path key={line.key} d={line.d} data-live={line.live || undefined} />

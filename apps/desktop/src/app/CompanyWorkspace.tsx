@@ -33,6 +33,7 @@ import { CompanyMemory } from "../features/memory/CompanyMemory";
 import { EngineLibrary } from "../features/engines/EngineLibrary";
 import { EngineSettings, type EngineSettingsFocus } from "../features/engines/EngineSettings";
 import { AgentActivity } from "../features/activity/AgentActivity";
+import { Inbox } from "../features/activity/Inbox";
 import { LiveHistory } from "../features/engines/LiveExecution";
 import { ProjectForm } from "../features/projects/CompanyProjects";
 import { CompanyStart } from "../features/start/CompanyStart";
@@ -47,6 +48,7 @@ import { useLiveSchedules } from "../features/engines/live-schedules";
 import { pauseSchedule } from "../features/engines/live-schedules";
 import {
   isActiveRun,
+  partialRequest,
   startLive,
   taskRequest,
   useLiveRuntime,
@@ -61,6 +63,7 @@ import {
   type Lifecycle,
 } from "../features/company/company-directory";
 import { useLiveNotifications } from "../features/engines/live-notifications";
+import { learnFromRuns } from "../features/memory/run-learning";
 import { TerminalDock } from "../features/terminal/TerminalDock";
 import {
   destinations,
@@ -102,6 +105,7 @@ function initialTheme(): "light" | "dark" {
 }
 const descriptions: Record<WorkspaceView, string> = {
   start: "",
+  inbox: "Approvals from chats, workflows, and agents, plus recent failures.",
   tasks: "Build workflows from tasks, agents, context, and approvals.",
   map: "Your offices, agents, and workflows in one place.",
   activity: "Runs stay summarized until you open the details you need.",
@@ -132,6 +136,8 @@ export function CompanyWorkspace() {
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [engineSettingsFocus, setEngineSettingsFocus] = useState<EngineSettingsFocus | null>(null);
   const [memoryCreateRequest, setMemoryCreateRequest] = useState(0);
+  // The workflow that sent the user to Memory to create context, so they can go straight back.
+  const [memoryReturnTask, setMemoryReturnTask] = useState("");
   const { route, go } = useWorkspaceRoute();
   const view = route.view;
   const [query, setQuery] = useState("");
@@ -183,10 +189,11 @@ export function CompanyWorkspace() {
         : [task, ...(current.tasks || [])],
     }));
   }
-  function openResourceSettings(kind: ResourceSetupKind, engine: Engine) {
+  function openResourceSettings(kind: ResourceSetupKind, engine: Engine, taskId?: string) {
     setQuery("");
     setDialog(null);
     if (kind === "context") {
+      setMemoryReturnTask(taskId || "");
       setMemoryCreateRequest((request) => request + 1);
       go({ view: "memory" });
       return;
@@ -197,6 +204,32 @@ export function CompanyWorkspace() {
       engine,
     }));
     go({ view: "settings" });
+  }
+  /** Starts a new chat that can make changes, prefilled with a setup request. */
+  function setupWithChat(text: string, engine: Engine) {
+    try {
+      const saved = localStorage.getItem(PROMPT_STORAGE);
+      if (
+        saved &&
+        JSON.parse(saved)?.text?.trim() &&
+        !window.confirm("Replace your unsent chat draft with this setup request?")
+      )
+        return;
+      localStorage.setItem(
+        PROMPT_STORAGE,
+        JSON.stringify({
+          ...emptyPrompt,
+          text,
+          engine: engine === "claude" ? "Claude Code" : "Codex",
+          actions: true,
+        }),
+      );
+    } catch {
+      setDirectoryNotice("Draft storage is unavailable, so the setup chat couldn't be prepared.");
+      return;
+    }
+    setComposerVersion((v) => v + 1);
+    go({ view: "start" });
   }
   function openDirectoryEntry(entry: DirectoryEntry) {
     setDialog(null);
@@ -266,7 +299,7 @@ export function CompanyWorkspace() {
       offices: c.offices.map((o) => (o.id === updated.id ? updated : o)),
     }));
   }
-  function confirmStructureDelete(target: StructureTarget) {
+  function confirmStructureDelete(target: StructureTarget, removeTasks = false) {
     try {
       const impact = structureDeletion(storedCompany, target);
       const running = live.runs.some(
@@ -279,12 +312,15 @@ export function CompanyWorkspace() {
           ),
       );
       if (running) throw new Error("Wait for the affected live work to finish or cancel it first.");
-      const next = deleteStructure(storedCompany, target);
+      const next = deleteStructure(storedCompany, target, { removeTasks });
+      if (removeTasks)
+        for (const task of storedCompany.tasks || [])
+          if (!next.tasks?.some((kept) => kept.id === task.id)) pauseSchedule(task.id);
       localStorage.setItem(STORAGE, JSON.stringify(next));
       setCompany(next);
       setDialog(null);
       setDirectoryNotice(
-        `${target.kind[0]!.toUpperCase()}${target.kind.slice(1)} deleted. Past run history remains available.`,
+        `${target.kind[0]!.toUpperCase()}${target.kind.slice(1)} deleted${removeTasks && impact.blockingTasks.length ? ` with ${impact.blockingTasks.length} ${impact.blockingTasks.length === 1 ? "workflow" : "workflows"}` : ""}. Past run history remains available.`,
       );
     } catch (error) {
       setDirectoryNotice(String(error).replace(/^Error: /, ""));
@@ -295,7 +331,7 @@ export function CompanyWorkspace() {
     setNewWorkflow({ ...init, key: (newWorkflow?.key || 0) + 1 });
     go({ view: "tasks", taskId: NEW_WORKFLOW });
   }
-  async function runWorkflow(task: CompanyTask) {
+  async function runWorkflow(task: CompanyTask, fromStepId?: string) {
     const nextCompany = {
       ...company,
       tasks: company.tasks?.some((candidate) => candidate.id === task.id)
@@ -303,7 +339,9 @@ export function CompanyWorkspace() {
         : [task, ...(company.tasks || [])],
     };
     upsertTask(task);
-    await startLive(await taskRequest(nextCompany, task));
+    const request = await taskRequest(nextCompany, task);
+    const previous = live.runs.find((run) => run.request.key === request.key && run.results.length);
+    await startLive(fromStepId ? partialRequest(request, fromStepId, previous) : request);
   }
   async function assignWork(agent: CompanyAgent, text: string) {
     // One-off work for a single agent is saved as a one-step workflow so it can be watched and rerun.
@@ -333,6 +371,24 @@ export function CompanyWorkspace() {
       go({ view: "map" });
     }
   }
+  // Turn finished runs into memory notes: agents' learned lessons, and failures as known issues.
+  const finishedRuns = live.runs
+    .filter((run) => run.status === "completed" || run.status === "failed")
+    .map((run) => run.request.id)
+    .join(",");
+  useEffect(() => {
+    if (!finishedRuns) return;
+    learnFromRuns(live.runs, company)
+      .then((count) => {
+        if (count)
+          setDirectoryNotice(
+            `Memory learned ${count} ${count === 1 ? "note" : "notes"} from recent runs.`,
+          );
+      })
+      .catch(() => {
+        /* Memory busy or unavailable; the next finished run retries. */
+      });
+  }, [finishedRuns]);
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE, JSON.stringify(storedCompany));
@@ -498,38 +554,42 @@ export function CompanyWorkspace() {
               ))}
             </nav>
           )}
-          {!isWorkflowBuilder && view !== "start" && view !== "settings" && !companyMap && (
-            <div className="co-section-toolbar">
-              {view === "tasks" && (
-                <div className="co-section-title">
-                  <span className="co-directory-count">
-                    {`${tasks.length} ${tasks.length === 1 ? "workflow" : "workflows"}`}
-                  </span>
-                </div>
-              )}
-              <div className="co-search">
-                <Search size={14} />
-                <input
-                  ref={searchRef}
-                  aria-label={searchLabel}
-                  placeholder={searchLabel + "…"}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-                {query && (
-                  <button
-                    aria-label="Clear search"
-                    onClick={() => {
-                      setQuery("");
-                      searchRef.current?.focus();
-                    }}
-                  >
-                    ×
-                  </button>
+          {!isWorkflowBuilder &&
+            view !== "start" &&
+            view !== "inbox" &&
+            view !== "settings" &&
+            !companyMap && (
+              <div className="co-section-toolbar">
+                {view === "tasks" && (
+                  <div className="co-section-title">
+                    <span className="co-directory-count">
+                      {`${tasks.length} ${tasks.length === 1 ? "workflow" : "workflows"}`}
+                    </span>
+                  </div>
                 )}
+                <div className="co-search">
+                  <Search size={14} />
+                  <input
+                    ref={searchRef}
+                    aria-label={searchLabel}
+                    placeholder={searchLabel + "…"}
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                  {query && (
+                    <button
+                      aria-label="Clear search"
+                      onClick={() => {
+                        setQuery("");
+                        searchRef.current?.focus();
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
           {view === "start" ? (
             <CompanyStart
               key={route.chatId || `new:${route.projectId || "company"}:${composerVersion}`}
@@ -546,12 +606,31 @@ export function CompanyWorkspace() {
                 if (entry) updateLifecycle(entry, lifecycle);
               }}
             />
+          ) : view === "inbox" ? (
+            <Inbox
+              openRun={(runKey) => {
+                if (runKey.startsWith("chat:")) go({ view: "start", chatId: runKey.slice(5) });
+                else if (runKey.startsWith("task:")) go({ view: "tasks", taskId: runKey.slice(5) });
+              }}
+            />
           ) : view === "engines" ? (
             <EngineLibrary query={query} />
           ) : view === "settings" ? (
-            <EngineSettings focus={engineSettingsFocus} />
+            <EngineSettings focus={engineSettingsFocus} setupWithChat={setupWithChat} />
           ) : view === "memory" ? (
-            <CompanyMemory company={company} query={query} createRequest={memoryCreateRequest} />
+            <CompanyMemory
+              company={company}
+              query={query}
+              createRequest={memoryCreateRequest}
+              back={
+                memoryReturnTask && tasks.some((task) => task.id === memoryReturnTask)
+                  ? () => {
+                      setMemoryReturnTask("");
+                      go({ view: "tasks", taskId: memoryReturnTask });
+                    }
+                  : undefined
+              }
+            />
           ) : view === "activity" ? (
             <LiveHistory query={query} summaryView />
           ) : isWorkflowBuilder ? (
@@ -568,14 +647,14 @@ export function CompanyWorkspace() {
                   storageError={storageError}
                   openResourceSettings={(task, kind, engine) => {
                     upsertTask(task);
-                    openResourceSettings(kind, engine);
+                    openResourceSettings(kind, engine, task.id);
                   }}
                   save={(task) => {
                     upsertTask(task);
                     go({ view: "tasks", taskId: task.id });
                   }}
-                  start={async (task) => {
-                    await runWorkflow(task);
+                  start={async (task, fromStepId) => {
+                    await runWorkflow(task, fromStepId);
                     go({ view: "tasks", taskId: task.id });
                   }}
                 />
@@ -590,7 +669,7 @@ export function CompanyWorkspace() {
                   storageError={storageError}
                   openResourceSettings={(task, kind, engine) => {
                     upsertTask(task);
-                    openResourceSettings(kind, engine);
+                    openResourceSettings(kind, engine, task.id);
                   }}
                   save={upsertTask}
                   start={runWorkflow}
@@ -612,6 +691,9 @@ export function CompanyWorkspace() {
               focus={mapFocus}
               openSettings={() => setView("settings")}
               editOffice={(o) => setDialog({ type: "edit-office", office: o })}
+              deleteOffice={(o) =>
+                setDialog({ type: "delete-structure", target: { kind: "office", id: o.id } })
+              }
               addWorkflow={(o) =>
                 openNewWorkflow(o ? { agentId: o.agents[0]?.id, officeId: o.id } : {})
               }
@@ -722,10 +804,9 @@ export function CompanyWorkspace() {
               )}
               {structureImpact.blockingTasks.length > 0 && (
                 <div className="co-delete-blockers" role="alert">
-                  <strong>Reassign these tasks first</strong>
+                  <strong>These workflows use this team</strong>
                   <p>
-                    They use this domain or one of the agents as an owner, reviewer, handoff, or
-                    canvas block.
+                    Open one to reassign it, or delete them together with this {dialog.target.kind}.
                   </p>
                   {structureImpact.blockingTasks.map((task) =>
                     task.lifecycle === "active" ? (
@@ -761,15 +842,25 @@ export function CompanyWorkspace() {
                 <button className="co-button" onClick={() => setDialog(null)}>
                   Cancel
                 </button>
-                <button
-                  className="co-button co-button-danger"
-                  disabled={
-                    structureImpact.blockingTasks.length > 0 || activeStructureRuns.length > 0
-                  }
-                  onClick={() => confirmStructureDelete(dialog.target)}
-                >
-                  <Trash2 size={14} /> Delete {dialog.target.kind}
-                </button>
+                {structureImpact.blockingTasks.length > 0 ? (
+                  <button
+                    className="co-button co-button-danger"
+                    disabled={activeStructureRuns.length > 0}
+                    onClick={() => confirmStructureDelete(dialog.target, true)}
+                  >
+                    <Trash2 size={14} /> Delete {dialog.target.kind} and{" "}
+                    {structureImpact.blockingTasks.length}{" "}
+                    {structureImpact.blockingTasks.length === 1 ? "workflow" : "workflows"}
+                  </button>
+                ) : (
+                  <button
+                    className="co-button co-button-danger"
+                    disabled={activeStructureRuns.length > 0}
+                    onClick={() => confirmStructureDelete(dialog.target)}
+                  >
+                    <Trash2 size={14} /> Delete {dialog.target.kind}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -849,6 +940,17 @@ export function CompanyWorkspace() {
                     }),
                   }))
                 }
+                changeDirectory={(directory) =>
+                  setCompany((c) => ({
+                    ...c,
+                    tasks: (c.tasks || []).map((t) => {
+                      if (t.id !== inspectedTask.id) return t;
+                      if (directory) return { ...t, directory };
+                      const { directory: _directory, ...withoutDirectory } = t;
+                      return withoutDirectory;
+                    }),
+                  }))
+                }
                 changeApproval={(approval) =>
                   setCompany((c) => ({
                     ...c,
@@ -857,7 +959,9 @@ export function CompanyWorkspace() {
                     ),
                   }))
                 }
-                openResourceSettings={openResourceSettings}
+                openResourceSettings={(kind, engine) =>
+                  openResourceSettings(kind, engine, inspectedTask.id)
+                }
                 changeAttachments={(attachments) =>
                   setCompany((c) => ({
                     ...c,

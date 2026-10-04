@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, GitBranch } from "lucide-react";
 import {
   taskParticipants,
@@ -46,7 +46,7 @@ export function TaskForm({
   initialAgentId?: string | undefined;
   initialOfficeId?: string | undefined;
   save: (task: CompanyTask) => void;
-  start?: ((task: CompanyTask) => Promise<void>) | undefined;
+  start?: ((task: CompanyTask, fromStepId?: string) => Promise<void>) | undefined;
   storageError: boolean;
   openResourceSettings?: (task: CompanyTask, kind: ResourceSetupKind, engine: Engine) => void;
 }) {
@@ -63,6 +63,7 @@ export function TaskForm({
     existing?.stepModels || {},
   );
   const [projectId, setProjectId] = useState(existing?.projectId || initialProjectId || "");
+  const [directory, setDirectory] = useState(existing?.directory || "");
   const [approval, setApproval] = useState<ApprovalRule>(existing?.approval || { kind: "none" });
   const [schedule, setSchedule] = useState<TaskSchedule>(existing?.schedule || { kind: "manual" });
   const [handoffs, setHandoffs] = useState<HandoffStep[]>(existing?.handoffs || []);
@@ -106,6 +107,16 @@ export function TaskForm({
   const [mode, setMode] = useState<"build" | "run">(() =>
     lastRun && isActiveRun(lastRun) ? "run" : "build",
   );
+  // When a run finishes, show its result instead of leaving the user in the builder.
+  const wasActive = useRef(!!lastRun && isActiveRun(lastRun));
+  useEffect(() => {
+    const active = !!lastRun && isActiveRun(lastRun);
+    if (wasActive.current && !active) {
+      setViewRunId("");
+      setMode("run");
+    }
+    wasActive.current = active;
+  }, [lastRun?.request.id, lastRun?.status]);
   useEffect(() => {
     const timer = window.setInterval(() => setPreviewTime(new Date()), 60_000);
     return () => window.clearInterval(timer);
@@ -150,6 +161,7 @@ export function TaskForm({
     modelDefaults,
     stepModels,
     ...(projectId ? { projectId } : {}),
+    ...(directory ? { directory } : {}),
     ...(existing?.officeId || initialOfficeId
       ? { officeId: (existing?.officeId || initialOfficeId)! }
       : {}),
@@ -160,16 +172,18 @@ export function TaskForm({
   };
   const executionBlocker = canSave ? taskRunError(company, draftTask) : saveBlocker;
   const canRun = canSave && !executionBlocker;
-  async function submitTask(run: boolean) {
+  async function submitTask(run: boolean, fromStepId?: string) {
     if (!(run ? canRun : canSave) || attaching || submitting) return;
     setSubmitting(run ? "start" : "save");
     setSubmitError("");
     try {
       if (run && start) {
-        await start(draftTask);
+        await start(draftTask, fromStepId);
         setViewRunId("");
         setMode("run");
-        setNotice("Run started. Watch each block in Run.");
+        setNotice(
+          fromStepId ? "Run started from that step." : "Run started. Watch each block in Run.",
+        );
       } else {
         save(draftTask);
         setNotice(existing ? "Changes saved." : "Draft saved.");
@@ -202,6 +216,7 @@ export function TaskForm({
             back={() => {}}
             storageError={storageError}
             changeProject={setProjectId}
+            changeDirectory={setDirectory}
             changeAttachments={setAttachments}
             onAttachmentsBusy={setAttaching}
             changeApproval={setApproval}
@@ -228,6 +243,7 @@ export function TaskForm({
             runs={taskRuns}
             selectRun={setViewRunId}
             runAgain={start && canRun ? () => void submitTask(true) : undefined}
+            runFrom={start && canRun ? (stepId) => void submitTask(true, stepId) : undefined}
           />
         ) : (
           <>

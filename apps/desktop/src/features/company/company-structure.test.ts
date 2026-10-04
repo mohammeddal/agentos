@@ -122,4 +122,23 @@ describe("company structure deletion", () => {
       deleteStructure(company, { kind: "agent", id: "analyst", officeId: "data" }),
     ).toThrow(/Reassign/);
   });
+  it("deletes dependent workflows only when asked", () => {
+    const company = structuredClone(starterCompany);
+    const agent = company.offices[0]!.agents[0]!;
+    company.tasks = [
+      {
+        id: "uses-agent",
+        title: "Uses agent",
+        brief: "",
+        assignment: { kind: "agents", targets: [agent.id] },
+        status: "planned",
+        createdAt: new Date(0).toISOString(),
+      },
+    ];
+    const target = { kind: "office" as const, id: company.offices[0]!.id };
+    expect(() => deleteStructure(company, target)).toThrow();
+    const next = deleteStructure(company, target, { removeTasks: true });
+    expect(next.offices.some((office) => office.id === target.id)).toBe(false);
+    expect(next.tasks).toEqual([]);
+  });
 });

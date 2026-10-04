@@ -1160,3 +1160,600 @@
   justify-content: center;
   font-weight: 600;
 }
+
+/* Figma-inspired spatial studio -------------------------------------------------
+   The company map behaves like a design canvas: rooms are frames, agents are
+   selectable objects, and the live inspector floats above the working surface. */
+.company-app {
+  --canvas-blue: #0d99ff;
+  --canvas-blue-soft: color-mix(in srgb, var(--canvas-blue) 9%, transparent);
+  --canvas-line: color-mix(in srgb, var(--co-text) 10%, transparent);
+  --canvas-grid: color-mix(in srgb, var(--co-text) 7%, transparent);
+  --canvas-surface: color-mix(in srgb, var(--co-bg) 86%, var(--co-card));
+}
+
+.map {
+  border-radius: 10px;
+  border-color: var(--canvas-line);
+  background: var(--canvas-surface);
+  box-shadow: 0 1px 2px #00000008;
+}
+
+.map-bar {
+  min-height: 52px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--co-card) 96%, transparent);
+  border-color: var(--canvas-line);
+}
+
+.map-chips,
+.map-zoom {
+  padding: 3px;
+  border: 1px solid var(--canvas-line);
+  border-radius: 8px;
+  background: var(--co-card);
+  box-shadow: 0 1px 2px #00000008;
+}
+
+.map-chip {
+  min-height: 28px;
+  padding: 4px 8px;
+  border-color: transparent;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 10.5px;
+}
+
+.map-chip:hover:not(:disabled) {
+  background: var(--co-hover);
+}
+
+.map-chip[aria-pressed="true"] {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--st) 38%, transparent);
+}
+
+.map-chip i {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--st) 12%, transparent);
+}
+
+.map-zoom {
+  gap: 1px;
+}
+
+.map-zoom .co-icon-button {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+}
+
+.map-zoom span {
+  min-width: 42px;
+  font-variant-numeric: tabular-nums;
+}
+
+.map-banner {
+  min-height: 34px;
+  padding: 7px 12px;
+  color: var(--co-secondary);
+  background: color-mix(in srgb, var(--st-approval) 6%, var(--co-card));
+  border-color: var(--canvas-line);
+  font-size: 10.5px;
+}
+
+.map-stage {
+  background-color: var(--canvas-surface);
+  background-image: radial-gradient(circle, var(--canvas-grid) 1px, transparent 1.15px);
+  background-size: 16px 16px;
+  background-position: -8px -8px;
+}
+
+.plan-building {
+  fill: color-mix(in srgb, var(--co-card) 92%, transparent);
+  stroke: var(--canvas-line);
+  stroke-width: 1.5;
+  filter: drop-shadow(0 8px 22px #0000000a);
+}
+
+.plan-floor,
+.plan-floor.tone-sage {
+  fill: color-mix(in srgb, var(--co-card) 92%, var(--tone-sage) 8%);
+}
+
+.plan-floor.tone-blue {
+  fill: color-mix(in srgb, var(--co-card) 92%, var(--tone-blue) 8%);
+}
+
+.plan-floor.tone-coral {
+  fill: color-mix(in srgb, var(--co-card) 92%, var(--tone-coral) 8%);
+}
+
+.plan-floor.tone-lavender {
+  fill: color-mix(in srgb, var(--co-card) 92%, var(--tone-lavender) 8%);
+}
+
+.plan-floor.tone-gold {
+  fill: color-mix(in srgb, var(--co-card) 92%, var(--tone-gold) 8%);
+}
+
+.plan-hall,
+.plan-entrance {
+  fill: color-mix(in srgb, var(--canvas-surface) 94%, var(--co-card));
+}
+
+.plan-wall {
+  stroke: var(--canvas-line);
+  stroke-width: 1.5;
+}
+
+.plan-door {
+  stroke: color-mix(in srgb, var(--co-text) 23%, transparent);
+  stroke-width: 1;
+}
+
+.plan-window {
+  fill: color-mix(in srgb, var(--canvas-blue) 13%, transparent);
+  stroke: color-mix(in srgb, var(--canvas-blue) 35%, transparent);
+  stroke-width: 1;
+}
+
+.plan-hall-line,
+.plan-hatch,
+.plan-seam {
+  stroke: var(--canvas-line);
+}
+
+.plan-label {
+  fill: var(--co-muted);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+}
+
+.map-room {
+  border-radius: 5px;
+  transition: box-shadow 160ms ease;
+}
+
+.map-room:has(.map-desk[aria-pressed="true"]),
+.map-room:has(.map-table[aria-pressed="true"]) {
+  box-shadow: inset 0 0 0 1.5px var(--canvas-blue);
+}
+
+.map-room > header {
+  height: 56px;
+  padding: 12px 11px 0 16px;
+}
+
+.map-room-label {
+  gap: 5px;
+  color: var(--co-muted);
+  font-size: 7.5px;
+  letter-spacing: 0.14em;
+}
+
+.map-room-label::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 14%, transparent);
+}
+
+.map-room > header strong {
+  margin-top: 5px;
+  font-size: 14px;
+  font-weight: 590;
+  letter-spacing: -0.02em;
+}
+
+.map-room > header small {
+  font-size: 9.5px;
+}
+
+.map-room-menu > .co-icon-button {
+  width: 27px;
+  height: 27px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.map-room-menu > .co-icon-button:hover,
+.map-room-menu > .co-icon-button[aria-expanded="true"] {
+  border-color: var(--canvas-line);
+  background: var(--co-card);
+}
+
+.map-desk,
+.map-table {
+  border-radius: 7px;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.map-desk:hover,
+.map-table:hover {
+  background: color-mix(in srgb, var(--co-card) 78%, transparent);
+  transform: translateY(-1px);
+}
+
+.map-desk[aria-pressed="true"],
+.map-table[aria-pressed="true"] {
+  border-color: var(--canvas-blue);
+  background: var(--co-card);
+  box-shadow:
+    0 0 0 1px var(--canvas-blue),
+    0 5px 16px #00000010;
+}
+
+.map-desk[aria-pressed="true"]::before,
+.map-desk[aria-pressed="true"]::after,
+.map-table[aria-pressed="true"]::before,
+.map-table[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--canvas-blue);
+  background: var(--co-card);
+}
+
+.map-desk[aria-pressed="true"]::before,
+.map-table[aria-pressed="true"]::before {
+  top: -4px;
+  left: -4px;
+}
+
+.map-desk[aria-pressed="true"]::after,
+.map-table[aria-pressed="true"]::after {
+  right: -4px;
+  bottom: -4px;
+}
+
+.map-desk > strong,
+.map-table-title {
+  font-weight: 580;
+}
+
+.map-status {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--st) 10%, var(--co-card));
+  font-size: 8.5px;
+}
+
+.map-status::before {
+  width: 5px;
+  height: 5px;
+}
+
+.map-empty,
+.map-add-office {
+  border-color: var(--canvas-line);
+  border-radius: 8px;
+}
+
+.map-empty:hover,
+.map-add-office:hover {
+  border-color: color-mix(in srgb, var(--canvas-blue) 50%, var(--canvas-line));
+  background: var(--canvas-blue-soft);
+}
+
+.map-add-office > svg {
+  border: 1px solid var(--canvas-line);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px #0000000a;
+  color: var(--canvas-blue);
+}
+
+.map-panel {
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: 324px;
+  gap: 14px;
+  padding: 14px;
+  border-color: var(--canvas-line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--co-card) 98%, transparent);
+  box-shadow:
+    0 12px 34px #00000016,
+    0 2px 7px #0000000a;
+}
+
+.map-panel-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--canvas-blue-soft);
+  color: var(--canvas-blue);
+}
+
+.map-panel-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.map-section h4,
+.map-give-work > span {
+  color: var(--co-muted);
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+}
+
+.map-link,
+.map-output,
+.map-give-work textarea {
+  border-color: var(--canvas-line);
+  border-radius: 7px;
+}
+
+[data-theme="dark"] .map-bar,
+[data-theme="dark"] .map-panel {
+  background: color-mix(in srgb, var(--co-card) 94%, transparent);
+}
+
+@media (max-width: 720px) {
+  .map-chips,
+  .map-zoom {
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .map-panel {
+    right: 8px;
+    left: 8px;
+    bottom: 8px;
+  }
+}
+.map-room-menu [role="menuitem"].map-menu-danger {
+  color: var(--co-danger, #b42318);
+}
+
+/* ── Architectural floor plan ─────────────────────────────────────────────
+   A real plan drawing: charcoal walls, door swings, glazing, tiled floors,
+   and people at their desks. Overrides the illustrated styles above. */
+.company-app {
+  --plan-canvas: #eceae5;
+  --plan-dot: #0000000f;
+  --fp-floor: #fbfaf8;
+  --fp-corridor: #f3f2ee;
+  --fp-tile: #0000000a;
+  --fp-wall: #34332f;
+  --fp-glass: #b8d3d6;
+  --fp-furniture: #ffffff;
+  --fp-furniture-line: #bdbab2;
+  --fp-chair: #d9d6ce;
+  --fp-chair-line: #b3afa5;
+  --fp-monitor: #2f302d;
+  --fp-screen: #6f7a73;
+  --tone-sage: #4f8a68;
+  --tone-blue: #4a72a6;
+  --tone-coral: #c0684f;
+  --tone-lavender: #7a68a6;
+  --tone-gold: #a8862f;
+}
+[data-theme="dark"].company-app,
+[data-theme="dark"] .company-app {
+  --plan-canvas: #121211;
+  --plan-dot: #ffffff0c;
+  --fp-floor: #1d1d1b;
+  --fp-corridor: #191918;
+  --fp-tile: #ffffff07;
+  --fp-wall: #b9b5ab;
+  --fp-glass: #3f5d61;
+  --fp-furniture: #2a2a27;
+  --fp-furniture-line: #4a4944;
+  --fp-chair: #3a3935;
+  --fp-chair-line: #55534d;
+  --fp-monitor: #0e0e0d;
+  --fp-screen: #3e4641;
+  --tone-sage: #6fae8a;
+  --tone-blue: #7b9fd0;
+  --tone-coral: #dd8e76;
+  --tone-lavender: #a594d0;
+  --tone-gold: #d0ad57;
+}
+.plan-room {
+  --tone: var(--tone-sage);
+}
+.plan-room[data-tone="blue"],
+.map-room[data-tone="blue"] {
+  --tone: var(--tone-blue);
+}
+.plan-room[data-tone="coral"],
+.map-room[data-tone="coral"] {
+  --tone: var(--tone-coral);
+}
+.plan-room[data-tone="lavender"],
+.map-room[data-tone="lavender"] {
+  --tone: var(--tone-lavender);
+}
+.plan-room[data-tone="gold"],
+.map-room[data-tone="gold"] {
+  --tone: var(--tone-gold);
+}
+
+.map-stage {
+  background-color: var(--plan-canvas);
+  background-image: radial-gradient(var(--plan-dot) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+.fp-building {
+  fill: var(--fp-corridor);
+  filter: drop-shadow(0 12px 28px #00000014);
+}
+.fp-corridor {
+  fill: var(--fp-corridor);
+}
+.fp-outer {
+  fill: none;
+  stroke: var(--fp-wall);
+  stroke-width: 8;
+}
+.fp-room {
+  fill: var(--fp-floor);
+}
+.fp-tile-line {
+  fill: none;
+  stroke: var(--fp-tile);
+  stroke-width: 1;
+}
+.fp-wall {
+  fill: none;
+  stroke: var(--fp-wall);
+  stroke-width: 4;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+.fp-door {
+  fill: none;
+  stroke: var(--fp-wall);
+  stroke-width: 1;
+  opacity: 0.55;
+}
+.fp-window {
+  fill: var(--fp-glass);
+  stroke: var(--fp-wall);
+  stroke-width: 1;
+}
+.fp-accent {
+  fill: var(--tone);
+}
+.plan-vacant {
+  fill: none;
+  stroke: var(--fp-furniture-line);
+  stroke-width: 1;
+  stroke-dasharray: 5 5;
+}
+.map-lines path {
+  stroke: var(--fp-furniture-line);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 5;
+  opacity: 1;
+}
+
+/* Office header */
+.map-room > header {
+  padding: 14px 12px 0 22px;
+}
+.map-room-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--co-muted);
+}
+.map-room-label::before {
+  display: none;
+}
+.map-room > header strong {
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+.map-room-menu > .co-icon-button {
+  background: transparent;
+}
+.map-room-menu > .co-icon-button:hover {
+  background: var(--co-hover);
+}
+
+/* Furniture and people */
+.fp-desk,
+.fp-table {
+  fill: var(--fp-furniture);
+  stroke: var(--fp-furniture-line);
+  stroke-width: 1;
+}
+.fp-monitor {
+  fill: var(--fp-monitor);
+}
+.fp-screen {
+  fill: var(--fp-screen);
+}
+.map-desk[data-state="working"] .fp-screen {
+  fill: var(--st-working);
+}
+.map-desk[data-state="approval"] .fp-screen {
+  fill: var(--st-approval);
+}
+.fp-keyboard,
+.fp-paper,
+.fp-cup {
+  fill: var(--fp-furniture);
+  stroke: var(--fp-furniture-line);
+  stroke-width: 0.8;
+}
+.fp-chair {
+  fill: var(--fp-chair);
+  stroke: var(--fp-chair-line);
+  stroke-width: 0.8;
+}
+.fp-chair-back {
+  fill: var(--fp-chair-line);
+}
+.fp-shoulders {
+  fill: var(--tone);
+  stroke: color-mix(in srgb, var(--tone) 70%, #000);
+  stroke-width: 0.6;
+}
+.fp-arm {
+  fill: none;
+  stroke: var(--tone);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.fp-status {
+  fill: none;
+  stroke: var(--st);
+  stroke-width: 2;
+  opacity: 0;
+}
+.map-desk[data-state="working"] .fp-status,
+.map-desk[data-state="approval"] .fp-status {
+  opacity: 0.9;
+}
+.map-desk[data-state="working"] .fp-status {
+  stroke-dasharray: 6 5;
+  animation: fp-march 1.2s linear infinite;
+}
+@keyframes fp-march {
+  to {
+    stroke-dashoffset: -22;
+  }
+}
+.map-desk[data-state="offline"] .map-desk-art {
+  opacity: 0.55;
+  filter: grayscale(1);
+}
+.map-desk {
+  border-radius: 8px;
+}
+.map-desk:hover,
+.map-table:hover {
+  background: color-mix(in srgb, var(--co-card) 60%, transparent);
+}
+.map-desk[aria-pressed="true"],
+.map-table[aria-pressed="true"] {
+  background: var(--co-card);
+  border-color: var(--fp-furniture-line);
+  box-shadow: 0 4px 14px #00000012;
+}
+.map-table-ring {
+  stroke-width: 1.6;
+}
+.map-table-icon {
+  background: var(--fp-furniture);
+  box-shadow: 0 0 0 1px var(--fp-furniture-line);
+}
+.map-empty {
+  border-color: var(--fp-furniture-line);
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-desk[data-state="working"] .fp-status {
+    animation: none;
+  }
+}

@@ -12,6 +12,8 @@ export type PromptDraft = {
   target: string;
   engine: string;
   chatId: string;
+  /** The chat may edit files and run commands, each gated by your approval. */
+  actions?: boolean;
 };
 export const emptyPrompt: PromptDraft = {
   text: "",
@@ -34,6 +36,7 @@ export function parsePromptDraft(raw: string | null): PromptDraft {
       (key) => typeof value[key as keyof PromptDraft] !== "string",
     ) ||
     value.text.length > 3000 ||
+    (value.actions !== undefined && typeof value.actions !== "boolean") ||
     typeof value.makeTask !== "boolean"
   )
     throw new Error("Unrecognized prompt draft. The saved draft was left untouched.");

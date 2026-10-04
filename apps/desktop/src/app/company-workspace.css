@@ -1520,3 +1520,14 @@ svg {
 .co-section-toolbar > .co-search:first-child {
   margin-left: auto;
 }
+.co-agent-model {
+  display: grid;
+  gap: 6px;
+}
+.co-agent-model > strong {
+  font-size: 11px;
+}
+.co-agent-model > small {
+  color: var(--co-muted);
+  font-size: 10px;
+}

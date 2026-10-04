@@ -517,3 +517,29 @@
     grid-template-columns: 1fr;
   }
 }
+.co-memory-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--co-border);
+  color: var(--co-secondary);
+  font-size: 10px;
+}
+.co-memory-name input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--co-border);
+  border-radius: 6px;
+  background: var(--co-card);
+  color: var(--co-text);
+  font: inherit;
+  font-size: 12px;
+}
+.co-memory-archive {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}

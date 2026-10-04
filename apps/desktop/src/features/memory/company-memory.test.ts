@@ -49,9 +49,9 @@ describe("fact-based memory", () => {
     expect(documents[0]!.contents).toContain("main/one.md");
   });
   it("keeps protected file structure and validation around direct Markdown edits", () => {
-    expect(() =>
-      parseEntryDocument(renderEntryDocument(entry).replace("## Evidence", "## Source")),
-    ).toThrow("headings");
+    expect(() => parseEntryDocument(renderEntryDocument(entry).replace("\n# ", "\n"))).toThrow(
+      "Name",
+    );
     expect(() =>
       parseEntryDocument(
         renderEntryDocument(entry).replace("The team reviews at 9 AM.", "password=example"),
@@ -69,18 +69,36 @@ describe("fact-based memory", () => {
     expect(memoryContext(off, [])).toEqual([]);
     expect(parseMemory(renderMemory(off)).entries).toHaveLength(1);
   });
-  it("requires evidence for reviewed claims and prevention for lessons", () => {
-    expect(entryError({ ...entry, evidence: "" })).toContain("real evidence");
-    expect(entryError({ ...entry, kind: "lesson" })).toContain("differently");
-    expect(entryError({ ...entry, kind: "lesson", prevention: "Check schedule first" })).toBeNull();
+  it("requires evidence and prevention only in strict review", () => {
+    expect(entryError({ ...entry, evidence: "" })).toBeNull();
+    expect(entryError({ ...entry, evidence: "" }, true)).toContain("evidence");
+    expect(entryError({ ...entry, kind: "lesson" }, true)).toContain("differently");
+    expect(
+      entryError({ ...entry, kind: "lesson", prevention: "Check schedule first" }, true),
+    ).toBeNull();
+  });
+  it("round-trips a plain note without Evidence or Next time sections", () => {
+    const note = { ...entry, evidence: "", prevention: "" };
+    const document = renderEntryDocument(note);
+    expect(document).not.toContain("## Evidence");
+    expect(parseEntryDocument(document)).toEqual(note);
   });
   it("does not promote simulated observations into reviewed knowledge", () => {
     expect(entryError({ ...entry, source: "rehearsal" })).toContain("Rehearsal");
     expect(entryError({ ...entry, source: "rehearsal", status: "draft" })).toBeNull();
   });
+  it("uses drafts as plain notes but excludes them in strict review", () => {
+    const notes: MemoryLibrary = {
+      ...library,
+      entries: [entry, { ...entry, id: "two", title: "Draft", status: "draft" }],
+    };
+    expect(memoryContext(notes, [])).toHaveLength(2);
+    expect(memoryContext({ ...notes, strict: true }, [])).toHaveLength(1);
+  });
   it("excludes drafts, archives, unrelated scope and conflicting claims", () => {
     const mixed: MemoryLibrary = {
       ...library,
+      strict: true,
       entries: [
         entry,
         { ...entry, id: "two", status: "draft" },

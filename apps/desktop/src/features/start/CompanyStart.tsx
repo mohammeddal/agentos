@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, ClipboardList, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import {
+  ArrowUp,
+  ClipboardList,
+  ShieldCheck,
+  SlidersHorizontal,
+  Square,
+  Wrench,
+} from "lucide-react";
 import {
   companyDomains,
   taskParticipants,
@@ -17,9 +24,16 @@ import {
 } from "./prompt-composer";
 import "./company-start.css";
 import { ChatConversation } from "./ChatConversation";
-import { chatRequest, isActiveRun, startLive, useLiveRuntime } from "../engines/live-runtime";
+import {
+  chatRequest,
+  controlLive,
+  isActiveRun,
+  startLive,
+  useLiveRuntime,
+} from "../engines/live-runtime";
 import { EngineSetup } from "../engines/LiveExecution";
 import { ModelPicker } from "../engines/ModelPicker";
+import { mentionedTools, useInstalledTools } from "../engines/installed-tools";
 import { engineId } from "../engines/live-runtime";
 import { AttachmentEditor } from "../attachments/Attachments";
 import { chatEngineOptions, readChatEngines, type ChatEngine } from "../engines/chat-engines";
@@ -64,6 +78,7 @@ export function CompanyStart({
             ...emptyPrompt,
             engine: selectedChat.engine,
             modelChoice: selectedChat.modelChoice || {},
+            ...(selectedChat.actions ? { actions: true } : {}),
           };
         draft = { ...draft, chatId: selectedChat.id, projectId: selectedChat.projectId || "" };
       } else {
@@ -103,7 +118,24 @@ export function CompanyStart({
   const input = useRef<HTMLTextAreaElement>(null);
   const submitting = useRef(false);
   const chat = company.chats?.find((c) => c.id === draft.chatId);
-  const running = live.runs.some((r) => r.request.key === `chat:${draft.chatId}` && isActiveRun(r));
+  const activeRun = live.runs.find(
+    (r) => r.request.key === `chat:${draft.chatId}` && isActiveRun(r),
+  );
+  const running = !!activeRun;
+  const chatTools = useInstalledTools(engineId(draft.engine) === "claude" ? "claude" : "codex");
+  const askedTools = draft.makeTask ? [] : mentionedTools(draft.text, chatTools);
+  const [stopping, setStopping] = useState(false);
+  async function stop() {
+    if (!activeRun) return;
+    setStopping(true);
+    try {
+      await controlLive(activeRun.request.id);
+    } catch (e) {
+      setNotice(String(e).replace(/^Error: /, ""));
+    } finally {
+      setStopping(false);
+    }
+  }
   const linkedTask = company.tasks?.find((t) => t.id === chat?.taskId);
   const createdTask = company.tasks?.find((t) => t.id === createdTaskId);
   const projectMissing =
@@ -195,12 +227,14 @@ export function CompanyStart({
               ...chat,
               engine: draft.engine,
               modelChoice: draft.modelChoice || {},
+              actions: !!draft.actions,
               messages: [...chat.messages, message],
             }
           : {
               id: crypto.randomUUID(),
               engine: draft.engine,
               modelChoice: draft.modelChoice || {},
+              ...(draft.actions ? { actions: true } : {}),
               ...(draft.projectId ? { projectId: draft.projectId } : {}),
               createdAt: now,
               messages: [message],
@@ -272,6 +306,18 @@ export function CompanyStart({
           </p>
         )}
         {draft.makeTask && error && draft.text.trim() && <p className="co-prompt-hint">{error}</p>}
+        {askedTools.length > 0 && (
+          <p className="co-prompt-hint co-prompt-tools">
+            {draft.actions
+              ? `Will use ${askedTools.map((tool) => tool.name).join(", ")} from your installed tools.`
+              : `${askedTools.map((tool) => tool.name).join(", ")} is installed, but read-only chats can’t call tools.`}
+            {!draft.actions && (
+              <button type="button" className="co-button" onClick={() => update({ actions: true })}>
+                Let this chat use it
+              </button>
+            )}
+          </p>
+        )}
         {!draft.makeTask && projectMissing && (
           <p role="alert" className="co-form-error">
             {error}
@@ -372,6 +418,24 @@ export function CompanyStart({
                           label="Chat"
                           disabled={sending || running}
                         />
+                      )}
+                      {!draft.makeTask && (
+                        <label className="co-prompt-task-toggle">
+                          <input
+                            type="checkbox"
+                            checked={!!draft.actions}
+                            disabled={sending || running}
+                            onChange={(e) => update({ actions: e.target.checked })}
+                          />
+                          <Wrench size={14} />
+                          <span>
+                            Can make changes
+                            <small>
+                              Edit files, run commands, use tools, and install packages, as allowed
+                              in Settings.
+                            </small>
+                          </span>
+                        </label>
                       )}
                       <label className="co-prompt-task-toggle">
                         <input
@@ -481,31 +545,44 @@ export function CompanyStart({
                 {draft.text.length > 2700 && (
                   <span className="co-composer-count">{draft.text.length}/3,000</span>
                 )}
-                <button
-                  className="co-composer-send"
-                  aria-label={draft.makeTask ? "Create workflow" : "Send message"}
-                  title={
-                    sending
-                      ? "Starting…"
-                      : running
-                        ? "Engine working…"
-                        : draft.makeTask
-                          ? "Create workflow"
-                          : "Send · Enter"
-                  }
-                  disabled={
-                    (!!selectedChatId && !selectedChat) ||
-                    sending ||
-                    attaching ||
-                    running ||
-                    (!draft.makeTask && !live.native) ||
-                    !draft.text.trim() ||
-                    !!error ||
-                    (draft.makeTask && !!linkedTask)
-                  }
-                >
-                  <ArrowUp size={16} />
-                </button>
+                {running ? (
+                  <button
+                    type="button"
+                    className="co-composer-send co-composer-stop"
+                    aria-label="Stop the running reply"
+                    title="Stop"
+                    disabled={stopping}
+                    onClick={() => void stop()}
+                  >
+                    <Square size={13} fill="currentColor" />
+                  </button>
+                ) : (
+                  <button
+                    className="co-composer-send"
+                    aria-label={draft.makeTask ? "Create workflow" : "Send message"}
+                    title={
+                      sending
+                        ? "Starting…"
+                        : running
+                          ? "Engine working…"
+                          : draft.makeTask
+                            ? "Create workflow"
+                            : "Send · Enter"
+                    }
+                    disabled={
+                      (!!selectedChatId && !selectedChat) ||
+                      sending ||
+                      attaching ||
+                      running ||
+                      (!draft.makeTask && !live.native) ||
+                      !draft.text.trim() ||
+                      !!error ||
+                      (draft.makeTask && !!linkedTask)
+                    }
+                  >
+                    <ArrowUp size={16} />
+                  </button>
+                )}
               </>
             }
           >

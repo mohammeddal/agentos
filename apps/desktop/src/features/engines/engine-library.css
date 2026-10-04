@@ -160,6 +160,11 @@
 }
 .co-engine-setup-note p {
   margin: 0;
+  flex: 1;
+}
+.co-engine-setup-note .co-button {
+  flex: none;
+  align-self: center;
 }
 .co-engine-settings p {
   margin: 5px 0 0;
@@ -293,6 +298,27 @@
 }
 .co-provider-permissions select {
   width: 100%;
+}
+.co-provider-permissions > label.co-provider-toggle input {
+  justify-self: end;
+}
+.co-default-models {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+.co-default-models > h3,
+.co-default-models > p {
+  margin: 0;
+}
+.co-default-models > div {
+  display: grid;
+  gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid var(--co-border);
+}
+.co-default-models > div > strong {
+  font-size: 11px;
 }
 .co-chat-engines {
   display: grid;
@@ -637,4 +663,64 @@
     padding: 12px 9px;
     gap: 7px;
   }
+}
+.co-setup-chat {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+.co-setup-chat > h3,
+.co-setup-chat > p {
+  margin: 0;
+}
+.co-setup-chat > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.co-autonomy {
+  display: grid;
+  gap: 6px;
+}
+.co-autonomy label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--co-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.co-autonomy label[data-selected] {
+  border-color: var(--co-text);
+  background: var(--co-soft);
+}
+.co-autonomy input {
+  margin-top: 2px;
+  accent-color: var(--co-text);
+}
+.co-autonomy span {
+  display: grid;
+  gap: 3px;
+}
+.co-autonomy strong {
+  font-size: 11px;
+}
+.co-autonomy small {
+  color: var(--co-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.co-always-allow {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+}
+.co-always-allow span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--co-border);
 }

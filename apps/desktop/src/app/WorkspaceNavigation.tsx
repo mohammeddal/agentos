@@ -4,6 +4,7 @@ import {
   BookOpen,
   Building2,
   CircleHelp,
+  Inbox,
   MessageSquare,
   Moon,
   Search,
@@ -16,6 +17,7 @@ import { isActiveRun, useLiveRuntime } from "../features/engines/live-runtime";
 import { WorkspaceDirectory, type DirectoryProps } from "./WorkspaceDirectory";
 const icons = {
   start: MessageSquare,
+  inbox: Inbox,
   map: Building2,
   activity: Activity,
   memory: BookOpen,
@@ -101,6 +103,7 @@ export function WorkspaceNavigation({
             >
               <Icon size={18} />
               <span>{d.label}</span>
+              {d.view === "inbox" && pending > 0 && <em className="co-nav-badge">{pending}</em>}
             </button>
           );
         })}

@@ -15,7 +15,15 @@ export async function memoryFile(save?: {
   if (isTauri())
     return invoke<MemoryFile>(
       save ? "save_company_memory" : "read_company_memory",
-      save ? { expected: save.expected, contents: save.contents } : {},
+      // Tauri maps these to the command's snake_case arguments; all four are required to save.
+      save
+        ? {
+            expected: save.expected,
+            contents: save.contents,
+            expectedDocuments: save.expectedDocuments,
+            documents: save.documents,
+          }
+        : {},
     );
   const response = await fetch("/api/company-memory", {
     method: save ? "PUT" : "GET",

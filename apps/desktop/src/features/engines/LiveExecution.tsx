@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { AlwaysAllowButton } from "./AlwaysAllowButton";
 import { ChevronDown } from "lucide-react";
 import { isTauri } from "@tauri-apps/api/core";
 import type { Company, CompanyTask } from "../company/company-model";
@@ -120,6 +121,7 @@ export function LiveRunCard({ run, collapsible = false }: { run: LiveRun; collap
           >
             Reject
           </button>
+          <AlwaysAllowButton run={run} approval={approval} disabled={busy} onError={setError} />
         </section>
       ))}
       {run.output && (

@@ -8,6 +8,7 @@ import {
   chatRequest,
   compileTask,
   engineId,
+  partialRequest,
   refreshRequestMemory,
   startLive,
   taskRunError,
@@ -107,7 +108,12 @@ describe("native execution plans", () => {
     expect(request.steps[0]).toMatchObject({ model: "catalog-model", effort: "low" });
     expect(request.context).toContain("# AgentOS product guide");
     expect(request.context).toContain("Provider permissions");
-    expect(request.providerPermissions).toEqual({ codex: "on-request", claude: "default" });
+    expect(request.providerPermissions).toEqual({
+      codex: "on-request",
+      claude: "acceptEdits",
+      codexNetwork: true,
+      alwaysAllow: [],
+    });
   });
   it("uses a per-message engine and model when a conversation switches providers", async () => {
     const chat = {
@@ -682,5 +688,41 @@ describe("native execution plans", () => {
         steps: [],
       }),
     ).rejects.toThrow(/installed Mac app/);
+  });
+});
+
+describe("partialRequest", () => {
+  const step = (id: string, after: string[] = []) => ({
+    id,
+    label: id.toUpperCase(),
+    engine: "codex",
+    prompt: id,
+    agentId: "",
+    after,
+    condition: "success",
+    approval: false,
+  });
+  const request = {
+    id: "r",
+    key: "task:t",
+    title: "Flow",
+    mode: "task" as const,
+    folder: "",
+    context: "",
+    steps: [step("a"), step("b", ["a"]), step("c", ["b"]), step("d", ["a"])],
+  };
+  const previous = {
+    results: [{ id: "a", label: "A", status: "completed", output: "from a" }],
+  } as Parameters<typeof partialRequest>[2];
+
+  it("keeps the step and its downstream, reusing earlier output", () => {
+    const next = partialRequest(request, "b", previous);
+    expect(next.steps.map((s) => s.id)).toEqual(["b", "c"]);
+    expect(next.steps[0]!.after).toEqual([]);
+    expect(next.context).toContain("from a");
+  });
+
+  it("refuses when earlier steps have no output to reuse", () => {
+    expect(() => partialRequest(request, "b")).toThrow(/Run the whole workflow/);
   });
 });

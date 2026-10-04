@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import {
+  ArrowLeft,
   BookOpen,
   Bot,
   Building2,
@@ -89,15 +90,35 @@ const replaceEditableDocument = (markdown: string, editable: string) => {
   const markerEnd = markdown.indexOf("\n-->\n");
   return markerEnd < 0 ? editable : `${markdown.slice(0, markerEnd + 5)}${editable}`;
 };
+/** The file's name is its "# " heading; renaming rewrites only that line. */
+const documentTitle = (markdown: string) => {
+  const editable = editableDocument(markdown);
+  if (!editable.startsWith("# ")) return "";
+  const end = editable.indexOf("\n");
+  return editable.slice(2, end < 0 ? undefined : end).trim();
+};
+const withTitle = (markdown: string, title: string) => {
+  const editable = editableDocument(markdown);
+  const end = editable.indexOf("\n");
+  const rest = editable.startsWith("# ")
+    ? end < 0
+      ? "\n"
+      : editable.slice(end)
+    : `\n\n${editable}`;
+  return replaceEditableDocument(markdown, `# ${title.replace(/\n/g, " ")}${rest}`);
+};
 
 export function CompanyMemory({
   company,
   query,
   createRequest,
+  back,
 }: {
   company: Company;
   query: string;
   createRequest?: number;
+  /** Return to the workflow that asked for new context. */
+  back?: (() => void) | undefined;
 }) {
   const live = useLiveRuntime();
   const [library, setLibrary] = useState<MemoryLibrary | null>(null);
@@ -277,10 +298,20 @@ export function CompanyMemory({
         <div>
           <BookOpen size={21} />
           <span>
-            <strong>Evidence before memory.</strong>
-            <small>Facts, lessons, known issues, and decisions—each with a source.</small>
+            <strong>Notes your agents can use.</strong>
+            <small>
+              {library?.strict
+                ? "Strict review: only reviewed notes with evidence reach agents."
+                : "Every note that isn’t archived is shared with agents in its scope."}
+            </small>
           </span>
         </div>
+        {back && (
+          <button className="co-button" onClick={back}>
+            <ArrowLeft size={14} />
+            Back to workflow
+          </button>
+        )}
         <button className="co-button" disabled={busy} onClick={() => void load()}>
           <RefreshCw size={14} />
           Reload from disk
@@ -294,6 +325,26 @@ export function CompanyMemory({
           onClick={() => library && void persist({ ...library, enabled: !library.enabled })}
         >
           {library?.enabled ? "Memory on" : "Memory off"}
+        </button>
+        <button
+          role="switch"
+          aria-checked={library?.strict || false}
+          disabled={!library || busy}
+          className="co-button"
+          title="Require review and evidence before notes reach agents"
+          onClick={() => library && void persist({ ...library, strict: !library.strict })}
+        >
+          {library?.strict ? "Strict review on" : "Strict review off"}
+        </button>
+        <button
+          role="switch"
+          aria-checked={library ? library.learn !== false : false}
+          disabled={!library || busy}
+          className="co-button"
+          title="Save lessons agents report and failed runs as notes automatically"
+          onClick={() => library && void persist({ ...library, learn: library.learn === false })}
+        >
+          {library?.learn === false ? "Learning off" : "Learning from runs"}
         </button>
       </div>
       {error && (
@@ -464,7 +515,13 @@ export function CompanyMemory({
                         <small>
                           {conflicts.has(entry.id)
                             ? "Conflict · excluded"
-                            : `${memoryKinds[entry.kind]} · ${entry.status}`}
+                            : library.strict
+                              ? `${memoryKinds[entry.kind]} · ${entry.status}`
+                              : entry.status === "archived"
+                                ? "Archived · hidden from agents"
+                                : entry.source === "run"
+                                  ? `Learned · ${memoryKinds[entry.kind]}`
+                                  : "Shared with agents"}
                         </small>
                       </span>
                     </button>
@@ -508,7 +565,7 @@ export function CompanyMemory({
                         updatedAt: new Date().toISOString(),
                       };
                       const validation =
-                        entryError(entry) ||
+                        entryError(entry, library.strict) ||
                         (duplicateEntry(library, entry)
                           ? "This statement is already recorded in the same scope."
                           : null);
@@ -523,14 +580,19 @@ export function CompanyMemory({
                             ? library.entries.map((v) => (v.id === entry.id ? entry : v))
                             : [...library.entries, entry],
                         })
-                      )
+                      ) {
                         openEntry(entry);
+                        if (library.strict && entry.status !== "reviewed")
+                          setNotice(
+                            "Saved as a draft. Set Status to Reviewed in Details (with evidence) so agents can use it as context.",
+                          );
+                      }
                     }}
                   >
                     <header className="co-memory-editor-bar">
                       <span>
                         <FileText size={16} />
-                        <strong>{draft.title || "Untitled memory"}.md</strong>
+                        <strong>{documentTitle(documentDraft) || "Untitled memory"}.md</strong>
                         <small>
                           {editorMode === "details"
                             ? "File settings"
@@ -564,6 +626,19 @@ export function CompanyMemory({
                         </button>
                       </nav>
                     </header>
+                    <label className="co-memory-name">
+                      Name
+                      <input
+                        required
+                        maxLength={120}
+                        autoFocus={!draft.title}
+                        placeholder="e.g. Brand voice guidelines"
+                        value={documentTitle(documentDraft)}
+                        onChange={(event) =>
+                          setDocumentDraft(withTitle(documentDraft, event.target.value))
+                        }
+                      />
+                    </label>
                     {editorMode === "write" && (
                       <textarea
                         className="co-memory-source"
@@ -582,7 +657,37 @@ export function CompanyMemory({
                         <ReactMarkdown>{editableDocument(documentDraft)}</ReactMarkdown>
                       </div>
                     )}
-                    {editorMode === "details" && (
+                    {editorMode === "details" && !library.strict && (
+                      <div className="co-memory-details">
+                        <label>
+                          Applies to
+                          <select
+                            value={draft.scope}
+                            onChange={(e) => patch({ scope: e.target.value })}
+                          >
+                            {!scopes.some((s) => s.value === draft.scope) && (
+                              <option value={draft.scope}>{draft.scope} (unavailable)</option>
+                            )}
+                            {scopes.map((s) => (
+                              <option key={s.value} value={s.value}>
+                                {s.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="co-memory-archive">
+                          <input
+                            type="checkbox"
+                            checked={draft.status === "archived"}
+                            onChange={(e) =>
+                              patch({ status: e.target.checked ? "archived" : "draft" })
+                            }
+                          />
+                          Archive · keep the file but hide it from agents
+                        </label>
+                      </div>
+                    )}
+                    {editorMode === "details" && library.strict && (
                       <div className="co-memory-details">
                         <div className="co-form-pair">
                           <label>
@@ -746,22 +851,22 @@ export function CompanyMemory({
                   <article className="co-memory-record" key={entry.id}>
                     <span>
                       <em>{memoryKinds[entry.kind]}</em>
-                      <small>Reviewed</small>
+                      <small>{library.strict ? "Reviewed" : "Shared"}</small>
                     </span>
                     <h3>{entry.title}</h3>
                     <p>{entry.body}</p>
-                    <p>Evidence: {entry.evidence}</p>
+                    {entry.evidence && <p>Evidence: {entry.evidence}</p>}
                     {entry.prevention && <p>Next time: {entry.prevention}</p>}
                   </article>
                 ))}
                 {!context.length && (
                   <div className="co-activity-empty">
-                    <h3>
-                      {library.enabled
-                        ? "No reviewed memory matches this context."
-                        : "Memory is off."}
-                    </h3>
-                    <p>Drafts, archived records, and conflicts are excluded.</p>
+                    <h3>{library.enabled ? "No notes match this context." : "Memory is off."}</h3>
+                    <p>
+                      {library.strict
+                        ? "Drafts, archived records, and conflicts are excluded."
+                        : "Archived notes and conflicting notes are excluded."}
+                    </p>
                   </div>
                 )}
               </div>

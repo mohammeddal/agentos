@@ -73,7 +73,7 @@
   font-size: 11px;
 }
 .tc-layout.ck-no-palette {
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) var(--inspector-w, 400px);
 }
 .tc-wires .ck-wire-done .tc-wire {
   stroke: #5a8f6a;
@@ -238,4 +238,10 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--co-muted);
+}
+.ck-result .co-assistant-markdown {
+  max-height: 420px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.6;
 }

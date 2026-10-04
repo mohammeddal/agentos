@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CircleCheck, RefreshCw } from "lucide-react";
+import { CircleCheck, MessageSquarePlus, RefreshCw } from "lucide-react";
 import {
   capabilityNames,
   discoverEngine,
@@ -11,9 +11,13 @@ import {
 import { NotificationSettings } from "./live-notifications";
 import { refreshEngines, useLiveRuntime } from "./live-runtime";
 import {
-  readProviderPermissions,
-  saveProviderPermissions,
-  type ProviderPermissions,
+  autonomyOptions,
+  readAlwaysAllow,
+  readAutonomy,
+  saveAlwaysAllow,
+  saveAutonomy,
+  scopeLabel,
+  type Autonomy,
 } from "./provider-permissions";
 import {
   CHAT_ENGINES,
@@ -22,6 +26,9 @@ import {
   type ChatEngine,
   type ChatEnginePreferences,
 } from "./chat-engines";
+import { ModelPicker } from "./ModelPicker";
+import { readDefaultModels, saveDefaultModels } from "./default-models";
+import type { ModelChoice } from "./model-choice";
 import "./engine-library.css";
 
 const WORKSPACE_STORAGE = "agentos:inventory-workspace";
@@ -48,15 +55,38 @@ function savedWorkspace(): string {
   }
 }
 
-export function EngineSettings({ focus }: { focus?: EngineSettingsFocus | null }) {
+/** A ready-to-send chat prompt that asks the engine to set up the requested capability. */
+export function setupPrompt(kind: CapabilityKind, engine: Engine): string {
+  const name = engineNames[engine];
+  const what = {
+    mcp: "MCP server",
+    skill: "skill",
+    agent: "agent",
+    connector: "connector",
+    plugin: "plugin",
+  }[kind];
+  return `Help me set up a new ${what} for ${name}. Ask me what it should do, then propose the plan: which package or server to use, what to install, and the exact config change (for example \`${engine === "claude" ? "claude mcp add" : "codex mcp add"}\`). Wait for my go-ahead before installing anything or editing config, and never ask me to paste credentials in chat — use an interactive sign-in instead. After installing, verify it starts and tell me how to use it.`;
+}
+
+export function EngineSettings({
+  focus,
+  setupWithChat,
+}: {
+  focus?: EngineSettingsFocus | null;
+  /** Opens a chat that can make changes, prefilled with a setup request. */
+  setupWithChat?: (prompt: string, engine: Engine) => void;
+}) {
   const live = useLiveRuntime();
   const [engine, setEngine] = useState<Engine>(savedEngine);
   const [workspace, setWorkspace] = useState(savedWorkspace);
   const [inventory, setInventory] = useState<Inventory | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [permissions, setPermissions] = useState<ProviderPermissions>(readProviderPermissions);
+  const [autonomy, setAutonomyState] = useState<Autonomy>(readAutonomy);
+  const [alwaysAllow, setAlwaysAllow] = useState<string[]>(readAlwaysAllow);
   const [chatEngines, setChatEngines] = useState<ChatEnginePreferences>(readChatEngines);
+  const [defaultModels, setDefaultModels] =
+    useState<Record<string, ModelChoice>>(readDefaultModels);
 
   useEffect(() => {
     if (focus?.engine) setEngine(focus.engine);
@@ -70,17 +100,24 @@ export function EngineSettings({ focus }: { focus?: EngineSettingsFocus | null }
     }
   }, [engine]);
 
-  function setPermission<K extends keyof ProviderPermissions>(
-    provider: K,
-    value: ProviderPermissions[K],
-  ) {
-    const next = { ...permissions, [provider]: value };
-    setPermissions(next);
+  function setAutonomy(next: Autonomy) {
+    setAutonomyState(next);
     try {
-      saveProviderPermissions(next);
+      saveAutonomy(next);
       setError("");
     } catch {
       setError("Permission preferences could not be saved. They remain active for this session.");
+    }
+  }
+
+  function updateDefaultModel(engine: string, choice: ModelChoice) {
+    const next = { ...defaultModels, [engine]: choice };
+    setDefaultModels(next);
+    try {
+      saveDefaultModels(next);
+      setError("");
+    } catch {
+      setError("Default models could not be saved. They remain active for this session.");
     }
   }
 
@@ -144,6 +181,15 @@ export function EngineSettings({ focus }: { focus?: EngineSettingsFocus | null }
             Configure it in {engineNames[engine]}, then scan here. AgentOS reads existing local
             configuration without copying credentials or enabling permissions.
           </p>
+          {setupWithChat && (
+            <button
+              className="co-button co-button-primary"
+              onClick={() => setupWithChat(setupPrompt(focus.kind!, engine), engine)}
+            >
+              <MessageSquarePlus size={14} />
+              Set it up with chat
+            </button>
+          )}
         </div>
       )}
 
@@ -239,42 +285,94 @@ export function EngineSettings({ focus }: { focus?: EngineSettingsFocus | null }
           </small>
         </section>
 
+        {setupWithChat && (
+          <section className="co-setup-chat">
+            <h3>Add capabilities</h3>
+            <p>
+              Describe what you need and {engineNames[engine]} will plan it, install packages, and
+              update its config — asking before each change.
+            </p>
+            <div>
+              {(["mcp", "skill"] as const).map((kind) => (
+                <button
+                  key={kind}
+                  className="co-button"
+                  disabled={engine === "gemini"}
+                  onClick={() => setupWithChat(setupPrompt(kind, engine), engine)}
+                >
+                  <MessageSquarePlus size={14} />
+                  New {kind === "mcp" ? "MCP server" : "skill"}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="co-default-models">
+          <h3>Default models</h3>
+          <p>
+            Used when a chat, agent, or workflow doesn&apos;t pick its own model. Step overrides
+            win, then workflow defaults, then the agent&apos;s model, then these.
+          </p>
+          {(["codex", "claude"] as const).map((id) => (
+            <div key={id}>
+              <strong>{id === "codex" ? "Codex" : "Claude Code"}</strong>
+              <ModelPicker
+                engine={id}
+                value={defaultModels[id]}
+                label={`${id} app default`}
+                onChange={(choice) => updateDefaultModel(id, choice)}
+              />
+            </div>
+          ))}
+        </section>
+
         <section className="co-provider-permissions">
-          <h3>Provider permissions</h3>
-          <p>Choose how often each engine pauses during tasks. Chat stays read-only.</p>
-          <label>
-            <span>
-              <strong>Codex</strong>
-              <small>Always restricted to the task workspace.</small>
-            </span>
-            <select
-              value={permissions.codex}
-              onChange={(event) =>
-                setPermission("codex", event.target.value as ProviderPermissions["codex"])
-              }
-            >
-              <option value="on-request">Ask when needed</option>
-              <option value="never">No provider prompts</option>
-            </select>
-          </label>
-          <label>
-            <span>
-              <strong>Claude Code</strong>
-              <small>Workflow approval blocks still apply.</small>
-            </span>
-            <select
-              value={permissions.claude}
-              onChange={(event) =>
-                setPermission("claude", event.target.value as ProviderPermissions["claude"])
-              }
-            >
-              <option value="default">Ask permissions</option>
-              <option value="acceptEdits">Auto-accept workspace edits</option>
-            </select>
-          </label>
+          <h3>How much should engines do on their own?</h3>
+          <p>Applies to workflows and chats that can make changes. Read-only chats never act.</p>
+          <div className="co-autonomy" role="radiogroup" aria-label="Autonomy">
+            {(Object.keys(autonomyOptions) as Autonomy[]).map((value) => (
+              <label key={value} data-selected={autonomy === value || undefined}>
+                <input
+                  type="radio"
+                  name="autonomy"
+                  checked={autonomy === value}
+                  onChange={() => setAutonomy(value)}
+                />
+                <span>
+                  <strong>{autonomyOptions[value].label}</strong>
+                  <small>{autonomyOptions[value].detail}</small>
+                </span>
+              </label>
+            ))}
+          </div>
+          {alwaysAllow.length > 0 && (
+            <div className="co-always-allow">
+              <strong>Always allowed</strong>
+              {alwaysAllow.map((scope) => (
+                <span key={scope}>
+                  {scopeLabel(scope)}
+                  <button
+                    type="button"
+                    className="co-button"
+                    onClick={() => {
+                      const next = alwaysAllow.filter((item) => item !== scope);
+                      setAlwaysAllow(next);
+                      try {
+                        saveAlwaysAllow(next);
+                      } catch {
+                        setError("Could not save. The change applies to this session only.");
+                      }
+                    }}
+                  >
+                    Remove
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           <small className="co-setting-footnote">
-            These defaults are copied into each new run. Explicit approval blocks on a workflow are
-            never skipped.
+            Copied into each new run. Approval blocks on a workflow are never skipped.
           </small>
         </section>
 

@@ -9,6 +9,8 @@ import {
 } from "./company-model";
 import { discoverEngine, type Capability, type Engine } from "../engines/engine-inventory";
 import { HelpTip } from "../../shared/HelpTip";
+import { ModelPicker } from "../engines/ModelPicker";
+import type { ModelChoice } from "../engines/model-choice";
 export function OfficeForm({
   existing,
   save,
@@ -99,6 +101,7 @@ export function AgentForm({
   const [engine, setEngine] = useState(existing?.engine || "Codex");
   const [prompt, setPrompt] = useState(existing?.prompt || "");
   const [skills, setSkills] = useState<AgentSkillReference[]>(existing?.skills || []);
+  const [modelChoice, setModelChoice] = useState<ModelChoice>(existing?.modelChoice || {});
   const [inventory, setInventory] = useState<Capability[]>([]);
   const [skillQuery, setSkillQuery] = useState("");
   const [skillError, setSkillError] = useState("");
@@ -188,6 +191,9 @@ export function AgentForm({
             engine,
             ...(prompt.trim() ? { prompt: prompt.trim() } : {}),
             ...(skills.length ? { skills } : {}),
+            ...(inventoryEngine && (modelChoice.model || modelChoice.effort)
+              ? { modelChoice }
+              : {}),
           });
       }}
     >
@@ -243,6 +249,7 @@ export function AgentForm({
             onChange={(e) => {
               const next = e.target.value;
               setEngine(next);
+              setModelChoice({});
               setSkillQuery("");
               if (skills.length) {
                 setSkills([]);
@@ -259,6 +266,20 @@ export function AgentForm({
           </select>
         </label>
       </div>
+      {inventoryEngine && (
+        <div className="co-agent-model">
+          <strong>Model</strong>
+          <ModelPicker
+            engine={inventoryEngine}
+            value={modelChoice}
+            label="Agent model"
+            onChange={setModelChoice}
+          />
+          <small>
+            Used whenever this agent works, unless a workflow sets its own default or step override.
+          </small>
+        </div>
+      )}
       <label>
         Responsibility
         <input

@@ -64,12 +64,20 @@ fn success_condition() -> String {
 pub struct ProviderPermissions {
     pub codex: String,
     pub claude: String,
+    /// Lets Codex reach the network inside the task workspace (package installs, downloads).
+    #[serde(default)]
+    pub codex_network: bool,
+    /// Approval scopes the user chose to always allow (see `Approval::scope`).
+    #[serde(default)]
+    pub always_allow: Vec<String>,
 }
 impl Default for ProviderPermissions {
     fn default() -> Self {
         Self {
             codex: "on-request".into(),
             claude: "default".into(),
+            codex_network: false,
+            always_allow: vec![],
         }
     }
 }
@@ -91,6 +99,9 @@ pub struct RunRequest {
     pub context: String,
     #[serde(default)]
     pub provider_permissions: ProviderPermissions,
+    /// A chat the user switched to "can make changes": it keeps its session but runs like a task.
+    #[serde(default)]
+    pub chat_actions: bool,
     pub steps: Vec<Step>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -99,6 +110,9 @@ pub struct Approval {
     pub id: String,
     pub title: String,
     pub detail: String,
+    /// What "Always allow" would cover, e.g. `mcp:notebooklm` or `claude:Bash`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -132,13 +146,17 @@ pub struct Run {
     pub cwd: String,
     #[serde(default)]
     pub current_agent_id: String,
+    /// Files in the workspace created or changed while this run was active (relative paths).
+    #[serde(default)]
+    pub files: Vec<String>,
 }
 fn active(status: &str) -> bool {
     matches!(status, "starting" | "running" | "awaiting_approval")
 }
 enum Control {
     Cancel,
-    Decide(String, bool),
+    /// Approval id, allow, and whether to keep allowing the same scope for the rest of the run.
+    Decide(String, bool, bool),
 }
 #[derive(Default)]
 struct Inner {
@@ -298,6 +316,7 @@ impl Runtime {
             approvals: vec![],
             results: vec![],
             cwd: cwd.to_string_lossy().into(),
+            files: vec![],
             current_agent_id: String::new(),
         };
         inner.runs.push(run.clone());
@@ -312,8 +331,10 @@ impl Runtime {
         let worker_run = run.clone();
         thread::spawn(move || {
             let result = runtime.execute(&worker_run, &rx);
+            let files = changed_files(Path::new(&worker_run.cwd), worker_run.created_at);
             runtime.update(&request.id, true, |r| {
                 r.approvals.clear();
+                r.files = files;
                 match result {
                     Ok(()) => r.status = "completed".into(),
                     Err(e) => {
@@ -345,12 +366,13 @@ impl Runtime {
                 id: gate_id.clone(),
                 title: title.into(),
                 detail: detail.into(),
+                scope: None,
             }];
         });
         let decision = loop {
             match rx.recv_timeout(Duration::from_secs(1800)) {
                 Ok(Control::Cancel) => return Err("Canceled".into()),
-                Ok(Control::Decide(key, yes)) if key == gate_id => break yes,
+                Ok(Control::Decide(key, yes, _)) if key == gate_id => break yes,
                 Ok(_) => (),
                 Err(_) => return Err("Approval timed out after 30 minutes.".into()),
             }
@@ -446,7 +468,8 @@ impl Runtime {
             } else {
                 ""
             };
-            let result = self.provider(run, step, &prompt, session, run.request.mode == "chat", rx);
+            let chat_only = run.request.mode == "chat" && !run.request.chat_actions;
+            let result = self.provider(run, step, &prompt, session, chat_only, rx);
             if matches!(&result, Err(e) if e == "Canceled") {
                 return Err("Canceled".into());
             }
@@ -512,16 +535,16 @@ impl Runtime {
             .stderr(Stdio::piped());
         // GUI launches have a small PATH. Supply known locations without evaluating shell startup files.
         command.env("PATH", engine_path());
+        // Validated values: "untrusted" (ask me), "on-request" (risky only), "never" (on its own).
         let codex_policy = if chat_only {
             "never"
-        } else if run.request.provider_permissions.codex == "never" {
-            "never"
         } else {
-            "on-request"
+            run.request.provider_permissions.codex.as_str()
         };
+        // "auto" runs Claude in acceptEdits and answers its remaining tool prompts below.
         let claude_mode = if chat_only {
             "default"
-        } else if run.request.provider_permissions.claude == "acceptEdits" {
+        } else if ["acceptEdits", "auto"].contains(&run.request.provider_permissions.claude.as_str()) {
             "acceptEdits"
         } else {
             "default"
@@ -628,6 +651,13 @@ impl Runtime {
             )?;
         }
         let mut pending: HashMap<String, Value> = HashMap::new();
+        let mut allowed: std::collections::HashSet<String> = run
+            .request
+            .provider_permissions
+            .always_allow
+            .iter()
+            .cloned()
+            .collect();
         let mut output = String::new();
         let mut messages: HashMap<String, String> = HashMap::new();
         let mut initialized = false;
@@ -637,9 +667,16 @@ impl Runtime {
             while let Ok(control) = rx.try_recv() {
                 match control {
                     Control::Cancel => return Err("Canceled".into()),
-                    Control::Decide(key, allow) => {
+                    Control::Decide(key, allow, always) => {
                         if let Some(request) = pending.remove(&key) {
-                            let reply = if codex {
+                            if allow && always {
+                                if let Some(scope) = approval_scope(&request) {
+                                    allowed.insert(scope);
+                                }
+                            }
+                            let reply = if codex && request["method"] == ELICITATION {
+                                elicitation_reply(&request["id"], allow)
+                            } else if codex {
                                 json!({"id":request["id"],"result":{"decision":if allow {"accept"} else {"decline"}}})
                             } else {
                                 json!({"type":"control_response","response":{"subtype":"success","request_id":request["request_id"],"response":if allow {json!({"behavior":"allow","updatedInput":request["request"]["input"]})} else {json!({"behavior":"deny","message":"Rejected by the user"})}}})
@@ -657,7 +694,9 @@ impl Runtime {
                             self.event(
                                 id,
                                 "approval",
-                                if allow {
+                                if allow && always {
+                                    "Provider action always allowed"
+                                } else if allow {
                                     "Provider action approved once"
                                 } else {
                                     "Provider action rejected"
@@ -756,8 +795,38 @@ impl Runtime {
                     );
                     send(
                         &mut stdin,
-                        json!({"id":3,"method":"turn/start","params":{"threadId":thread_id,"model":model,"effort":effort,"input":input,"approvalPolicy":codex_policy,"sandboxPolicy":if chat_only {json!({"type":"readOnly"})} else {json!({"type":"workspaceWrite","writableRoots":[run.cwd],"networkAccess":false})}}}),
+                        json!({"id":3,"method":"turn/start","params":{"threadId":thread_id,"model":model,"effort":effort,"input":input,"approvalPolicy":codex_policy,"sandboxPolicy":if chat_only {json!({"type":"readOnly"})} else {json!({"type":"workspaceWrite","writableRoots":[run.cwd],"networkAccess":run.request.provider_permissions.codex_network})}}}),
                     )?;
+                } else if v.get("id").is_some() && method == ELICITATION {
+                    // Codex asks before each MCP tool call. A plain confirmation (no form fields)
+                    // follows the run's approval preference; anything else waits for the user.
+                    let server = text(p, "serverName");
+                    let plain = p["mode"] != "url"
+                        && p["requestedSchema"]["properties"]
+                            .as_object()
+                            .map_or(true, |fields| fields.is_empty());
+                    if chat_only {
+                        send(&mut stdin, elicitation_reply(&v["id"], false))?;
+                        self.event(id, "approval", &format!("{server} tool call blocked in read-only chat. Turn on “Can make changes” to use tools."));
+                    } else if plain
+                        && (run.request.provider_permissions.codex == "never"
+                            || approval_scope(&v).is_some_and(|scope| allowed.contains(&scope)))
+                    {
+                        send(&mut stdin, elicitation_reply(&v["id"], true))?;
+                        self.event(id, "approval", &format!("{server} tool call allowed automatically."));
+                    } else {
+                        let key = v["id"].to_string();
+                        pending.insert(key.clone(), v.clone());
+                        self.update(id, true, |r| {
+                            r.status = "awaiting_approval".into();
+                            r.approvals.push(Approval {
+                                id: key,
+                                title: format!("Allow the {server} tool?"),
+                                detail: limited(&text(p, "message"), 16000),
+                                scope: approval_scope(&v),
+                            });
+                        });
+                    }
                 } else if v.get("id").is_some() && !method.is_empty() {
                     if method == "item/commandExecution/requestApproval"
                         || method == "item/fileChange/requestApproval"
@@ -768,6 +837,9 @@ impl Runtime {
                                 json!({"id":v["id"],"result":{"decision":"decline"}}),
                             )?;
                             self.event(id,"approval","Action blocked in read-only chat. Create a task to request actions.");
+                        } else if approval_scope(&v).is_some_and(|scope| allowed.contains(&scope)) {
+                            send(&mut stdin, json!({"id":v["id"],"result":{"decision":"accept"}}))?;
+                            self.event(id, "approval", &format!("{} allowed automatically.", approval_scope(&v).unwrap_or_default()));
                         } else {
                             let key = v["id"].to_string();
                             pending.insert(key.clone(), v.clone());
@@ -777,6 +849,7 @@ impl Runtime {
                                     id: key,
                                     title: method.clone(),
                                     detail: limited(&p.to_string(), 16000),
+                                    scope: approval_scope(&v),
                                 });
                             });
                         }
@@ -862,7 +935,21 @@ impl Runtime {
                     }
                     "control_request" => {
                         let key = text(&v, "request_id");
-                        if v["request"]["subtype"] == "can_use_tool" && !chat_only {
+                        if v["request"]["subtype"] == "can_use_tool"
+                            && !chat_only
+                            && (run.request.provider_permissions.claude == "auto"
+                                || approval_scope(&v).is_some_and(|scope| allowed.contains(&scope)))
+                        {
+                            send(
+                                &mut stdin,
+                                json!({"type":"control_response","response":{"subtype":"success","request_id":key,"response":{"behavior":"allow","updatedInput":v["request"]["input"]}}}),
+                            )?;
+                            self.event(
+                                id,
+                                "approval",
+                                &format!("{} allowed automatically.", text(&v["request"], "tool_name")),
+                            );
+                        } else if v["request"]["subtype"] == "can_use_tool" && !chat_only {
                             pending.insert(key.clone(), v.clone());
                             self.update(id, true, |r| {
                                 r.status = "awaiting_approval".into();
@@ -870,6 +957,7 @@ impl Runtime {
                                     id: key,
                                     title: format!("Allow {}?", text(&v["request"], "tool_name")),
                                     detail: limited(&v["request"]["input"].to_string(), 16000),
+                                    scope: approval_scope(&v),
                                 });
                             });
                         } else {
@@ -991,6 +1079,87 @@ fn output_matches(output: &str, rule: Option<&Value>) -> bool {
         _ => false,
     }
 }
+/// Lists files modified since `since` (ms) under `root`, skipping VCS and dependency folders.
+fn changed_files(root: &Path, since: u64) -> Vec<String> {
+    const SKIP: [&str; 6] = [".git", "node_modules", "target", ".venv", "__pycache__", ".next"];
+    let since = UNIX_EPOCH + Duration::from_millis(since.saturating_sub(2000));
+    let mut found = vec![];
+    let mut stack = vec![(root.to_path_buf(), 0)];
+    while let Some((dir, depth)) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&dir) else { continue };
+        for entry in entries.filter_map(Result::ok) {
+            let Ok(meta) = entry.metadata() else { continue };
+            let path = entry.path();
+            if meta.file_type().is_symlink() {
+                continue;
+            }
+            if meta.is_dir() {
+                let name = entry.file_name();
+                if depth < 8 && !SKIP.iter().any(|skip| name == *skip) {
+                    stack.push((path, depth + 1));
+                }
+            } else if meta.modified().is_ok_and(|at| at >= since) {
+                if let Ok(relative) = path.strip_prefix(root) {
+                    found.push(relative.to_string_lossy().into_owned());
+                }
+                if found.len() >= 200 {
+                    found.sort();
+                    return found;
+                }
+            }
+        }
+    }
+    found.sort();
+    found
+}
+/// The scope an "Always allow" decision covers for a provider approval request.
+/// MCP tools are scoped per server, Claude tools per tool, Codex commands per program,
+/// and Codex file edits as one scope. `None` means the request can only be approved once.
+fn approval_scope(request: &Value) -> Option<String> {
+    let method = text(request, "method");
+    let params = &request["params"];
+    if method == ELICITATION {
+        let server = text(params, "serverName");
+        return (!server.is_empty()).then(|| format!("mcp:{server}"));
+    }
+    if method == "item/fileChange/requestApproval" {
+        return Some("codex:file-edits".into());
+    }
+    if method == "item/commandExecution/requestApproval" {
+        let command = match &params["command"] {
+            Value::String(command) => command.clone(),
+            Value::Array(parts) => parts
+                .iter()
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+                .join(" "),
+            _ => String::new(),
+        };
+        // Shell wrappers (`bash -lc "…"`) hide the real program, so only plain commands qualify.
+        let program = command.split_whitespace().next().unwrap_or("");
+        let program = program.rsplit('/').next().unwrap_or(program);
+        return (!program.is_empty() && !["bash", "sh", "zsh", "sudo", "env"].contains(&program))
+            .then(|| format!("command:{program}"));
+    }
+    if request["request"]["subtype"] == "can_use_tool" {
+        let tool = text(&request["request"], "tool_name");
+        // Claude names MCP tools `mcp__server__tool`; scope them to the server like Codex.
+        if let Some(rest) = tool.strip_prefix("mcp__") {
+            let server = rest.split("__").next().unwrap_or("");
+            return (!server.is_empty()).then(|| format!("mcp:{server}"));
+        }
+        return (!tool.is_empty()).then(|| format!("claude:{tool}"));
+    }
+    None
+}
+const ELICITATION: &str = "mcpServer/elicitation/request";
+fn elicitation_reply(id: &Value, allow: bool) -> Value {
+    if allow {
+        json!({"id":id,"result":{"action":"accept","content":{}}})
+    } else {
+        json!({"id":id,"result":{"action":"decline","content":null}})
+    }
+}
 pub(super) fn engine_path() -> String {
     format!(
         "{}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:{}",
@@ -1049,8 +1218,8 @@ fn validate(r: &RunRequest) -> Result<(), String> {
     if !safe(&r.id)
         || !safe(&r.key)
         || !["chat", "task"].contains(&r.mode.as_str())
-        || !["on-request", "never"].contains(&r.provider_permissions.codex.as_str())
-        || !["default", "acceptEdits"].contains(&r.provider_permissions.claude.as_str())
+        || !["untrusted", "on-request", "never"].contains(&r.provider_permissions.codex.as_str())
+        || !["default", "acceptEdits", "auto"].contains(&r.provider_permissions.claude.as_str())
         || r.title.len() > 300
         || r.context.len() > 50000
         || r.steps.is_empty()
@@ -1142,6 +1311,7 @@ pub fn live_control(
     run_id: String,
     approval_id: Option<String>,
     allow: Option<bool>,
+    always: Option<bool>,
 ) -> Result<(), String> {
     let inner = runtime.0.lock().unwrap();
     let run = inner
@@ -1153,7 +1323,7 @@ pub fn live_control(
         if !run.approvals.iter().any(|a| a.id == id) {
             return Err("Approval is no longer pending.".into());
         }
-        Control::Decide(id, allow.ok_or("Missing decision")?)
+        Control::Decide(id, allow.ok_or("Missing decision")?, always.unwrap_or(false))
     } else {
         Control::Cancel
     };
@@ -1163,6 +1333,50 @@ pub fn live_control(
         .ok_or("Run is no longer active")?
         .send(control)
         .map_err(|_| "Run has ended".into())
+}
+/// Shows a run's workspace, or one of its changed files, in Finder.
+#[tauri::command]
+pub fn live_reveal(
+    runtime: tauri::State<'_, Runtime>,
+    run_id: String,
+    file: Option<String>,
+) -> Result<(), String> {
+    let cwd = {
+        let inner = runtime.0.lock().unwrap();
+        let run = inner
+            .runs
+            .iter()
+            .find(|r| r.request.id == run_id)
+            .ok_or("Run not found")?;
+        if let Some(file) = &file {
+            if !run.files.contains(file) {
+                return Err("That file is not part of this run.".into());
+            }
+        }
+        PathBuf::from(&run.cwd)
+    };
+    let target = match &file {
+        Some(file) => cwd.join(file),
+        None => cwd,
+    };
+    if !target.exists() {
+        return Err("That location no longer exists.".into());
+    }
+    let mut command = Command::new("/usr/bin/open");
+    if file.is_some() {
+        command.arg("-R");
+    }
+    command
+        .arg(&target)
+        .status()
+        .map_err(|e| e.to_string())
+        .and_then(|status| {
+            if status.success() {
+                Ok(())
+            } else {
+                Err("Finder could not open that location.".into())
+            }
+        })
 }
 pub fn setup(app: &tauri::AppHandle) -> Result<Runtime, String> {
     Runtime::load(
@@ -1187,6 +1401,7 @@ mod tests {
             branch: String::new(),
             context: String::new(),
             provider_permissions: ProviderPermissions::default(),
+            chat_actions: false,
             steps: vec![Step {
                 id: "start".into(),
                 label: "Chat".into(),
@@ -1246,6 +1461,7 @@ mod tests {
                 approvals: vec![],
                 results: vec![],
                 cwd: String::new(),
+                files: vec![],
                 current_agent_id: String::new(),
             });
             persist(&inner).unwrap();
@@ -1450,7 +1666,7 @@ mod tests {
                 assert!(!approved);
                 approved = true;
                 rt.0.lock().unwrap().controls[&r.id]
-                    .send(Control::Decide(gate.id.clone(), true))
+                    .send(Control::Decide(gate.id.clone(), true, false))
                     .unwrap();
             }
             if !active(&run.status) {
@@ -1478,7 +1694,7 @@ mod tests {
             if !rejected {
                 if let Some(gate) = run.approvals.first() {
                     rt.0.lock().unwrap().controls[&r.id]
-                        .send(Control::Decide(gate.id.clone(), false))
+                        .send(Control::Decide(gate.id.clone(), false, false))
                         .unwrap();
                     rejected = true;
                 }

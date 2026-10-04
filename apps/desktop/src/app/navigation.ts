@@ -3,6 +3,7 @@ import { activeCompany } from "../features/company/company-directory";
 
 export type WorkspaceView =
   | "start"
+  | "inbox"
   | "tasks"
   | "map"
   | "activity"
@@ -17,6 +18,7 @@ export type WorkspaceRoute = {
 };
 export const destinations = [
   { view: "start", label: "Start", description: "Write a prompt or continue a chat" },
+  { view: "inbox", label: "Inbox", description: "Approvals and failures waiting on you" },
   { view: "map", label: "Company", description: "Offices, agents, and workflows" },
   { view: "activity", label: "Activity", description: "Runs, approvals, and results" },
   { view: "memory", label: "Library", description: "Memory and local capabilities" },
@@ -26,6 +28,7 @@ export function primaryView(view: WorkspaceView): WorkspaceView {
 }
 export const viewLabels: Record<WorkspaceView, string> = {
   start: "Start",
+  inbox: "Inbox",
   tasks: "Workflows",
   map: "Company Hub",
   activity: "Activity",
@@ -35,6 +38,7 @@ export const viewLabels: Record<WorkspaceView, string> = {
 };
 const paths: Record<WorkspaceView, string> = {
   start: "start",
+  inbox: "inbox",
   tasks: "tasks",
   map: "company/map",
   activity: "activity",

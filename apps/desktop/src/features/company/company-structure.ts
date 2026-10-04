@@ -79,10 +79,16 @@ export function structureDeletion(company: Company, target: StructureTarget): St
   };
 }
 
-export function deleteStructure(company: Company, target: StructureTarget): Company {
+/** Deletes an office, domain, or agent. With `removeTasks`, workflows that depend on it go too. */
+export function deleteStructure(
+  company: Company,
+  target: StructureTarget,
+  { removeTasks = false }: { removeTasks?: boolean } = {},
+): Company {
   const impact = structureDeletion(company, target);
-  if (impact.blockingTasks.length)
+  if (impact.blockingTasks.length && !removeTasks)
     throw new Error("Reassign or edit the listed tasks before deleting this company structure.");
+  const removedTasks = new Set(impact.blockingTasks.map((task) => task.id));
   const agentIds = new Set(impact.agentIds);
   const domainIds = new Set(impact.domainIds.map((domain) => domain.toLowerCase()));
   const officeIds = new Set(impact.officeIds);
@@ -98,16 +104,22 @@ export function deleteStructure(company: Company, target: StructureTarget): Comp
     domains: project.domains.filter((domain) => !domainIds.has(domain.toLowerCase())),
     agentIds: project.agentIds.filter((id) => !agentIds.has(id)),
   }));
-  const tasks = company.tasks?.map((task) => ({
-    ...task,
-    ...(task.stepModels
-      ? {
-          stepModels: Object.fromEntries(
-            Object.entries(task.stepModels).filter(([, choice]) => !agentIds.has(choice.agentId)),
-          ),
-        }
-      : {}),
-  }));
+  const tasks = company.tasks
+    ?.filter(
+      (task) =>
+        !removedTasks.has(task.id) &&
+        !(removeTasks && task.officeId && officeIds.has(task.officeId)),
+    )
+    .map((task) => ({
+      ...task,
+      ...(task.stepModels
+        ? {
+            stepModels: Object.fromEntries(
+              Object.entries(task.stepModels).filter(([, choice]) => !agentIds.has(choice.agentId)),
+            ),
+          }
+        : {}),
+    }));
   const hiddenDomains =
     target.kind === "domain"
       ? [...(company.hiddenDomains || []).filter((domain) => !same(domain, target.id)), target.id]
