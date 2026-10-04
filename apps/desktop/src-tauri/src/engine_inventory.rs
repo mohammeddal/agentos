@@ -472,6 +472,27 @@ fn discover(
         json!({"engine":engine,"workspace":workspace.map(|p|p.to_string_lossy().to_string()),"scannedAt":timestamp,"entries":scan.entries,"sources":scan.sources,"limitations":limitations}),
     )
 }
+/// Reads one skill's SKILL.md so the Studio can show what a skill does. Only files named
+/// SKILL.md inside the user's home folder are readable; config files (which may hold secrets)
+/// are never returned.
+#[tauri::command]
+pub fn skill_document(path: String) -> Result<String, String> {
+    let home = std::env::var("HOME").map_err(|_| "Home folder unavailable.")?;
+    let file = Path::new(&path)
+        .canonicalize()
+        .map_err(|_| "This skill file is no longer available.")?;
+    let home = Path::new(&home)
+        .canonicalize()
+        .map_err(|_| "Home folder unavailable.")?;
+    if file.file_name().and_then(|n| n.to_str()) != Some("SKILL.md") || !file.starts_with(&home) {
+        return Err("Only a skill's SKILL.md can be previewed.".into());
+    }
+    let meta = fs::metadata(&file).map_err(|e| e.to_string())?;
+    if !meta.is_file() || meta.len() > 300_000 {
+        return Err("This skill file is too large to preview.".into());
+    }
+    fs::read_to_string(&file).map_err(|e| e.to_string())
+}
 #[tauri::command]
 pub async fn engine_inventory(engine: String, workspace: Option<String>) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {

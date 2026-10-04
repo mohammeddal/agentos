@@ -328,7 +328,7 @@ export function WorkflowPanel({
   const latest = runs[0];
   const active = !!latest && isActiveRun(latest);
   const failedStep =
-    latest && latest.status === "failed"
+    latest && (latest.status === "failed" || latest.status === "canceled")
       ? latest.request.steps.find((step) => {
           const result = latest.results.find((r) => r.id === step.id);
           return result?.status === "failed" || result?.status === "running";
@@ -409,7 +409,7 @@ export function WorkflowPanel({
               }
             }}
           >
-            Retry failed step
+            {latest?.status === "canceled" ? "Resume where it stopped" : "Retry failed step"}
           </button>
         )}
         <button className="co-button" onClick={open}>

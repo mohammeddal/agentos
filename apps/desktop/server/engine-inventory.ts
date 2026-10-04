@@ -1,6 +1,6 @@
-import { lstat, readdir, readFile, realpath } from "node:fs/promises";
+import { lstat, readdir, readFile, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, isAbsolute, join, resolve } from "node:path";
+import { basename, isAbsolute, join, resolve, sep } from "node:path";
 import { parse as toml } from "smol-toml";
 import { parse as yaml } from "yaml";
 import type { Plugin } from "vite";
@@ -104,6 +104,17 @@ export async function inventory(engine: Engine, workspace: string | null, option
 export function engineInventoryPlugin(): Plugin {
   return { name: "agentos-engine-inventory", configureServer(server) {
     let active = false;
+    server.middlewares.use("/api/skill-document", async (req, res) => {
+      const host = req.headers.host;
+      if (req.method !== "GET" || !["localhost:4173", "127.0.0.1:4173"].includes(host || "") || req.headers["x-agentos-inventory"] !== "1") { res.statusCode = 403; res.end(); return; }
+      try {
+        const target = await realpath(new URL(req.url || "/", `http://${host}`).searchParams.get("path") || "");
+        const home = await realpath(homedir());
+        const info = await stat(target);
+        if (basename(target) !== "SKILL.md" || !target.startsWith(home + sep) || !info.isFile() || info.size > 300_000) throw new Error("denied");
+        res.setHeader("Content-Type", "text/plain; charset=utf-8"); res.end(await readFile(target, "utf8"));
+      } catch { res.statusCode = 404; res.end("Only a skill's SKILL.md can be previewed."); }
+    });
     server.middlewares.use("/api/engine-inventory", async (req, res) => {
       const host = req.headers.host;
       if (req.method !== "GET" || !["localhost:4173", "127.0.0.1:4173"].includes(host || "") || req.headers["x-agentos-inventory"] !== "1" || req.headers.origin && req.headers.origin !== `http://${host}`) { res.statusCode = 403; res.end(); return; }

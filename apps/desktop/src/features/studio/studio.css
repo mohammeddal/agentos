@@ -1163,38 +1163,117 @@
   }
 }
 
-/* Attached resources as chips inside their step */
+/* Attached resources as chips inside their step: one tidy row at the bottom of the block. */
+.st-node {
+  overflow: hidden;
+}
+.st-node > * {
+  flex-shrink: 0;
+}
+.st-node > p {
+  flex-shrink: 1;
+  min-height: 0;
+  -webkit-line-clamp: 2;
+}
 .st-chips {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
+  min-width: 0;
   margin-top: auto;
-  padding-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--st-line);
+  overflow: hidden;
 }
 .st-chip-resource {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
   max-width: 100%;
-  padding: 2px 7px;
-  overflow: hidden;
+  flex: 0 1 auto;
+  height: 20px;
+  padding: 0 7px;
   border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--st-line));
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 9%, var(--st-node));
-  color: color-mix(in srgb, var(--accent) 75%, var(--st-text));
+  background: color-mix(in srgb, var(--accent) 8%, var(--st-node));
+  color: color-mix(in srgb, var(--accent) 80%, var(--st-text));
   font-size: 10px;
   font-weight: 500;
-  white-space: nowrap;
-  text-overflow: ellipsis;
   cursor: pointer;
+}
+.st-chip-resource > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .st-chip-resource svg {
   flex: none;
+}
+.st-chip-resource:hover {
+  border-color: var(--accent);
 }
 .st-chip-resource[data-selected] {
   outline: 2px solid var(--st-blue);
   outline-offset: 1px;
 }
-.st-node p {
-  -webkit-line-clamp: 2;
+.st-chip-more {
+  flex: none;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--st-hover);
+  color: var(--st-muted);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.st-tool-details {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--st-line);
+  border-radius: 8px;
+  background: var(--st-hover);
+}
+.st-tool-details > p {
+  margin: 0;
+  line-height: 1.5;
+}
+.st-tool-details dl {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+.st-tool-details dl div {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+}
+.st-tool-details dt {
+  color: var(--st-muted);
+}
+.st-tool-details dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.st-tool-details code {
+  font-size: 10.5px;
+}
+.st-skill-doc summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+.st-skill-doc .co-assistant-markdown {
+  max-height: 360px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--st-bg);
+  font-size: 11.5px;
+  line-height: 1.55;
 }

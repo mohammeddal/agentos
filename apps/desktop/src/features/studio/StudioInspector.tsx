@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -23,6 +23,8 @@ import {
 import type { ApprovalRule } from "../tasks/task-approvals";
 import { schedulePreview, type TaskSchedule } from "../tasks/task-workflow";
 import { useInstalledTools } from "../engines/installed-tools";
+import { readSkillDocument, type Capability } from "../engines/engine-inventory";
+import { AssistantMessage } from "../../shared/AssistantMessage";
 import { ModelPicker } from "../engines/ModelPicker";
 import type { ModelChoice } from "../engines/model-choice";
 import { projectRepository } from "../projects/project-repository";
@@ -339,11 +341,91 @@ function ToolPicker({
       </Field>
       {!tools.length && (
         <p className="st-hint">
-          Nothing installed for {engine === "claude" ? "Claude Code" : "Codex"} yet. Set it up from
-          Settings → Add capabilities.
+          Nothing installed for {engine === "claude" ? "Claude Code" : "Codex"} yet. Add one from
+          Library → Capabilities.
         </p>
       )}
+      <ToolDetails node={node} tool={tools.find((t) => t.id === node.reference)} />
+      <Field label="How this step should use it (optional)">
+        <textarea
+          rows={3}
+          maxLength={2000}
+          value={node.prompt}
+          placeholder="e.g. Use it to check each story's original source before writing."
+          onChange={(event) => update({ prompt: event.target.value })}
+        />
+      </Field>
     </>
+  );
+}
+
+/** What a tool is and, for skills, the instructions it gives the agent (its SKILL.md). */
+function ToolDetails({ node, tool }: { node: CanvasNode; tool: Capability | undefined }) {
+  const [doc, setDoc] = useState<{ path: string; text: string; error: string } | null>(null);
+  const source = tool?.source || node.source;
+  const isSkill = node.kind === "skill" && source.endsWith("SKILL.md");
+  useEffect(() => {
+    if (!isSkill) return setDoc(null);
+    let live = true;
+    readSkillDocument(source)
+      .then((text) => live && setDoc({ path: source, text, error: "" }))
+      .catch(
+        (error) =>
+          live && setDoc({ path: source, text: "", error: String(error).replace(/^Error: /, "") }),
+      );
+    return () => {
+      live = false;
+    };
+  }, [source, isSkill]);
+  if (!node.reference) return null;
+  // Drop YAML front matter; its description is shown above.
+  const body = doc?.text.replace(/^---\n[\s\S]*?\n---\n?/, "").trim() || "";
+  return (
+    <div className="st-tool-details">
+      {tool?.description && <p dir="auto">{tool.description}</p>}
+      <dl>
+        <div>
+          <dt>Type</dt>
+          <dd>{blockNames[node.kind]}</dd>
+        </div>
+        {tool?.scope && (
+          <div>
+            <dt>Scope</dt>
+            <dd>{tool.scope}</dd>
+          </div>
+        )}
+        <div>
+          <dt>Status</dt>
+          <dd>{tool?.status || node.capabilityStatus || "unknown"}</dd>
+        </div>
+        {source && (
+          <div>
+            <dt>Source</dt>
+            <dd title={source}>
+              <code>{source.replace(/^\/Users\/[^/]+/, "~")}</code>
+            </dd>
+          </div>
+        )}
+      </dl>
+      {isSkill && (
+        <details className="st-skill-doc" open>
+          <summary>Skill instructions</summary>
+          {doc?.error ? (
+            <p className="st-error">{doc.error}</p>
+          ) : body ? (
+            <AssistantMessage text={body} />
+          ) : (
+            <p className="st-hint">Loading…</p>
+          )}
+        </details>
+      )}
+      {node.kind === "mcp" && (
+        <p className="st-hint">
+          MCP settings stay in the engine&apos;s config and aren&apos;t shown here, since they can
+          include keys.
+        </p>
+      )}
+    </div>
   );
 }
 

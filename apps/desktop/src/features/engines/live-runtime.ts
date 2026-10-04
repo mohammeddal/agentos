@@ -403,7 +403,7 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
           throw new Error(
             `“${n.title}” belongs to ${n.engine}, but this step runs on ${engine}. Attach it to a matching agent step.`,
           );
-        return `Required ${n.kind.toUpperCase()} capability: ${n.title} (${n.reference}). Use this configured capability for this step. If it is unavailable or unauthenticated in the live provider session, stop and report capability_unavailable; do not pretend it was used.`;
+        return `Required ${n.kind.toUpperCase()} capability: ${n.title} (${n.reference}). Use this configured capability for this step.${n.prompt.trim() ? ` How to use it here: ${n.prompt.trim()}` : ""} If it is unavailable or unauthenticated in the live provider session, stop and report capability_unavailable; do not pretend it was used.`;
       })
       .filter(Boolean)
       .join("\n\n");

@@ -280,11 +280,54 @@ export function WorkflowStudio({
           )
           .map((n) => n.id),
   );
+  // Steps that carry resource chips grow so the chips sit inside the block.
+  /** Chips a step shows: up to 3 tools by name, "+N" for the rest, and one chip for notes. */
+  const chipsOf = (node: CanvasNode) => {
+    const resources = attachedTo(node.id);
+    const tools = resources.filter((r) => r.kind !== "context");
+    const notes = resources.filter((r) => r.kind === "context");
+    return {
+      tools: tools.slice(0, 3),
+      more: tools.slice(3),
+      notes,
+      labels: [
+        ...tools.slice(0, 3).map((r) => r.title),
+        ...(tools.length > 3 ? [`+${tools.length - 3}`] : []),
+        ...(notes.length ? [notes.length === 1 ? notes[0]!.title : `${notes.length} notes`] : []),
+      ],
+    };
+  };
+  // Estimate how many rows the chips wrap to, so the block grows to hold them.
+  const chipRows = (node: CanvasNode) => {
+    const width = nodeBox(node).w - 24;
+    let rows = 1;
+    let used = 0;
+    for (const label of chipsOf(node).labels) {
+      const chip = Math.min(width, 26 + Math.min(label.length, 22) * 6.2) + 4;
+      if (used + chip > width && used > 0) {
+        rows += 1;
+        used = 0;
+      }
+      used += chip;
+    }
+    return rows;
+  };
+  const boxOf = (node: CanvasNode): Box => {
+    const box = nodeBox(node);
+    return !showResources && attachedTo(node.id).length
+      ? { ...box, h: box.h + 14 + chipRows(node) * 24 }
+      : box;
+  };
   const selectedNodes = graph.nodes.filter((node) => selection.includes(node.id));
   const selectedDecor = decor.filter((item) => selection.includes(item.id));
   const edge = graph.edges.find((candidate) => candidate.id === edgeId);
   const selectionBox = unionBox(
-    selection.map((id) => itemBox(graph, id)).filter((box): box is Box => !!box),
+    selection
+      .map((id) => {
+        const node = graph.nodes.find((n) => n.id === id);
+        return node ? boxOf(node) : itemBox(graph, id);
+      })
+      .filter((box): box is Box => !!box),
   );
 
   // ── Persistence ────────────────────────────────────────────────────────
@@ -1407,8 +1450,8 @@ export function WorkflowStudio({
               const to = graph.nodes.find((n) => n.id === e.to);
               if (!from || !to || collapsed.has(from.id)) return null;
               const attachment = e.kind === "attachment";
-              const a = nodeBox(from);
-              const b = nodeBox(to);
+              const a = boxOf(from);
+              const b = boxOf(to);
               const d = attachment
                 ? `M${a.x + a.w / 2} ${a.y}C${a.x + a.w / 2} ${a.y - 60} ${b.x + b.w / 2} ${b.y + b.h + 60} ${b.x + b.w / 2} ${b.y + b.h}`
                 : edgePath(a, b);
@@ -1444,13 +1487,13 @@ export function WorkflowStudio({
             {connectSource && drag?.kind === "connect" && (
               <path
                 className="st-edge-draft"
-                d={edgePath(nodeBox(connectSource), { x: drag.x, y: drag.y, w: 0, h: 0 })}
+                d={edgePath(boxOf(connectSource), { x: drag.x, y: drag.y, w: 0, h: 0 })}
               />
             )}
           </svg>
           {graph.nodes.map((node) => {
             if (collapsed.has(node.id)) return null;
-            const box = nodeBox(node);
+            const box = boxOf(node);
             const Icon = kindIcons[node.kind];
             const status = statuses[node.id];
             const color = node.style?.fill || kindColors[node.kind];
@@ -1492,13 +1535,15 @@ export function WorkflowStudio({
                 </header>
                 <strong>{node.title || blockNames[node.kind]}</strong>
                 <p>{subtitle(node)}</p>
-                {!showResources && attachedTo(node.id).length > 0 && (
-                  <div className="st-chips">
-                    {attachedTo(node.id).map((resource) => {
+                {!showResources &&
+                  attachedTo(node.id).length > 0 &&
+                  (() => {
+                    const { tools: shown, more, notes } = chipsOf(node);
+                    const chip = (resource: CanvasNode, label: string, key: string) => {
                       const ChipIcon = kindIcons[resource.kind];
                       return (
                         <span
-                          key={resource.id}
+                          key={key}
                           className="st-chip-resource"
                           data-item={resource.id}
                           data-selected={selection.includes(resource.id) || undefined}
@@ -1510,12 +1555,30 @@ export function WorkflowStudio({
                           }
                         >
                           <ChipIcon size={10} />
-                          {resource.title}
+                          <span>{label}</span>
                         </span>
                       );
-                    })}
-                  </div>
-                )}
+                    };
+                    return (
+                      <div className="st-chips">
+                        {shown.map((r) => chip(r, r.title, r.id))}
+                        {more.length > 0 && (
+                          <span
+                            className="st-chip-more"
+                            title={more.map((r) => r.title).join(", ")}
+                          >
+                            +{more.length}
+                          </span>
+                        )}
+                        {notes.length > 0 &&
+                          chip(
+                            notes[0]!,
+                            notes.length === 1 ? notes[0]!.title : `${notes.length} notes`,
+                            "notes",
+                          )}
+                      </div>
+                    );
+                  })()}
                 {canConnectTo(node) && <span className="st-port st-port-in" />}
                 {canConnectFrom(node) && (
                   <span

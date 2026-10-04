@@ -32,6 +32,7 @@ pub fn run() {
             company_memory::read_company_memory,
             company_memory::save_company_memory,
             engine_inventory::engine_inventory,
+            engine_inventory::skill_document,
             project_directories::project_directories,
             project_repository::project_repository,
             live_runtime::live_snapshot,

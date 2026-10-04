@@ -201,7 +201,7 @@ export function WorkflowRunPanel({
   const active = isActiveRun(run);
   // The step a failed run stopped on: retrying from it keeps every earlier result.
   const failedStep =
-    !active && run.status === "failed"
+    !active && (run.status === "failed" || run.status === "canceled")
       ? run.request.steps.find((step) => {
           const result = run.results.find((r) => r.id === step.id);
           return result?.status === "failed" || result?.status === "running";
@@ -274,7 +274,7 @@ export function WorkflowRunPanel({
                 title="Earlier steps keep their results; only this step and the ones after it run"
                 onClick={() => runFrom(failedStep.id)}
               >
-                Retry from {failedStep.label}
+                {run.status === "canceled" ? "Resume from" : "Retry from"} {failedStep.label}
               </button>
             )}
             {runAgain && (

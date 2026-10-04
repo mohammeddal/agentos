@@ -42,3 +42,13 @@ export async function discoverEngine(engine: Engine, workspace?: string): Promis
     throw new Error("Discovery failed. Check the local server and workspace folder, then retry.");
   return response.json();
 }
+
+/** The SKILL.md behind a skill, for previewing what it does. Read-only. */
+export async function readSkillDocument(path: string): Promise<string> {
+  if (isTauri()) return invoke<string>("skill_document", { path });
+  const response = await fetch(`/api/skill-document?path=${encodeURIComponent(path)}`, {
+    headers: { "X-AgentOS-Inventory": "1" },
+  });
+  if (!response.ok) throw new Error("This skill's instructions can't be previewed.");
+  return response.text();
+}
