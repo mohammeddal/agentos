@@ -23,7 +23,13 @@ const stepStatus = (run: LiveRun, stepId: string): CanvasStatus => {
   const result = run.results.find((r) => r.id === stepId);
   if (!result) return isActiveRun(run) ? "waiting" : "skipped";
   if (result.status === "running")
-    return run.status === "awaiting_approval" ? "approval" : "working";
+    return !isActiveRun(run)
+      ? run.status === "failed"
+        ? "failed"
+        : "skipped"
+      : run.status === "awaiting_approval"
+        ? "approval"
+        : "working";
   if (result.status === "completed") return "done";
   if (result.status === "failed") return "failed";
   return "skipped";

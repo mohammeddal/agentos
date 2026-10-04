@@ -445,7 +445,18 @@ impl Runtime {
                 "step",
                 &format!("Starting {} · {}", step.label, step.engine),
             );
-            self.update(id, true, |r| r.current_agent_id = step.agent_id.clone());
+            // Record the step as running right away so every view can show which one is active.
+            results.push(StepResult {
+                id: step.id.clone(),
+                label: step.label.clone(),
+                status: "running".into(),
+                output: String::new(),
+            });
+            self.update(id, true, |r| {
+                r.current_agent_id = step.agent_id.clone();
+                r.results = results.clone();
+            });
+            results.pop();
             let sign_off = step.engine == GATE;
             let question = if sign_off {
                 format!("Approve {}?", step.label)
@@ -648,17 +659,44 @@ impl Runtime {
                     .read_line(&mut line)
                 {
                     Ok(0) | Err(_) => break,
+                    Ok(_) if line.len() > MAX_TEXT && !line.ends_with('\n') => {
+                        // One oversized message (e.g. a command that printed a huge file) must not
+                        // end the run: drop the rest of that line and keep reading.
+                        if !skip_line(&mut reader) {
+                            break;
+                        }
+                        let notice = "{\"method\":\"agentos/skipped\",\"params\":{}}\n".to_string();
+                        if tx.send(notice).is_err() {
+                            break;
+                        }
+                    }
                     Ok(_) => {
-                        if line.len() > MAX_TEXT || tx.send(line).is_err() {
+                        if tx.send(line).is_err() {
                             break;
                         }
                     }
                 }
             }
         });
-        // Drain stderr to prevent deadlock; don't persist raw provider diagnostics or credentials.
+        // Keep only a short, filtered tail of diagnostics for error messages; never persist
+        // anything that looks like a credential.
+        let diagnostics = std::sync::Arc::new(Mutex::new(std::collections::VecDeque::<String>::new()));
+        let tail = diagnostics.clone();
         thread::spawn(move || {
-            let _ = std::io::copy(&mut BufReader::new(stderr), &mut std::io::sink());
+            for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+                let lower = line.to_lowercase();
+                if ["token", "bearer", "api_key", "apikey", "password", "secret", "authorization"]
+                    .iter()
+                    .any(|word| lower.contains(word))
+                {
+                    continue;
+                }
+                let mut tail = tail.lock().unwrap();
+                tail.push_back(line.chars().take(300).collect());
+                if tail.len() > 8 {
+                    tail.pop_front();
+                }
+            }
         });
         self.update(id, true, |r| {
             r.status = "running".into();
@@ -751,8 +789,20 @@ impl Runtime {
                 match lines.recv_timeout(Duration::from_millis(80)) {
                     Ok(v) => v,
                     Err(mpsc::RecvTimeoutError::Timeout) => continue,
-                    Err(_) => return Err(
-                        "Engine exited before completing. Check provider sign-in and try again."
+                    Err(_) => return Err({
+                        thread::sleep(Duration::from_millis(150));
+                        let tail = diagnostics.lock().unwrap().iter().cloned().collect::<Vec<_>>().join("\n");
+                        let code = process.0.try_wait().ok().flatten().map(|status| status.to_string());
+                        format!(
+                            "Engine exited before completing{}.{}",
+                            code.map(|c| format!(" ({c})")).unwrap_or_default(),
+                            if tail.trim().is_empty() {
+                                " Check provider sign-in and try again.".to_string()
+                            } else {
+                                format!("\nLast engine messages:\n{}", limited(&tail, 1200))
+                            }
+                        )
+                    }
                             .into(),
                     ),
                 };
@@ -1182,6 +1232,17 @@ fn approval_scope(request: &Value) -> Option<String> {
 }
 /// Engine name for an approval-only sign-off step that never launches a provider.
 const GATE: &str = "gate";
+/// Discards the rest of the current line. Returns false at end of input.
+fn skip_line(reader: &mut impl BufRead) -> bool {
+    loop {
+        let mut chunk = Vec::new();
+        match reader.by_ref().take(64 * 1024).read_until(b'\n', &mut chunk) {
+            Ok(0) | Err(_) => return false,
+            Ok(_) if chunk.ends_with(b"\n") => return true,
+            Ok(_) => continue,
+        }
+    }
+}
 const ELICITATION: &str = "mcpServer/elicitation/request";
 fn elicitation_reply(id: &Value, allow: bool) -> Value {
     if allow {

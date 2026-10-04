@@ -19,6 +19,9 @@ function stepsStatus(run: LiveRun, stepIds: string[]): CanvasStatus {
   const results = run.results.filter((r) => stepIds.includes(r.id));
   const active = isActiveRun(run);
   if (results.some((r) => r.status === "failed")) return "failed";
+  // A "running" entry left by a stopped or failed run is not live work.
+  if (results.some((r) => r.status === "running") && !active)
+    return run.status === "failed" ? "failed" : "skipped";
   if (results.some((r) => r.status === "running"))
     return run.status === "awaiting_approval" ? "approval" : "working";
   if (results.length === stepIds.length)

@@ -1495,9 +1495,18 @@ export function WorkflowStudio({
         <footer className="st-statusbar">
           <span data-state={activeRun ? "working" : viewedRun?.status || "idle"}>
             {activeRun
-              ? activeRun.status === "awaiting_approval"
-                ? "Needs your approval"
-                : "Running…"
+              ? (() => {
+                  const current = activeRun.results.find((r) => r.status === "running");
+                  const position = current
+                    ? activeRun.request.steps.findIndex((step) => step.id === current.id) + 1
+                    : 0;
+                  const where = current
+                    ? ` · ${current.label} (${position} of ${activeRun.request.steps.length})`
+                    : "";
+                  return activeRun.status === "awaiting_approval"
+                    ? `Needs your approval${where}`
+                    : `Running${where}`;
+                })()
               : viewedRun
                 ? `Last run ${viewedRun.status}`
                 : "Not run yet"}

@@ -328,8 +328,14 @@ export function CompanyFloorplan({
           <span>{task.title}</span>
         </span>
         <span className="map-table-meta">
-          {triggerLabel(task)}
-          {taskRuns(task)[0] ? ` · ${mapRunLabel(taskRuns(task)[0])}` : ""}
+          {(() => {
+            const run = taskRuns(task)[0];
+            const current =
+              run && isActiveRun(run) && run.results.find((r) => r.status === "running");
+            if (current)
+              return `${run.status === "awaiting_approval" ? "Needs you" : "Running"} · ${current.label}`;
+            return `${triggerLabel(task)}${run ? ` · ${mapRunLabel(run)}` : ""}`;
+          })()}
         </span>
       </button>
     );

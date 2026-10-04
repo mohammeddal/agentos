@@ -1137,3 +1137,28 @@
 .st-section > .st-button {
   justify-content: center;
 }
+
+/* The block that is working right now is unmistakable. */
+.st-node[data-status="working"] {
+  border-color: #16a34a;
+  animation: st-working 1.6s ease-in-out infinite;
+}
+@keyframes st-working {
+  50% {
+    box-shadow:
+      0 0 0 6px #16a34a22,
+      var(--st-shadow);
+  }
+}
+.st-node[data-status="approval"] {
+  border-color: #d97706;
+}
+.st-node[data-status="waiting"],
+.st-node[data-status="skipped"] {
+  opacity: 0.6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-node[data-status="working"] {
+    animation: none;
+  }
+}
