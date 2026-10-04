@@ -6,14 +6,16 @@ import { findWorkspace, type FindResult } from "./navigation";
 export function QuickFind({
   company,
   choose,
+  actions = [],
 }: {
   company: Company;
   choose: (result: FindResult) => void;
+  actions?: FindResult[];
 }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
-  const results = findWorkspace(company, query);
+  const results = findWorkspace(company, query, actions);
   useEffect(() => {
     input.current?.focus();
   }, []);
@@ -31,7 +33,7 @@ export function QuickFind({
           aria-controls="workspace-results"
           aria-activedescendant={results[active] ? `find-result-${active}` : undefined}
           aria-label="Find anything"
-          placeholder="Tasks, projects, agents, or a page…"
+          placeholder="Search or run a command…"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -54,7 +56,7 @@ export function QuickFind({
       <p className="co-find-caption">
         {query.trim()
           ? `${results.length}${results.length === 40 ? "+" : ""} matches · refine your search to narrow them`
-          : "Jump to a page or reopen a recent task"}
+          : "Run a command, jump to a page, or reopen a workflow"}
       </p>
       <div
         className="co-find-results"

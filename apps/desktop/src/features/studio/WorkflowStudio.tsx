@@ -94,6 +94,7 @@ import {
   WorkflowSettings,
   type WorkflowMeta,
 } from "./StudioInspector";
+import { CopilotPanel } from "./CopilotPanel";
 import "./studio.css";
 
 type Tool = "move" | "hand" | DecorKind | "connect";
@@ -216,7 +217,12 @@ export function WorkflowStudio({
     }
     return ["basics", "agents", "annotate"];
   });
-  const [rightTab, setRightTab] = useState<"design" | "workflow" | "run">("workflow");
+  const [rightTab, setRightTab] = useState<"copilot" | "design" | "workflow" | "run">(() =>
+    task && task.canvas && task.canvas.nodes.length > 1 ? "workflow" : "copilot",
+  );
+  // Selecting on the canvas follows the selection, but never pulls you out of the copilot chat.
+  const followTab = (tab: "design" | "workflow") =>
+    setRightTab((current) => (current === "copilot" ? current : tab));
   const [notice, setNotice] = useState("");
   const [dirty, setDirty] = useState(!task);
   const [spaceDown, setSpaceDown] = useState(false);
@@ -428,13 +434,13 @@ export function WorkflowStudio({
     commit(next);
     setSelection([node.id]);
     setEdgeId("");
-    setRightTab("workflow");
+    followTab("workflow");
   }
   function insertDecor(item: DecorItem) {
     commit({ ...graph, decor: [...decor, item] });
     setSelection([item.id]);
     setEdgeId("");
-    setRightTab("design");
+    followTab("design");
   }
 
   // ── Pointer interaction ───────────────────────────────────────────────
@@ -475,7 +481,7 @@ export function WorkflowStudio({
     if (edgeHit) {
       setEdgeId(edgeHit);
       setSelection([]);
-      setRightTab("workflow");
+      followTab("workflow");
       return;
     }
     const itemId = target.closest<HTMLElement>("[data-item]")?.dataset.item;
@@ -510,7 +516,7 @@ export function WorkflowStudio({
           : [itemId];
       setSelection(next);
       if (graph.nodes.some((n) => n.id === itemId) && rightTab === "design" && next.length === 1)
-        setRightTab("workflow");
+        followTab("workflow");
       if (event.shiftKey) return;
       setDrag({
         kind: "move",
@@ -1407,6 +1413,21 @@ export function WorkflowStudio({
             {notice}
           </div>
         )}
+        <footer className="st-statusbar">
+          <span data-state={activeRun ? "working" : viewedRun?.status || "idle"}>
+            {activeRun
+              ? activeRun.status === "awaiting_approval"
+                ? "Needs your approval"
+                : "Running…"
+              : viewedRun
+                ? `Last run ${viewedRun.status}`
+                : "Not run yet"}
+          </span>
+          <span>{dirty ? (task ? "Saving…" : "Not created yet") : "All changes saved"}</span>
+          <span>
+            {graph.nodes.length} blocks · {Math.round(view.zoom * 100)}%
+          </span>
+        </footer>
         {tool === "connect" && (
           <div className="st-toast st-toast-hint">
             {connectFrom
@@ -1426,6 +1447,13 @@ export function WorkflowStudio({
           onPointerDown={right.startResize}
         />
         <nav className="st-tabs">
+          <button
+            type="button"
+            aria-pressed={rightTab === "copilot"}
+            onClick={() => setRightTab("copilot")}
+          >
+            <Sparkles size={13} /> Copilot
+          </button>
           <button
             type="button"
             aria-pressed={rightTab === "design"}
@@ -1449,7 +1477,21 @@ export function WorkflowStudio({
           </button>
         </nav>
         <div className="st-panel">
-          {rightTab === "run" ? (
+          {rightTab === "copilot" ? (
+            <CopilotPanel
+              company={company}
+              taskId={taskId}
+              graph={graph}
+              apply={(next) => {
+                commit(next);
+                window.requestAnimationFrame(() =>
+                  fitAll(
+                    unionBox([...next.nodes.map(nodeBox), ...(next.decor || []).map(decorBox)]),
+                  ),
+                );
+              }}
+            />
+          ) : rightTab === "run" ? (
             <div className="st-run">
               <WorkflowRunPanel
                 runs={runs}

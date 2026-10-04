@@ -1,7 +1,7 @@
 import type { CompanyChat } from "../company/company-model";
 import { AlwaysAllowButton } from "../engines/AlwaysAllowButton";
 import { useLayoutEffect, useRef, useState } from "react";
-import { Archive, Copy, MoreHorizontal, Trash2 } from "lucide-react";
+import { Archive, Copy, GitBranch, MoreHorizontal, Trash2 } from "lucide-react";
 import { AssistantMessage } from "../../shared/AssistantMessage";
 import { AttachmentList } from "../attachments/Attachments";
 import { RunOutcome } from "../engines/RunOutcome";
@@ -67,8 +67,10 @@ export function ChatConversation({
   chat,
   archive,
   remove,
+  toWorkflow,
 }: {
   chat: CompanyChat;
+  toWorkflow?: (request: string, reply: string) => void;
   archive?: () => void;
   remove?: () => void;
 }) {
@@ -139,6 +141,16 @@ export function ChatConversation({
               <article className="co-chat-assistant">
                 <header className="co-chat-answer-header">
                   <span>{engineLabel(run.engine || message.engine || chat.engine)}</span>
+                  {toWorkflow && !isActiveRun(run) && (
+                    <button
+                      className="co-chat-copy"
+                      title="Create a workflow from this answer; the copilot builds the steps"
+                      onClick={() => toWorkflow(message.text, run.output)}
+                    >
+                      <GitBranch size={13} />
+                      Turn into workflow
+                    </button>
+                  )}
                   <button
                     className="co-chat-copy"
                     onClick={() => void copyReply(run.output)}

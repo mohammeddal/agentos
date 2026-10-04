@@ -103,7 +103,6 @@ export function WorkspaceNavigation({
             >
               <Icon size={18} />
               <span>{d.label}</span>
-              {d.view === "inbox" && pending > 0 && <em className="co-nav-badge">{pending}</em>}
             </button>
           );
         })}

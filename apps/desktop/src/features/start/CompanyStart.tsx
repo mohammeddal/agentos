@@ -42,6 +42,7 @@ export function CompanyStart({
   company,
   change,
   editTask,
+  toWorkflow,
   selectedChatId,
   initialProjectId,
   openChat,
@@ -54,6 +55,8 @@ export function CompanyStart({
   company: Company;
   change: (update: (c: Company) => Company) => void;
   editTask: (task: CompanyTask) => void;
+  /** Turns a chat answer into a new workflow the Studio copilot can build out. */
+  toWorkflow?: (request: string, reply: string, projectId?: string) => void;
 }) {
   const selectedChat = company.chats?.find((c) => c.id === selectedChatId);
   const selectedProject = company.projects?.find(
@@ -296,6 +299,12 @@ export function CompanyStart({
         {chat && (
           <ChatConversation
             chat={chat}
+            {...(toWorkflow
+              ? {
+                  toWorkflow: (request: string, reply: string) =>
+                    toWorkflow(request, reply, chat.projectId),
+                }
+              : {})}
             archive={() => lifecycleChat?.(chat, "archived")}
             remove={() => lifecycleChat?.(chat, "removed")}
           />

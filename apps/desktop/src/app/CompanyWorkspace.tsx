@@ -32,7 +32,13 @@ import { CompanyMemory } from "../features/memory/CompanyMemory";
 import { EngineLibrary } from "../features/engines/EngineLibrary";
 import { EngineSettings, type EngineSettingsFocus } from "../features/engines/EngineSettings";
 import { AgentActivity } from "../features/activity/AgentActivity";
-import { Inbox } from "../features/activity/Inbox";
+import { ActivityView } from "../features/activity/ActivityView";
+import { AppRail } from "./shell/AppRail";
+import { TabBar, tabRoute, useOpenTabs } from "./shell/TabBar";
+import { SectionSidebar, type ActivityFilter } from "./shell/SectionSidebar";
+import { TodayStrip } from "./shell/TodayStrip";
+import "./shell/shell.css";
+import type { LiveRun } from "../features/engines/live-runtime";
 import { LiveHistory } from "../features/engines/LiveExecution";
 import { ProjectForm } from "../features/projects/CompanyProjects";
 import { CompanyStart } from "../features/start/CompanyStart";
@@ -41,6 +47,7 @@ import { TaskCanvas, type ResourceSetupKind } from "../features/tasks/TaskCanvas
 import type { Engine } from "../features/engines/engine-inventory";
 import { WorkDetail } from "../features/tasks/WorkDetail";
 import { WorkflowStudio } from "../features/studio/WorkflowStudio";
+import { newCanvasNode } from "../features/tasks/task-canvas-model";
 import { WorkspaceNavigation } from "./WorkspaceNavigation";
 import { QuickFind } from "./QuickFind";
 import { useWorkspaceRoute } from "./useWorkspaceRoute";
@@ -144,6 +151,25 @@ export function CompanyWorkspace() {
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [storageError, setStorageError] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>("needs");
+  // Company-wide or one project: filters sidebar lists and is where new chats and workflows go.
+  const [scope, setScopeState] = useState(() => {
+    try {
+      return localStorage.getItem("agentos:scope") || "";
+    } catch {
+      return "";
+    }
+  });
+  const scopeProject = company.projects?.some((p) => p.id === scope) ? scope : "";
+  function setScope(next: string) {
+    setScopeState(next);
+    try {
+      localStorage.setItem("agentos:scope", next);
+    } catch {
+      /* Session only. */
+    }
+  }
+  const openTabs = useOpenTabs(company, route);
   const tasks = company.tasks || [];
   const structureImpact =
     dialog?.type === "delete-structure"
@@ -204,6 +230,63 @@ export function CompanyWorkspace() {
       engine,
     }));
     go({ view: "settings" });
+  }
+  /** Starts a new chat prefilled with a request; `actions` lets it make changes. */
+  function startChatWith(text: string, actions = false, engine = "Codex") {
+    try {
+      const saved = localStorage.getItem(PROMPT_STORAGE);
+      if (
+        saved &&
+        JSON.parse(saved)?.text?.trim() &&
+        !window.confirm("Replace your unsent chat draft?")
+      )
+        return;
+      localStorage.setItem(
+        PROMPT_STORAGE,
+        JSON.stringify({
+          ...emptyPrompt,
+          text: text.slice(0, 3000),
+          engine,
+          projectId: scopeProject,
+          ...(actions ? { actions: true } : {}),
+        }),
+      );
+    } catch {
+      setDirectoryNotice("Draft storage is unavailable, so the chat couldn't be prepared.");
+      return;
+    }
+    setComposerVersion((v) => v + 1);
+    go({ view: "start" });
+  }
+  function askAboutRun(run: LiveRun) {
+    const detail = (run.error || run.output || "").slice(0, 1800);
+    startChatWith(
+      `About the run “${run.request.title}” (${run.status}, ${new Date(run.updatedAt).toLocaleString()}):\n${detail}\n\nMy question: `,
+    );
+  }
+  /** A chat answer becomes the outcome of a new workflow; the Studio copilot builds its steps. */
+  function workflowFromChat(request: string, reply: string, projectId?: string) {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const outcome = `${request}\n\nPlan from chat:\n${reply}`.slice(0, 6000);
+    const root = {
+      ...newCanvasNode("task", 120, 200, "task-root"),
+      title: request.split("\n")[0]!.slice(0, 80) || "Workflow from chat",
+      prompt: outcome,
+    };
+    upsertTask({
+      id,
+      title: root.title,
+      brief: outcome,
+      assignment: { kind: "agents", targets: [] },
+      status: "planned",
+      createdAt: now,
+      ...(projectId ? { projectId } : {}),
+      schedule: { kind: "manual" },
+      approval: { kind: "none" },
+      canvas: { version: 1, nodes: [root], edges: [], decor: [] },
+    });
+    go({ view: "tasks", taskId: id });
   }
   /** Starts a new chat that can make changes, prefilled with a setup request. */
   function setupWithChat(text: string, engine: Engine) {
@@ -328,6 +411,7 @@ export function CompanyWorkspace() {
   }
   function openNewWorkflow(init: NewWorkflowInit = {}) {
     setDialog(null);
+    if (!init.projectId && scopeProject) init = { ...init, projectId: scopeProject };
     setNewWorkflow({ ...init, key: (newWorkflow?.key || 0) + 1 });
     go({ view: "tasks", taskId: NEW_WORKFLOW });
   }
@@ -356,6 +440,7 @@ export function CompanyWorkspace() {
   }
   function chooseResult(result: FindResult) {
     setDialog(null);
+    if (result.run) return result.run();
     if (result.route) {
       setQuery("");
       go(result.route);
@@ -421,11 +506,26 @@ export function CompanyWorkspace() {
       ) {
         event.preventDefault();
         setTerminalOpen((open) => !open);
+      } else if (event.metaKey && !event.shiftKey && /^Digit[1-9]$/.test(event.code)) {
+        // ⌘1–9 switch open tabs, like a browser.
+        const tab = openTabs.tabs[Number(event.code.slice(5)) - 1];
+        if (tab) {
+          event.preventDefault();
+          go(tabRoute(tab));
+        }
+      } else if (event.ctrlKey && !event.metaKey && /^Digit[1-4]$/.test(event.code)) {
+        event.preventDefault();
+        setView(
+          (["map", "start", "activity", "memory"] as const)[Number(event.code.slice(5)) - 1]!,
+        );
+      } else if (event.metaKey && !event.shiftKey && event.key.toLowerCase() === "t") {
+        event.preventDefault();
+        createDirectoryEntry("chat", scopeProject || undefined);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [dialog]);
+  }, [dialog, openTabs.tabs, scopeProject]);
   const navigationProps = {
     directory: {
       company: storedCompany,
@@ -464,6 +564,80 @@ export function CompanyWorkspace() {
     toggleTheme: () => setTheme((t) => (t === "light" ? "dark" : "light")),
   };
   const group = primaryView(view);
+  // ⌘K commands: run and create things, not just find them.
+  const lastFailed = live.runs
+    .filter((r) => r.status === "failed" && !r.request.key.startsWith("copilot:"))
+    .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  const pendingCount = live.runs.reduce((n, r) => n + r.approvals.length, 0);
+  const paletteActions: FindResult[] = [
+    ...(pendingCount
+      ? [
+          {
+            id: "action:needs",
+            kind: "action" as const,
+            title: `Review ${pendingCount} ${pendingCount === 1 ? "approval" : "approvals"}`,
+            detail: "Activity · Needs you",
+            run: () => {
+              setActivityFilter("needs");
+              setView("activity");
+            },
+          },
+        ]
+      : []),
+    {
+      id: "action:new-chat",
+      kind: "action" as const,
+      title: "New chat",
+      detail: "⌘T",
+      run: () => createDirectoryEntry("chat", scopeProject || undefined),
+    },
+    {
+      id: "action:new-workflow",
+      kind: "action" as const,
+      title: "New workflow",
+      detail: "Opens the Studio with the copilot",
+      run: () => openNewWorkflow({}),
+    },
+    ...(lastFailed
+      ? [
+          {
+            id: "action:last-failed",
+            kind: "action" as const,
+            title: `Open last failed run: ${lastFailed.request.title}`,
+            detail: "Activity · Failed",
+            run: () => {
+              setActivityFilter("failed");
+              setView("activity");
+            },
+          },
+        ]
+      : []),
+    ...tasks.map((task) => ({
+      id: `action:run:${task.id}`,
+      kind: "action" as const,
+      title: `Run ${task.title}`,
+      detail: "Start this workflow now",
+      run: () => {
+        void runWorkflow(task)
+          .then(() => setDirectoryNotice(`Started “${task.title}”.`))
+          .catch((error) => setDirectoryNotice(String(error).replace(/^Error: /, "")));
+      },
+    })),
+    ...company.offices.map((office) => ({
+      id: `action:new-in:${office.id}`,
+      kind: "action" as const,
+      title: `New workflow in ${office.name}`,
+      detail: "Office",
+      run: () => openNewWorkflow({ officeId: office.id }),
+    })),
+    {
+      id: "action:theme",
+      kind: "action" as const,
+      title: theme === "light" ? "Switch to dark appearance" : "Switch to light appearance",
+      detail: "Appearance",
+      run: () => setTheme((t) => (t === "light" ? "dark" : "light")),
+    },
+  ];
   // The Company map has no heading or tabs: workflows live inside the offices on the map.
   const companyMap = view === "map" || (view === "tasks" && !isWorkflowBuilder);
   const searchLabel =
@@ -477,10 +651,80 @@ export function CompanyWorkspace() {
             ? "Search workflows"
             : "Search agents and workflows";
   return (
-    <div className="company-app" data-theme={theme} data-terminal-open={terminalOpen || undefined}>
-      <WorkspaceNavigation {...navigationProps} />
+    <div
+      className="company-app sh-app"
+      data-theme={theme}
+      data-terminal-open={terminalOpen || undefined}
+      data-sidebar={(view !== "settings" && !isWorkflowBuilder) || undefined}
+    >
+      <AppRail
+        view={view}
+        needsYou={live.runs.reduce(
+          (n, r) => n + (r.request.key.startsWith("copilot:") ? 0 : r.approvals.length),
+          0,
+        )}
+        theme={theme}
+        navigate={(next) => {
+          setDialog(null);
+          if (next === "activity") setActivityFilter("needs");
+          setView(next);
+        }}
+        find={() => setDialog({ type: "find" })}
+        help={() => setDialog({ type: "help" })}
+        toggleTheme={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+      />
+      <SectionSidebar
+        view={view}
+        route={route}
+        company={company}
+        storedCompany={storedCompany}
+        scope={scopeProject}
+        setScope={setScope}
+        newProject={() => setDialog({ type: "project" })}
+        editProject={(id) => {
+          const project = company.projects?.find((p) => p.id === id);
+          if (project) setDialog({ type: "project", project });
+        }}
+        go={(next) => {
+          setQuery("");
+          go(next);
+        }}
+        newWorkflow={(officeId) =>
+          openNewWorkflow({
+            ...(officeId ? { officeId } : {}),
+            ...(scopeProject ? { projectId: scopeProject } : {}),
+          })
+        }
+        newChat={() => createDirectoryEntry("chat", scopeProject || undefined)}
+        lifecycle={(entry, lifecycle) => updateLifecycle(entry, lifecycle)}
+        activityFilter={activityFilter}
+        setActivityFilter={(filter) => {
+          setActivityFilter(filter);
+          if (view !== "activity") setView("activity");
+        }}
+      />
       <div className="co-main">
-        <header className="co-topbar">
+        <TabBar
+          company={company}
+          tabs={openTabs.tabs}
+          current={openTabs.current}
+          open={(tab) => go(tabRoute(tab))}
+          close={(tab) => {
+            const index = openTabs.tabs.findIndex((t) => t.kind === tab.kind && t.id === tab.id);
+            openTabs.close(tab);
+            if (openTabs.current?.kind === tab.kind && openTabs.current.id === tab.id) {
+              const neighbour = openTabs.tabs[index + 1] || openTabs.tabs[index - 1];
+              const fallback = neighbour && neighbour.id !== tab.id ? neighbour : undefined;
+              go(fallback ? tabRoute(fallback) : { view: tab.kind === "chat" ? "start" : "map" });
+            }
+          }}
+          newChat={() => createDirectoryEntry("chat", scopeProject || undefined)}
+          find={() => setDialog({ type: "find" })}
+          title={isNewWorkflow ? "New workflow" : viewLabels[primaryView(view)]}
+          terminalOpen={terminalOpen}
+          toggleTerminal={() => setTerminalOpen((open) => !open)}
+        />
+        <header className="co-topbar sh-legacy-topbar" hidden>
           <button
             className="co-mobile-menu co-icon-button"
             aria-label="Open navigation"
@@ -524,24 +768,23 @@ export function CompanyWorkspace() {
           id="workspace-content"
           className={`co-content ${companyMap ? "co-map-mode" : view === "start" ? "co-start-mode" : ""} ${isWorkflowBuilder ? "co-workflow-page" : ""}`}
         >
-          {view !== "start" && !companyMap && (
-            <section className="co-page-heading">
-              <div>
-                <div className="co-page-title-line">
-                  <h1>{isWorkflowBuilder ? "Workflow Builder" : viewLabels[view]}</h1>
-                  {descriptions[view] && (
-                    <HelpTip
-                      label={`About ${isWorkflowBuilder ? "Workflow Builder" : viewLabels[view]}`}
-                    >
-                      {descriptions[view]}
-                    </HelpTip>
+          {view !== "start" &&
+            view !== "activity" &&
+            view !== "inbox" &&
+            !isWorkflowBuilder &&
+            !companyMap && (
+              <section className="co-page-heading">
+                <div>
+                  <div className="co-page-title-line">
+                    <h1>{isWorkflowBuilder ? "Workflow Builder" : viewLabels[view]}</h1>
+                  </div>
+                  {isWorkflowBuilder && (
+                    <p>{isNewWorkflow ? "New workflow" : workflowPage?.title}</p>
                   )}
                 </div>
-                {isWorkflowBuilder && <p>{isNewWorkflow ? "New workflow" : workflowPage?.title}</p>}
-              </div>
-            </section>
-          )}
-          {group === "memory" && (
+              </section>
+            )}
+          {false && group === "memory" && (
             <nav className="co-page-tabs" aria-label="Library sections">
               {(["memory", "engines"] as const).map((tab) => (
                 <button
@@ -555,9 +798,7 @@ export function CompanyWorkspace() {
             </nav>
           )}
           {!isWorkflowBuilder &&
-            view !== "start" &&
-            view !== "inbox" &&
-            view !== "settings" &&
+            !["start", "settings", "activity", "inbox"].includes(view) &&
             !companyMap && (
               <div className="co-section-toolbar">
                 {view === "tasks" && (
@@ -599,6 +840,7 @@ export function CompanyWorkspace() {
               company={company}
               change={setCompany}
               editTask={(task) => go({ view: "tasks", taskId: task.id })}
+              toWorkflow={workflowFromChat}
               lifecycleChat={(chat, lifecycle) => {
                 const entry = directoryEntries(storedCompany).find(
                   (candidate) => candidate.kind === "chat" && candidate.id === chat.id,
@@ -606,11 +848,14 @@ export function CompanyWorkspace() {
                 if (entry) updateLifecycle(entry, lifecycle);
               }}
             />
-          ) : view === "inbox" ? (
-            <Inbox
-              openRun={(runKey) => {
-                if (runKey.startsWith("chat:")) go({ view: "start", chatId: runKey.slice(5) });
-                else if (runKey.startsWith("task:")) go({ view: "tasks", taskId: runKey.slice(5) });
+          ) : view === "activity" || view === "inbox" ? (
+            <ActivityView
+              filter={view === "inbox" ? "needs" : activityFilter}
+              askAboutRun={askAboutRun}
+              openRun={(run) => {
+                const key = run.request.key;
+                if (key.startsWith("chat:")) go({ view: "start", chatId: key.slice(5) });
+                else if (key.startsWith("task:")) go({ view: "tasks", taskId: key.slice(5) });
               }}
             />
           ) : view === "engines" ? (
@@ -631,8 +876,6 @@ export function CompanyWorkspace() {
                   : undefined
               }
             />
-          ) : view === "activity" ? (
-            <LiveHistory query={query} summaryView />
           ) : isWorkflowBuilder ? (
             isNewWorkflow || workflowPage ? (
               <WorkflowStudio
@@ -665,27 +908,37 @@ export function CompanyWorkspace() {
               </section>
             )
           ) : (
-            <CompanyFloorplan
-              company={company}
-              focus={mapFocus}
-              openSettings={() => setView("settings")}
-              editOffice={(o) => setDialog({ type: "edit-office", office: o })}
-              deleteOffice={(o) =>
-                setDialog({ type: "delete-structure", target: { kind: "office", id: o.id } })
-              }
-              addWorkflow={(o) =>
-                openNewWorkflow(o ? { agentId: o.agents[0]?.id, officeId: o.id } : {})
-              }
-              addOffice={() => setDialog({ type: "office" })}
-              addAgent={(officeId) => setDialog({ type: "agent", officeId })}
-              inspectAgent={(officeId, agent) =>
-                setDialog({ type: "inspect-agent", officeId, agent })
-              }
-              editAgent={(officeId, agent) => setDialog({ type: "agent", officeId, agent })}
-              openWorkflow={(task) => go({ view: "tasks", taskId: task.id })}
-              runWorkflow={runWorkflow}
-              assignWork={assignWork}
-            />
+            <>
+              <TodayStrip
+                company={company}
+                openActivity={(filter) => {
+                  setActivityFilter(filter);
+                  setView("activity");
+                }}
+                openWorkflow={(id) => go({ view: "tasks", taskId: id })}
+              />
+              <CompanyFloorplan
+                company={company}
+                focus={mapFocus}
+                openSettings={() => setView("settings")}
+                editOffice={(o) => setDialog({ type: "edit-office", office: o })}
+                deleteOffice={(o) =>
+                  setDialog({ type: "delete-structure", target: { kind: "office", id: o.id } })
+                }
+                addWorkflow={(o) =>
+                  openNewWorkflow(o ? { agentId: o.agents[0]?.id, officeId: o.id } : {})
+                }
+                addOffice={() => setDialog({ type: "office" })}
+                addAgent={(officeId) => setDialog({ type: "agent", officeId })}
+                inspectAgent={(officeId, agent) =>
+                  setDialog({ type: "inspect-agent", officeId, agent })
+                }
+                editAgent={(officeId, agent) => setDialog({ type: "agent", officeId, agent })}
+                openWorkflow={(task) => go({ view: "tasks", taskId: task.id })}
+                runWorkflow={runWorkflow}
+                assignWork={assignWork}
+              />
+            </>
           )}
           {storageError && (
             <footer className="co-page-foot" role="alert">
@@ -843,7 +1096,9 @@ export function CompanyWorkspace() {
               </div>
             </div>
           )}
-          {dialog.type === "find" && <QuickFind company={company} choose={chooseResult} />}
+          {dialog.type === "find" && (
+            <QuickFind company={company} choose={chooseResult} actions={paletteActions} />
+          )}
           {dialog.type === "navigation" && <WorkspaceNavigation {...navigationProps} mobile />}
           {dialog.type === "inspect-task" &&
             (inspectedTask ? (

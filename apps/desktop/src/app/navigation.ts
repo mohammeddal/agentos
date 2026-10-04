@@ -17,20 +17,25 @@ export type WorkspaceRoute = {
   taskId?: string;
 };
 export const destinations = [
-  { view: "map", label: "Company", description: "Offices, agents, and workflows" },
+  { view: "map", label: "Home", description: "Offices, agents, and workflows" },
   { view: "start", label: "Chat", description: "Write a prompt or continue a chat" },
-  { view: "inbox", label: "Inbox", description: "Approvals and failures waiting on you" },
-  { view: "activity", label: "Activity", description: "Runs, approvals, and results" },
+  { view: "activity", label: "Activity", description: "What needs you, running work, and results" },
   { view: "memory", label: "Library", description: "Memory and local capabilities" },
 ] as const;
 export function primaryView(view: WorkspaceView): WorkspaceView {
-  return ["map", "tasks"].includes(view) ? "map" : view === "engines" ? "memory" : view;
+  return ["map", "tasks"].includes(view)
+    ? "map"
+    : view === "engines"
+      ? "memory"
+      : view === "inbox"
+        ? "activity"
+        : view;
 }
 export const viewLabels: Record<WorkspaceView, string> = {
-  start: "Start",
+  start: "Chat",
   inbox: "Inbox",
   tasks: "Workflows",
-  map: "Company Hub",
+  map: "Home",
   activity: "Activity",
   memory: "Memory",
   engines: "Capabilities",
@@ -79,12 +84,18 @@ export function parseRoute(hash: string): WorkspaceRoute {
 }
 export type FindResult = {
   id: string;
-  kind: "page" | "task" | "chat" | "project" | "agent" | "office";
+  kind: "page" | "task" | "chat" | "project" | "agent" | "office" | "action";
   title: string;
   detail: string;
   route?: WorkspaceRoute;
+  /** Command palette actions run instead of navigating. */
+  run?: () => void;
 };
-export function findWorkspace(company: Company, text: string): FindResult[] {
+export function findWorkspace(
+  company: Company,
+  text: string,
+  actions: FindResult[] = [],
+): FindResult[] {
   company = activeCompany(company);
   const pages: FindResult[] = [
     ...destinations.map((d) => ({
@@ -142,8 +153,12 @@ export function findWorkspace(company: Company, text: string): FindResult[] {
   ];
   const words = text.trim().toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length)
-    return [...pages.slice(0, 6), ...records.filter((r) => r.kind === "task").slice(0, 5)];
-  return [...pages, ...records]
+    return [
+      ...actions.slice(0, 6),
+      ...pages.slice(0, 6),
+      ...records.filter((r) => r.kind === "task").slice(0, 5),
+    ];
+  return [...actions, ...pages, ...records]
     .filter((r) => words.every((w) => `${r.title} ${r.detail}`.toLowerCase().includes(w)))
     .sort(
       (a, b) =>

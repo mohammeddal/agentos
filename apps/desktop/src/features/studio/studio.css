@@ -9,8 +9,8 @@
   --st-text: #1e1e1e;
   --st-muted: #737373;
   --st-hover: #f0f0f0;
-  --st-blue: #0d99ff;
-  --st-blue-soft: #e5f4ff;
+  --st-blue: #2563eb;
+  --st-blue-soft: #2563eb14;
   --st-node: #ffffff;
   --st-shadow: 0 1px 3px #0000001a, 0 1px 2px #0000000f;
   position: fixed;
@@ -40,7 +40,8 @@
   --st-text: #f5f5f5;
   --st-muted: #a3a3a3;
   --st-hover: #383838;
-  --st-blue-soft: #0d99ff26;
+  --st-blue: #3b82f6;
+  --st-blue-soft: #3b82f626;
   --st-node: #333333;
   --st-shadow: 0 1px 3px #00000066;
 }
@@ -196,7 +197,7 @@
   font-weight: 600;
 }
 .st-button.st-primary:hover:not(:disabled) {
-  background: #0b87e0;
+  background: #1d4ed8;
 }
 .st-button:disabled {
   opacity: 0.6;
@@ -904,7 +905,7 @@
 .st-marquee {
   position: absolute;
   border: 1px solid var(--st-blue);
-  background: #0d99ff14;
+  background: #2563eb14;
   pointer-events: none;
 }
 .st-create {
@@ -939,4 +940,168 @@
   .st-tools button:nth-child(n + 3):not(:nth-last-child(-n + 2)) {
     display: none;
   }
+}
+
+/* Copilot */
+.st-copilot {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.st-copilot-log {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 12px 14px;
+  overflow-y: auto;
+}
+.st-copilot-empty {
+  display: grid;
+  gap: 8px;
+  color: var(--st-muted);
+}
+.st-copilot-empty svg {
+  color: var(--st-blue);
+}
+.st-copilot-empty strong {
+  color: var(--st-text);
+  font-size: 13px;
+}
+.st-copilot-empty p {
+  margin: 0 0 4px;
+}
+.st-copilot-empty button {
+  padding: 8px 10px;
+  border: 1px solid var(--st-line);
+  border-radius: 8px;
+  background: var(--st-bg);
+  text-align: left;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.st-copilot-empty button:hover {
+  border-color: var(--st-blue);
+}
+.st-copilot-msg {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.st-copilot-msg[data-role="user"] {
+  justify-self: end;
+  max-width: 90%;
+  padding: 8px 10px;
+  border-radius: 10px 10px 2px 10px;
+  background: var(--st-blue-soft);
+}
+.st-copilot-msg p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.st-copilot-msg small {
+  color: var(--st-muted);
+  font-size: 11px;
+}
+.st-copilot-changes,
+.st-copilot-problems {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 8px 10px 8px 24px;
+  border-radius: 8px;
+  background: var(--st-hover);
+  font-size: 11.5px;
+}
+.st-copilot-problems {
+  background: #d9770614;
+  color: #b45309;
+}
+.st-copilot-thinking {
+  color: var(--st-muted);
+  animation: st-think 1.4s ease-in-out infinite;
+}
+@keyframes st-think {
+  50% {
+    opacity: 0.4;
+  }
+}
+.st-copilot-input {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--st-line);
+}
+.st-copilot-input > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.st-studio .st-copilot-input select {
+  width: auto;
+}
+.st-copilot-send {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+  border: 0;
+  border-radius: 8px;
+  background: var(--st-blue);
+  color: #fff !important;
+  cursor: pointer;
+}
+.st-copilot-send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.st-statusbar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  gap: 16px;
+  height: 26px;
+  align-items: center;
+  padding: 0 12px;
+  border-top: 1px solid var(--st-line);
+  background: var(--st-panel);
+  color: var(--st-muted);
+  font-size: 11px;
+}
+.st-statusbar span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--st-text);
+}
+.st-statusbar span:first-child::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a3a3a3;
+}
+.st-statusbar span[data-state="working"]::before {
+  background: #16a34a;
+}
+.st-statusbar span[data-state="awaiting_approval"]::before {
+  background: #d97706;
+}
+.st-statusbar span[data-state="failed"]::before {
+  background: #dc2626;
+}
+.st-statusbar span[data-state="completed"]::before {
+  background: #16a34a;
+}
+.st-statusbar span:last-child {
+  margin-left: auto;
+}
+.st-toast {
+  bottom: 40px;
 }

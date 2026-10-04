@@ -13,7 +13,6 @@ describe("workspace navigation", () => {
     expect(destinations.map((destination) => destination.view)).toEqual([
       "map",
       "start",
-      "inbox",
       "activity",
       "memory",
     ]);

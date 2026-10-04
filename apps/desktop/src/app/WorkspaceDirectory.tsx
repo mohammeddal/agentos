@@ -19,7 +19,7 @@ import {
 } from "../features/company/company-directory";
 import "./workspace-directory.css";
 
-function Actions({ label, children }: { label: string; children: ReactNode }) {
+export function Actions({ label, children }: { label: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [side, setSide] = useState<"top" | "bottom">("bottom");
   const root = useRef<HTMLDivElement>(null);
