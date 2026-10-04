@@ -13,6 +13,7 @@ import {
   Building2,
   Cable,
   ChevronLeft,
+  ChevronRight,
   Circle,
   Eye,
   EyeOff,
@@ -28,6 +29,7 @@ import {
   Plug,
   Redo2,
   Shapes,
+  Search,
   ShieldCheck,
   Sparkles,
   Square,
@@ -141,6 +143,7 @@ const tools: { tool: Tool; label: string; key: string; icon: ReactNode }[] = [
   { tool: "sticky", label: "Sticky note", key: "S", icon: <StickyNote size={16} /> },
   { tool: "connect", label: "Connect", key: "C", icon: <Cable size={16} /> },
 ];
+const BLOCK_GROUPS = "agentos:studio-block-groups";
 const handles: Handle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLInputElement ||
@@ -202,6 +205,16 @@ export function WorkflowStudio({
   const [connectFrom, setConnectFrom] = useState("");
   const [editingText, setEditingText] = useState("");
   const [leftTab, setLeftTab] = useState<"layers" | "blocks">("layers");
+  const [blockQuery, setBlockQuery] = useState("");
+  const [openGroups, setOpenGroups] = useState<string[]>(() => {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(BLOCK_GROUPS) || "null");
+      if (Array.isArray(saved)) return saved.filter((id): id is string => typeof id === "string");
+    } catch {
+      /* Fall back to the defaults. */
+    }
+    return ["basics", "agents", "annotate"];
+  });
   const [rightTab, setRightTab] = useState<"design" | "workflow" | "run">("workflow");
   const [notice, setNotice] = useState("");
   const [dirty, setDirty] = useState(!task);
@@ -701,6 +714,130 @@ export function WorkflowStudio({
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  // ── Blocks panel ───────────────────────────────────────────────────────
+  type BlockItem = {
+    key: string;
+    label: string;
+    detail: string;
+    icon: ReactNode;
+    insert: () => void;
+  };
+  const toolItems = (kind: "mcp" | "skill" | "connector"): BlockItem[] =>
+    [
+      ...codexTools.map((t) => ({ ...t, engine: "codex" })),
+      ...claudeTools.map((t) => ({ ...t, engine: "claude" })),
+    ]
+      .filter((tool) => tool.kind === kind)
+      .map((tool) => {
+        const Icon = kindIcons[kind];
+        return {
+          key: `${tool.engine}:${tool.id}`,
+          label: tool.name,
+          detail: tool.engine === "claude" ? "Claude Code" : "Codex",
+          icon: <Icon size={14} style={{ color: kindColors[kind] }} />,
+          insert: () =>
+            insertNode(kind, {
+              title: tool.name.slice(0, 120),
+              reference: tool.id,
+              source: tool.source,
+              engine: tool.engine,
+              capabilityStatus: tool.status,
+            }),
+        };
+      });
+  const blockGroups: { id: string; label: string; empty: string; items: BlockItem[] }[] = [
+    {
+      id: "basics",
+      label: "Basics",
+      empty: "",
+      items: [
+        {
+          key: "prompt",
+          label: "Custom step",
+          detail: "Runs directly on Codex or Claude",
+          icon: <MessageSquareText size={14} style={{ color: kindColors.prompt }} />,
+          insert: () => insertNode("prompt", { title: "Custom step" }),
+        },
+        {
+          key: "approval",
+          label: "Approval",
+          detail: "Pause for you or a reviewer",
+          icon: <ShieldCheck size={14} style={{ color: kindColors.approval }} />,
+          insert: () => insertNode("approval", { title: "Approval" }),
+        },
+        {
+          key: "context",
+          label: "Context",
+          detail: "Notes, files, links",
+          icon: <FileText size={14} style={{ color: kindColors.context }} />,
+          insert: () => insertNode("context", { title: "Context" }),
+        },
+      ],
+    },
+    {
+      id: "agents",
+      label: "Agents",
+      empty: "No agents yet. Add one from the company map.",
+      items: company.offices.flatMap((office) =>
+        office.agents.map((agent) => ({
+          key: agent.id,
+          label: agent.name,
+          detail: office.name,
+          icon: <Bot size={14} style={{ color: kindColors.agent }} />,
+          insert: () => insertNode("agent", { title: agent.name, reference: agent.id }),
+        })),
+      ),
+    },
+    {
+      id: "offices",
+      label: "Offices",
+      empty: "No offices yet.",
+      items: company.offices.map((office) => ({
+        key: office.id,
+        label: office.name,
+        detail: `Whole office · ${office.agents.length} agents`,
+        icon: <Building2 size={14} style={{ color: kindColors.office }} />,
+        insert: () => insertNode("office", { title: office.name, reference: office.id }),
+      })),
+    },
+    {
+      id: "mcp",
+      label: "MCP servers",
+      empty: "None installed. Add one from Settings → Add capabilities.",
+      items: toolItems("mcp"),
+    },
+    {
+      id: "skill",
+      label: "Skills",
+      empty: "No skills installed.",
+      items: toolItems("skill"),
+    },
+    {
+      id: "connector",
+      label: "Connectors",
+      empty: "No connectors found.",
+      items: toolItems("connector"),
+    },
+    {
+      id: "annotate",
+      label: "Annotate",
+      empty: "",
+      items: (["section", "rect", "ellipse", "text", "sticky"] as DecorKind[]).map((type) => {
+        const meta = tools.find((t) => t.tool === type)!;
+        return {
+          key: type,
+          label: meta.label,
+          detail: "",
+          icon: meta.icon,
+          insert: () => {
+            const c = centre();
+            insertDecor(newDecor(type, c.x, c.y));
+          },
+        };
+      }),
+    },
+  ];
+
   // ── Rendering helpers ─────────────────────────────────────────────────
   const agents = company.offices.flatMap((office) =>
     office.agents.map((agent) => ({ ...agent, office })),
@@ -1018,117 +1155,83 @@ export function WorkflowStudio({
           </ul>
         ) : (
           <div className="st-blocks">
-            <h5>Steps</h5>
-            {agents.map((agent) => (
-              <button
-                key={agent.id}
-                type="button"
-                className="st-block"
-                onClick={() => insertNode("agent", { title: agent.name, reference: agent.id })}
-              >
-                <Bot size={14} style={{ color: kindColors.agent }} />
-                <span>
-                  {agent.name}
-                  <small>{agent.office.name}</small>
-                </span>
-              </button>
-            ))}
-            {company.offices.map((office) => (
-              <button
-                key={office.id}
-                type="button"
-                className="st-block"
-                onClick={() => insertNode("office", { title: office.name, reference: office.id })}
-              >
-                <Building2 size={14} style={{ color: kindColors.office }} />
-                <span>
-                  {office.name}
-                  <small>Whole office</small>
-                </span>
-              </button>
-            ))}
-            <button
-              type="button"
-              className="st-block"
-              onClick={() => insertNode("prompt", { title: "Custom step" })}
-            >
-              <MessageSquareText size={14} style={{ color: kindColors.prompt }} />
-              <span>
-                Custom step<small>Runs directly on Codex or Claude</small>
-              </span>
-            </button>
-            <button
-              type="button"
-              className="st-block"
-              onClick={() => insertNode("approval", { title: "Approval" })}
-            >
-              <ShieldCheck size={14} style={{ color: kindColors.approval }} />
-              <span>
-                Approval<small>Pause for you or a reviewer</small>
-              </span>
-            </button>
-            <h5>Resources</h5>
-            <button
-              type="button"
-              className="st-block"
-              onClick={() => insertNode("context", { title: "Context" })}
-            >
-              <FileText size={14} style={{ color: kindColors.context }} />
-              <span>
-                Context<small>Notes, files, links</small>
-              </span>
-            </button>
-            {[
-              ...codexTools.map((t) => ({ ...t, engine: "codex" })),
-              ...claudeTools.map((t) => ({ ...t, engine: "claude" })),
-            ].map((tool) => {
-              const Icon = kindIcons[tool.kind as BlockKind] || Plug;
+            <div className="st-block-search">
+              <Search size={13} />
+              <input
+                aria-label="Search blocks"
+                placeholder="Search blocks…"
+                value={blockQuery}
+                onChange={(event) => setBlockQuery(event.target.value)}
+              />
+            </div>
+            {blockGroups.map((group) => {
+              const items = group.items.filter((item) =>
+                `${item.label} ${item.detail}`
+                  .toLowerCase()
+                  .includes(blockQuery.trim().toLowerCase()),
+              );
+              if (blockQuery.trim() && !items.length) return null;
               return (
-                <button
-                  key={`${tool.engine}:${tool.id}`}
-                  type="button"
-                  className="st-block"
-                  onClick={() =>
-                    insertNode(tool.kind as BlockKind, {
-                      title: tool.name.slice(0, 120),
-                      reference: tool.id,
-                      source: tool.source,
-                      engine: tool.engine,
-                      capabilityStatus: tool.status,
-                    })
-                  }
+                <details
+                  key={group.id}
+                  className="st-block-group"
+                  open={blockQuery.trim() ? true : openGroups.includes(group.id)}
+                  onToggle={(event) => {
+                    if (blockQuery.trim()) return;
+                    const open = event.currentTarget.open;
+                    setOpenGroups((current) => {
+                      const next = open
+                        ? [...new Set([...current, group.id])]
+                        : current.filter((id) => id !== group.id);
+                      try {
+                        localStorage.setItem(BLOCK_GROUPS, JSON.stringify(next));
+                      } catch {
+                        /* Session only. */
+                      }
+                      return next;
+                    });
+                  }}
                 >
-                  <Icon size={14} style={{ color: kindColors[tool.kind as BlockKind] }} />
-                  <span>
-                    {tool.name}
-                    <small>
-                      {blockNames[tool.kind as BlockKind]} ·{" "}
-                      {tool.engine === "claude" ? "Claude Code" : "Codex"}
-                    </small>
-                  </span>
-                </button>
+                  <summary>
+                    <ChevronRight size={12} className="st-group-caret" />
+                    <span>{group.label}</span>
+                    <em>{items.length}</em>
+                  </summary>
+                  {group.id === "annotate" ? (
+                    <div className="st-annotate">
+                      {items.map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          title={item.label}
+                          onClick={item.insert}
+                        >
+                          {item.icon}
+                          <small>{item.label}</small>
+                        </button>
+                      ))}
+                    </div>
+                  ) : items.length ? (
+                    items.map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        className="st-block"
+                        onClick={item.insert}
+                      >
+                        {item.icon}
+                        <span>
+                          {item.label}
+                          <small>{item.detail}</small>
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="st-hint st-group-empty">{group.empty}</p>
+                  )}
+                </details>
               );
             })}
-            <h5>Annotate</h5>
-            <div className="st-annotate">
-              {(["section", "rect", "ellipse", "text", "sticky"] as DecorKind[]).map((type) => {
-                const meta = tools.find((t) => t.tool === type)!;
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    title={meta.label}
-                    onClick={() => {
-                      const c = centre();
-                      insertDecor(newDecor(type, c.x, c.y));
-                    }}
-                  >
-                    {meta.icon}
-                    <small>{meta.label}</small>
-                  </button>
-                );
-              })}
-            </div>
             <p className="st-hint">
               Select a step first: new steps connect after it, and resources attach to it.
             </p>

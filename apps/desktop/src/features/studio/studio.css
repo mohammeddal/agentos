@@ -307,6 +307,67 @@
   padding: 6px 8px 16px;
   overflow: auto;
 }
+.st-block-search {
+  position: sticky;
+  top: -6px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--st-line);
+  border-radius: 6px;
+  background: var(--st-panel);
+  color: var(--st-muted);
+}
+.st-studio .st-block-search input {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.st-block-group {
+  border-bottom: 1px solid var(--st-line);
+}
+.st-block-group > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 4px;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+.st-block-group > summary::-webkit-details-marker {
+  display: none;
+}
+.st-block-group > summary:hover {
+  color: var(--st-text);
+}
+.st-block-group > summary em {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--st-hover);
+  color: var(--st-muted);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 500;
+}
+.st-group-caret {
+  color: var(--st-muted);
+  transition: transform 0.12s;
+}
+.st-block-group[open] > summary .st-group-caret {
+  transform: rotate(90deg);
+}
+.st-block-group[open] {
+  padding-bottom: 8px;
+}
+.st-group-empty {
+  padding: 0 8px 4px;
+}
 .st-blocks h5 {
   margin: 12px 4px 4px;
   color: var(--st-muted);
