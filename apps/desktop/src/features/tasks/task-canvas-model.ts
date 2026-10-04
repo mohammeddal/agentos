@@ -466,11 +466,13 @@ export function canvasWarnings(company: Company, graph: TaskCanvasGraph): string
       warnings.push(`${n.title}: add context or a custom prompt.`);
     if (n.kind === "approval" && n.reviewer !== "human" && !agents.some((a) => a.id === n.reviewer))
       warnings.push(`${n.title}: reviewer is unavailable.`);
+    // An approval with no outgoing flow is a final sign-off; one that continues must do so
+    // on approval.
     if (
       n.kind === "approval" &&
-      !graph.edges.some((e) => e.from === n.id && e.condition === "approved")
+      graph.edges.some((e) => e.kind === "flow" && e.from === n.id && e.condition !== "approved")
     )
-      warnings.push(`${n.title}: connect an outgoing flow with the Approved condition.`);
+      warnings.push(`${n.title}: connections after an approval must use the Approved condition.`);
   }
   for (const edge of graph.edges) {
     if (

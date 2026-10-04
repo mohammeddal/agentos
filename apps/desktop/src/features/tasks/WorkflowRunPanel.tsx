@@ -143,7 +143,7 @@ export function WorkflowRunPanel({
       <details className="ck-step" key={stepId} open={open}>
         <summary>
           <span>{label}</span>
-          <small>{engine}</small>
+          <small>{engine === "gate" ? "sign-off" : engine}</small>
           <StatusPill status={state} />
         </summary>
         {runFrom && !isActiveRun(run) && (

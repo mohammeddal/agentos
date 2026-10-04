@@ -294,6 +294,44 @@ describe("native execution plans", () => {
     );
     expect(plan[0]?.approval).toBe(true);
   });
+  it("turns an approval at the end into a final sign-off step", () => {
+    const root = { ...newCanvasNode("task", 0, 0, "root"), prompt: "Make posts" };
+    const writer = { ...newCanvasNode("agent", 0, 0, "writer"), reference: "data-engineer" };
+    const review = { ...newCanvasNode("approval", 0, 0, "review"), title: "Review assets" };
+    const plan = compileTask(
+      starterCompany,
+      task({
+        approval: { kind: "none" },
+        canvas: {
+          version: 1,
+          nodes: [root, writer, review],
+          edges: [
+            { id: "e1", from: "root", to: "writer", kind: "flow", condition: "success" },
+            { id: "e2", from: "writer", to: "review", kind: "flow", condition: "success" },
+          ],
+        },
+      }),
+    );
+    const signOff = plan.at(-1)!;
+    expect(signOff).toMatchObject({ engine: "gate", approval: true, label: "Review assets" });
+    expect(signOff.after).toEqual([plan[0]!.id]);
+    expect(
+      taskRunError(
+        starterCompany,
+        task({
+          approval: { kind: "none" },
+          canvas: {
+            version: 1,
+            nodes: [root, writer, review],
+            edges: [
+              { id: "e1", from: "root", to: "writer", kind: "flow", condition: "success" },
+              { id: "e2", from: "writer", to: "review", kind: "flow", condition: "success" },
+            ],
+          },
+        }),
+      ),
+    ).toBe("");
+  });
   it("does not reuse old memory after memory is switched off", async () => {
     memoryStore.contents = renderMemory({ version: 1, enabled: false, entries: [] });
     const refreshed = await refreshRequestMemory({

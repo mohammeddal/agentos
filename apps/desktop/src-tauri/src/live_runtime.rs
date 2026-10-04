@@ -259,7 +259,9 @@ impl Runtime {
         }
         for step in &request.steps {
             crate::attachments::validate_refs(&inner.root, &step.attachments)?;
-            executable(&step.engine)?;
+            if step.engine != GATE {
+                executable(&step.engine)?;
+            }
             if let Some(reviewer) = &step.reviewer {
                 crate::attachments::validate_refs(&inner.root, &reviewer.attachments)?;
                 executable(&reviewer.engine)?;
@@ -444,11 +446,25 @@ impl Runtime {
                 &format!("Starting {} · {}", step.label, step.engine),
             );
             self.update(id, true, |r| r.current_agent_id = step.agent_id.clone());
-            if step.approval && !self.gate(id, &format!("Run {}?", step.label), &prompt, rx)? {
-                return Err("Task start rejected. No action was run for this step.".into());
+            let sign_off = step.engine == GATE;
+            let question = if sign_off {
+                format!("Approve {}?", step.label)
+            } else {
+                format!("Run {}?", step.label)
+            };
+            if step.approval && !self.gate(id, &question, &prompt, rx)? {
+                return Err(if sign_off {
+                    format!("{} was rejected.", step.label)
+                } else {
+                    "Task start rejected. No action was run for this step.".into()
+                });
             }
             if let Some(reviewer) = &step.reviewer {
-                let review_prompt = format!("Review this proposed task. Do not execute it. Reply with JSON only: {{\"approved\":true|false,\"reason\":\"...\"}}. Approve only if it is clear and safe.\nReviewer role: {}\nTask:\n{}", reviewer.prompt, prompt);
+                let review_prompt = if sign_off {
+                    format!("Review the finished work below. Do not change anything. Reply with JSON only: {{\"approved\":true|false,\"reason\":\"...\"}}. Approve only if it meets the brief and is ready to use.\nReviewer role: {}\nWork to review:\n{}", reviewer.prompt, prompt)
+                } else {
+                    format!("Review this proposed task. Do not execute it. Reply with JSON only: {{\"approved\":true|false,\"reason\":\"...\"}}. Approve only if it is clear and safe.\nReviewer role: {}\nTask:\n{}", reviewer.prompt, prompt)
+                };
                 let review = self.provider(run, reviewer, &review_prompt, "", true, rx)?;
                 let value: Value = serde_json::from_str(
                     review
@@ -462,6 +478,18 @@ impl Runtime {
                 if value["approved"] != true {
                     return Err("Reviewer rejected this step. Execution blocked.".into());
                 }
+            }
+            if sign_off {
+                // Nothing to run: the approval itself is the step's outcome.
+                results.push(StepResult {
+                    id: step.id.clone(),
+                    label: step.label.clone(),
+                    status: "completed".into(),
+                    output: "Approved.".into(),
+                });
+                self.event(id, "approval", &format!("{} approved", step.label));
+                self.update(id, true, |r| r.results = results.clone());
+                continue;
             }
             let session = if run.request.mode == "chat" {
                 &run.session_id
@@ -1152,6 +1180,8 @@ fn approval_scope(request: &Value) -> Option<String> {
     }
     None
 }
+/// Engine name for an approval-only sign-off step that never launches a provider.
+const GATE: &str = "gate";
 const ELICITATION: &str = "mcpServer/elicitation/request";
 fn elicitation_reply(id: &Value, allow: bool) -> Value {
     if allow {
@@ -1277,7 +1307,12 @@ fn validate(r: &RunRequest) -> Result<(), String> {
             )
             || s.prompt.trim().is_empty()
             || s.prompt.len() > 50000
-            || !matches!(s.engine.as_str(), "codex" | "claude")
+            || !(matches!(s.engine.as_str(), "codex" | "claude")
+                // A sign-off gate only pauses for approval; it must actually gate something.
+                || (s.engine == GATE
+                    && r.mode == "task"
+                    && (s.approval || s.reviewer.is_some())
+                    && s.attachments.is_empty()))
         {
             return Err("Invalid step or dependency. Nothing was started.".into());
         }
@@ -1428,6 +1463,23 @@ mod tests {
             "{\"review\":{\"score\":\"8\"}}",
             Some(&rule)
         ));
+    }
+    #[test]
+    fn sign_off_gates_must_gate_something() {
+        let mut r = request();
+        r.mode = "task".into();
+        let mut gate = r.steps[0].clone();
+        gate.id = "signoff".into();
+        gate.engine = GATE.into();
+        gate.after = vec![r.steps[0].id.clone()];
+        gate.approval = true;
+        r.steps.push(gate.clone());
+        assert!(validate(&r).is_ok());
+        r.steps[1].approval = false;
+        assert!(validate(&r).is_err());
+        r.steps[1].approval = true;
+        r.mode = "chat".into();
+        assert!(validate(&r).is_err());
     }
     #[test]
     fn validates_before_execution() {

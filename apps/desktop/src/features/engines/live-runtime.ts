@@ -565,6 +565,32 @@ function compileCanvas(company: Company, task: CompanyTask): LiveStep[] {
     }
     endpoints.set(node.id, { after: [result.at(-1)!.id], gates: [], condition: "success" });
   }
+  // An approval with nothing after it is a final sign-off on the finished work: it pauses for
+  // the reviewer and completes the run without calling an engine.
+  for (const node of graph.nodes.filter((n) => n.kind === "approval")) {
+    const end = endpoints.get(node.id);
+    if (!end || graph.edges.some((e) => e.kind === "flow" && e.from === node.id)) continue;
+    const step: LiveStep = {
+      id: `canvas-${node.id}-signoff`,
+      label: node.title || "Approval",
+      engine: "gate",
+      prompt: "Final sign-off: review the finished work from the previous steps and approve it.",
+      agentId: "",
+      after: end.after,
+      condition: end.condition,
+      approval: false,
+    };
+    const human = end.gates.some((g) => g.kind === "human");
+    const reviewers = [
+      ...new Set(end.gates.flatMap((g) => (g.kind === "agent" ? [g.agentId] : []))),
+    ];
+    if (reviewers.length > 1)
+      throw new Error("Use one reviewer for a final sign-off, or add a step between them.");
+    if (reviewers[0]) rule(step, { kind: "agent", agentId: reviewers[0] }, company);
+    step.approval = human;
+    if (!step.approval && !step.reviewer) continue;
+    result.push(step);
+  }
   if (result.length > 40) throw new Error("This visual flow exceeds the 40-step execution limit.");
   return result;
 }
@@ -589,7 +615,7 @@ export function compileTask(company: Company, task: CompanyTask, path: string[] 
       : [...new Set([...(task.attachments || []).map((a) => a.id), ...(step.attachments || [])])];
     return {
       ...step,
-      prompt: `${step.prompt}\n\n${LEARNING_INSTRUCTION}`,
+      prompt: step.engine === "gate" ? step.prompt : `${step.prompt}\n\n${LEARNING_INSTRUCTION}`,
       attachments,
       ...(choice ? { model: choice.model, effort: choice.effort } : {}),
       ...(step.reviewer
