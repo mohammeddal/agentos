@@ -109,8 +109,15 @@ export function copilotPrompt(
   facts = "",
   /** Recent chat turns, so follow-ups like "why?" make sense. Each request starts a fresh engine
    * conversation; resuming one would resend every earlier copy of the workflow. */
-  recent: { role: "user" | "copilot"; text: string }[] = [],
+  recent: ChatTurn[] = [],
 ): string {
+  // A compacted chat starts with its summary; only turns after it are sent in full.
+  let summaryAt = -1;
+  recent.forEach((m, i) => {
+    if (m.summary) summaryAt = i;
+  });
+  const summary = summaryAt >= 0 ? recent[summaryAt]!.text : "";
+  const turns = recent.slice(summaryAt + 1).slice(-6);
   const agents = company.offices.flatMap((office) =>
     office.agents.map((a) => `- ${a.name} (${office.name}; ${a.role}; ${a.engine})`),
   );
@@ -154,9 +161,9 @@ export function copilotPrompt(
     `Installed tools: ${toolNames.join(", ") || "none"}`,
     "",
     facts ? `Facts about this workflow:\n${facts.slice(0, 4000)}\n` : "",
-    recent.length
-      ? `Conversation so far (most recent last):\n${recent
-          .slice(-6)
+    summary ? `Summary of the earlier conversation:\n${summary.slice(0, 4000)}\n` : "",
+    turns.length
+      ? `Conversation so far (most recent last):\n${turns
           .map(
             (m) =>
               `${m.role === "user" ? "User" : "Copilot"}: ${m.text.length > 1500 ? `${m.text.slice(0, 1500)}…` : m.text}`,
@@ -166,6 +173,31 @@ export function copilotPrompt(
     `Current workflow:\n\`\`\`json\n${workflowJson}\n\`\`\``,
     "",
     `User: ${request.slice(0, 20_000)}`,
+  ].join("\n");
+}
+
+export type ChatTurn = { role: "user" | "copilot"; text: string; summary?: boolean };
+
+/** Asks the engine to fold a long copilot chat into a short summary that replaces it. */
+export function compactPrompt(workflowName: string, turns: ChatTurn[]): string {
+  let budget = 150_000;
+  const lines: string[] = [];
+  // Newest turns matter most: keep them whole and drop the oldest if the chat is huge.
+  for (const m of [...turns].reverse()) {
+    const text = m.text.length > 3000 ? `${m.text.slice(0, 3000)}…` : m.text;
+    const line = `${m.summary ? "Earlier summary" : m.role === "user" ? "User" : "Copilot"}: ${text}`;
+    if (line.length > budget) break;
+    budget -= line.length;
+    lines.unshift(line);
+  }
+  return [
+    `Summarize this chat about the AgentOS workflow "${workflowName}" so it can replace the chat as context for future requests.`,
+    "Keep: decisions made, changes already applied, the user's preferences and constraints, and open questions or problems.",
+    "Drop: greetings, repeated attempts, and errors that were resolved.",
+    "Write at most 200 words as short bullet points. Do not include a workflow block. Do not use tools.",
+    "",
+    "Chat:",
+    ...lines,
   ].join("\n");
 }
 

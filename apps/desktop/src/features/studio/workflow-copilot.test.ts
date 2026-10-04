@@ -3,6 +3,7 @@ import { starterCompany } from "../company/company-model";
 import { isTaskCanvas, newCanvasNode, type TaskCanvasGraph } from "../tasks/task-canvas-model";
 import {
   applyPlan,
+  compactPrompt,
   copilotPrompt,
   describeWorkflow,
   mergePatch,
@@ -178,5 +179,26 @@ describe("workflow copilot", () => {
     expect(prompt).toContain("Copilot: turn 9");
     expect(prompt.indexOf("Conversation so far")).toBeLessThan(prompt.indexOf("User: Why?"));
     expect(prompt).not.toContain("z".repeat(1600));
+  });
+  it("uses a compacted summary in place of the turns before it", () => {
+    const prompt = copilotPrompt(starterCompany, empty(), tools, "And now?", "", [
+      { role: "user", text: "old request" },
+      { role: "copilot", text: "- Switched visuals to a cartoon theme", summary: true },
+      { role: "user", text: "Add an approval" },
+    ]);
+    expect(prompt).toContain("Summary of the earlier conversation:\n- Switched visuals");
+    expect(prompt).not.toContain("old request");
+    expect(prompt).toContain("User: Add an approval");
+  });
+  it("builds a compact request that keeps the newest turns when the chat is huge", () => {
+    const turns = Array.from({ length: 120 }, (_, i) => ({
+      role: "user" as const,
+      text: `msg-${i} ` + "w".repeat(5000),
+    }));
+    const prompt = compactPrompt("Fetch AI News", turns);
+    expect(prompt).toContain('"Fetch AI News"');
+    expect(prompt).toContain("msg-119");
+    expect(prompt).not.toContain("msg-0 ");
+    expect(prompt.length).toBeLessThan(160_000);
   });
 });

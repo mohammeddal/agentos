@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Sparkles, Square } from "lucide-react";
+import {
+  ArrowUp,
+  ChevronDown,
+  FoldVertical,
+  History,
+  Sparkles,
+  Square,
+  SquarePen,
+  Trash2,
+} from "lucide-react";
 import type { Company } from "../company/company-model";
 import {
   controlLive,
@@ -14,6 +23,7 @@ import { AssistantMessage } from "../../shared/AssistantMessage";
 import type { TaskCanvasGraph } from "../tasks/task-canvas-model";
 import {
   applyPlan,
+  compactPrompt,
   copilotPrompt,
   mergePatch,
   parsePlan,
@@ -27,6 +37,8 @@ type Message = {
   text: string;
   changes?: string[];
   problems?: string[];
+  /** A compacted chat: this summary stands in for everything before it. */
+  summary?: boolean;
 };
 
 const storageKey = (taskId: string) => `agentos:copilot:${taskId}`;
@@ -38,19 +50,38 @@ function readMessages(taskId: string): Message[] {
     return [];
   }
 }
-// The request in flight is remembered outside the panel, so switching tabs while the engine works
-// doesn't lose the answer: it's applied when the panel opens again.
-const pendingKey = (taskId: string) => `agentos:copilot-pending:${taskId}`;
-function readPending(taskId: string) {
+// Earlier chats, kept when you start a new one so you can go back to them.
+type PastChat = { id: string; title: string; at: number; messages: Message[] };
+const archiveKey = (taskId: string) => `agentos:copilot-archive:${taskId}`;
+function readArchive(taskId: string): PastChat[] {
   try {
-    return localStorage.getItem(pendingKey(taskId)) || "";
+    const value: unknown = JSON.parse(localStorage.getItem(archiveKey(taskId)) || "[]");
+    return Array.isArray(value) ? (value as PastChat[]) : [];
   } catch {
-    return "";
+    return [];
   }
 }
-function savePending(taskId: string, runId: string) {
+const chatTitle = (messages: Message[]) =>
+  (messages.find((m) => m.role === "user")?.text || "Summary").slice(0, 70);
+
+// The request in flight is remembered outside the panel, so switching tabs while the engine works
+// doesn't lose the answer: it's applied when the panel opens again.
+type Pending = { runId: string; kind: "chat" | "compact" };
+const pendingKey = (taskId: string) => `agentos:copilot-pending:${taskId}`;
+function readPending(taskId: string): Pending | null {
   try {
-    if (runId) localStorage.setItem(pendingKey(taskId), runId);
+    const raw = localStorage.getItem(pendingKey(taskId)) || "";
+    if (!raw) return null;
+    if (!raw.startsWith("{")) return { runId: raw, kind: "chat" };
+    const value = JSON.parse(raw) as Pending;
+    return value.runId ? value : null;
+  } catch {
+    return null;
+  }
+}
+function savePending(taskId: string, pending: Pending | null) {
+  try {
+    if (pending) localStorage.setItem(pendingKey(taskId), JSON.stringify(pending));
     else localStorage.removeItem(pendingKey(taskId));
   } catch {
     /* Still tracked while the panel stays open. */
@@ -87,12 +118,15 @@ export function CopilotPanel({
   const [messages, setMessages] = useState<Message[]>(() => readMessages(taskId));
   const [text, setText] = useState("");
   const [engine, setEngine] = useState<"codex" | "claude">("codex");
-  const [pendingId, setPendingIdState] = useState(() => readPending(taskId));
-  const setPendingId = (runId: string) => {
-    savePending(taskId, runId);
-    setPendingIdState(runId);
+  const [pending, setPendingState] = useState(() => readPending(taskId));
+  const setPending = (next: Pending | null) => {
+    savePending(taskId, next);
+    setPendingState(next);
   };
-  const pending = pendingId ? { runId: pendingId } : null;
+  const [archive, setArchive] = useState(() => readArchive(taskId));
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const historyMenu = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
   const codex = useInstalledTools("codex");
   const claude = useInstalledTools("claude");
@@ -118,6 +152,31 @@ export function CopilotPanel({
     }
     transcript.current?.scrollTo({ top: transcript.current.scrollHeight });
   }, [messages, taskId]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(archiveKey(taskId), JSON.stringify(archive.slice(0, 12)));
+    } catch {
+      /* Past chats stay available for this session. */
+    }
+  }, [archive, taskId]);
+  useEffect(() => {
+    if (!historyOpen) return;
+    const close = (event: PointerEvent) => {
+      if (!historyMenu.current?.contains(event.target as Node)) setHistoryOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => event.key === "Escape" && setHistoryOpen(false);
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [historyOpen]);
+  useEffect(() => {
+    if (!confirmClear) return;
+    const timer = window.setTimeout(() => setConfirmClear(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [confirmClear]);
 
   // When the engine answers, apply its plan to the canvas as one undoable change.
   useEffect(() => {
@@ -125,7 +184,7 @@ export function CopilotPanel({
     if (!run) {
       // Runs are loaded but this one is gone (history was cleared): stop waiting for it.
       if (live.runs.length) {
-        setPendingId("");
+        setPending(null);
         setMessages((m) => [
           ...m,
           {
@@ -138,7 +197,20 @@ export function CopilotPanel({
       return;
     }
     if (isActiveRun(run)) return;
-    setPendingId("");
+    setPending(null);
+    if (pending.kind === "compact") {
+      const summary = replyText(run.output);
+      if (run.status === "completed" && summary) {
+        setMessages([{ id: crypto.randomUUID(), role: "copilot", text: summary, summary: true }]);
+      } else {
+        setError(
+          run.status === "canceled"
+            ? "Compacting stopped. The chat is unchanged."
+            : `Couldn't compact the chat: ${run.error || "the engine didn't answer"}. The chat is unchanged.`,
+        );
+      }
+      return;
+    }
     if (run.status !== "completed") {
       setMessages((m) => [
         ...m,
@@ -224,7 +296,72 @@ export function CopilotPanel({
     };
     try {
       await startLive(live);
-      setPendingId(id);
+      setPending({ runId: id, kind: "chat" });
+    } catch (cause) {
+      setError(String(cause).replace(/^Error: /, ""));
+    }
+  }
+
+  /** Keeps the current chat in history and starts an empty one. */
+  function newChat() {
+    if (pending) return;
+    if (messages.length)
+      setArchive((past) => [
+        { id: crypto.randomUUID(), title: chatTitle(messages), at: Date.now(), messages },
+        ...past,
+      ]);
+    setMessages([]);
+    setError("");
+  }
+  function openPast(chat: PastChat) {
+    if (pending) return;
+    setArchive((past) => [
+      ...(messages.length
+        ? [{ id: crypto.randomUUID(), title: chatTitle(messages), at: Date.now(), messages }]
+        : []),
+      ...past.filter((c) => c.id !== chat.id),
+    ]);
+    setMessages(chat.messages);
+    setHistoryOpen(false);
+    setError("");
+  }
+  function clearChat() {
+    if (pending) return;
+    if (!confirmClear) return setConfirmClear(true);
+    setConfirmClear(false);
+    setMessages([]);
+    setError("");
+  }
+  /** Replaces the chat with a short summary the copilot keeps using as context. */
+  async function compact() {
+    if (pending || messages.length < 3) return;
+    setError("");
+    const id = crypto.randomUUID();
+    const name = graph.nodes.find((n) => n.kind === "task")?.title || "this workflow";
+    try {
+      await startLive({
+        id,
+        key: `copilot:${taskId}:${id}`,
+        title: `Workflow copilot · compact chat`,
+        mode: "chat",
+        folder: "",
+        context: "",
+        providerPermissions: readProviderPermissions(),
+        steps: [
+          {
+            id: "chat",
+            label: "Compact chat",
+            engine,
+            prompt: compactPrompt(name, messages),
+            attachments: [],
+            agentId: "",
+            after: [],
+            condition: "success",
+            approval: false,
+          },
+        ],
+      });
+      setPending({ runId: id, kind: "compact" });
     } catch (cause) {
       setError(String(cause).replace(/^Error: /, ""));
     }
@@ -232,6 +369,66 @@ export function CopilotPanel({
 
   return (
     <div className="st-copilot">
+      <div className="st-copilot-bar">
+        <div className="st-copilot-history" ref={historyMenu}>
+          <button
+            type="button"
+            aria-expanded={historyOpen}
+            aria-haspopup="menu"
+            disabled={!archive.length || !!pending}
+            title={archive.length ? "Earlier chats" : "No earlier chats yet"}
+            onClick={() => setHistoryOpen((open) => !open)}
+          >
+            <History size={13} /> <span>Chats</span> <ChevronDown size={12} />
+          </button>
+          {historyOpen && (
+            <div className="st-copilot-menu" role="menu">
+              {archive.map((chat) => (
+                <button key={chat.id} type="button" role="menuitem" onClick={() => openPast(chat)}>
+                  <span>{chat.title}</span>
+                  <small>
+                    {new Date(chat.at).toLocaleString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}{" "}
+                    · {chat.messages.length} messages
+                  </small>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          disabled={!!pending || messages.length < 3}
+          aria-label="Compact chat"
+          title="Replace this chat with a short summary the copilot keeps using"
+          onClick={() => void compact()}
+        >
+          <FoldVertical size={13} /> <span>Compact</span>
+        </button>
+        <button
+          type="button"
+          disabled={!!pending || !messages.length}
+          aria-label="New chat"
+          title="Keep this chat under Chats and start an empty one"
+          onClick={newChat}
+        >
+          <SquarePen size={13} /> <span>New chat</span>
+        </button>
+        <button
+          type="button"
+          data-danger={confirmClear || undefined}
+          disabled={!!pending || !messages.length}
+          aria-label={confirmClear ? "Confirm clear chat" : "Clear chat"}
+          title="Delete this chat's messages. The workflow isn't changed."
+          onClick={clearChat}
+        >
+          <Trash2 size={13} /> <span>{confirmClear ? "Click to confirm" : "Clear"}</span>
+        </button>
+      </div>
       <div className="st-copilot-log" ref={transcript}>
         {!messages.length && (
           <div className="st-copilot-empty">
@@ -251,7 +448,13 @@ export function CopilotPanel({
           </div>
         )}
         {messages.map((message) => (
-          <div key={message.id} className="st-copilot-msg" data-role={message.role}>
+          <div
+            key={message.id}
+            className="st-copilot-msg"
+            data-role={message.role}
+            data-summary={message.summary || undefined}
+          >
+            {message.summary && <small>Summary of the earlier chat</small>}
             {message.role === "copilot" ? (
               <AssistantMessage text={message.text} />
             ) : (
@@ -276,15 +479,17 @@ export function CopilotPanel({
         ))}
         {pending && (
           <div className="st-copilot-msg" data-role="copilot">
-            {run && replyText(run.output) ? (
+            {pending.kind === "chat" && run && replyText(run.output) ? (
               <AssistantMessage text={replyText(run.output.split("```agentos-workflow")[0]!)} />
             ) : null}
             <p className="st-copilot-thinking">
-              {!run || !run.output
-                ? `Thinking… ${elapsed}s`
-                : run.output.includes("```agentos-workflow")
-                  ? `Preparing the changes… ${elapsed}s`
-                  : `Writing… ${elapsed}s`}
+              {pending.kind === "compact"
+                ? `Compacting the chat… ${elapsed}s`
+                : !run || !run.output
+                  ? `Thinking… ${elapsed}s`
+                  : run.output.includes("```agentos-workflow")
+                    ? `Preparing the changes… ${elapsed}s`
+                    : `Writing… ${elapsed}s`}
             </p>
           </div>
         )}
