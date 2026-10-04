@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+  ArrowDown,
   ArrowUp,
   ChevronDown,
   FoldVertical,
@@ -142,6 +143,21 @@ export function CopilotPanel({
     ...claude.map((t) => ({ ...t, engine: "claude" as const })),
   ];
   const transcript = useRef<HTMLDivElement>(null);
+  // Follow the newest message (including a streaming answer) unless you've scrolled up to read.
+  const following = useRef(true);
+  const [scrolledUp, setScrolledUp] = useState(false);
+  const toBottom = () => {
+    const log = transcript.current;
+    if (log) log.scrollTop = log.scrollHeight;
+  };
+  useLayoutEffect(() => {
+    if (following.current) toBottom();
+  });
+  const follow = () => {
+    following.current = true;
+    setScrolledUp(false);
+    toBottom();
+  };
   const run = pending ? live.runs.find((r) => r.request.id === pending.runId) : undefined;
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -157,7 +173,6 @@ export function CopilotPanel({
     } catch {
       /* The conversation still works for this session. */
     }
-    transcript.current?.scrollTo({ top: transcript.current.scrollHeight });
   }, [messages, taskId]);
   useEffect(() => {
     try {
@@ -281,6 +296,7 @@ export function CopilotPanel({
     const sent = message === text ? files : [];
     const request = message.trim() || (sent.length ? "Here are some files for this workflow." : "");
     if (!request || pending || attaching) return;
+    follow();
     setError("");
     setText("");
     setFiles([]);
@@ -456,74 +472,92 @@ export function CopilotPanel({
           <Trash2 size={13} /> <span>{confirmClear ? "Click to confirm" : "Clear"}</span>
         </button>
       </div>
-      <div className="st-copilot-log" ref={transcript}>
-        {!messages.length && (
-          <div className="st-copilot-empty">
-            <Sparkles size={18} />
-            <strong>Build this workflow by chatting</strong>
-            <p>
-              Describe the goal or tell me what each step should do. Changes appear on the canvas.
-            </p>
-            {(graph.nodes.length <= 1 && graph.nodes[0]?.prompt.trim()
-              ? ["Build the steps for this workflow from its outcome.", ...starters.slice(1)]
-              : starters
-            ).map((starter) => (
-              <button key={starter} type="button" onClick={() => void send(starter)}>
-                {starter}
-              </button>
-            ))}
-          </div>
+      <div className="st-copilot-body">
+        <div
+          className="st-copilot-log"
+          ref={transcript}
+          onScroll={(event) => {
+            const log = event.currentTarget;
+            const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 48;
+            following.current = atBottom;
+            setScrolledUp(!atBottom);
+          }}
+          // Image previews load after render and push content down; keep following them.
+          onLoadCapture={() => following.current && toBottom()}
+        >
+          {!messages.length && (
+            <div className="st-copilot-empty">
+              <Sparkles size={18} />
+              <strong>Build this workflow by chatting</strong>
+              <p>
+                Describe the goal or tell me what each step should do. Changes appear on the canvas.
+              </p>
+              {(graph.nodes.length <= 1 && graph.nodes[0]?.prompt.trim()
+                ? ["Build the steps for this workflow from its outcome.", ...starters.slice(1)]
+                : starters
+              ).map((starter) => (
+                <button key={starter} type="button" onClick={() => void send(starter)}>
+                  {starter}
+                </button>
+              ))}
+            </div>
+          )}
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className="st-copilot-msg"
+              data-role={message.role}
+              data-summary={message.summary || undefined}
+            >
+              {message.summary && <small>Summary of the earlier chat</small>}
+              {message.role === "copilot" ? (
+                <AssistantMessage text={message.text} />
+              ) : (
+                <>
+                  <p>{message.text}</p>
+                  {!!message.attachments?.length && <AttachmentList value={message.attachments} />}
+                </>
+              )}
+              {!!message.changes?.length && (
+                <ul className="st-copilot-changes">
+                  {message.changes.map((change) => (
+                    <li key={change}>{change}</li>
+                  ))}
+                </ul>
+              )}
+              {!!message.problems?.length && (
+                <ul className="st-copilot-problems">
+                  {message.problems.map((problem) => (
+                    <li key={problem}>{problem}</li>
+                  ))}
+                </ul>
+              )}
+              {!!message.changes?.length && <small>Applied to the canvas · ⌘Z to undo</small>}
+            </div>
+          ))}
+          {pending && (
+            <div className="st-copilot-msg" data-role="copilot">
+              {pending.kind === "chat" && run && replyText(run.output) ? (
+                <AssistantMessage text={replyText(run.output.split("```agentos-workflow")[0]!)} />
+              ) : null}
+              <p className="st-copilot-thinking">
+                {pending.kind === "compact"
+                  ? `Compacting the chat… ${elapsed}s`
+                  : !run || !run.output
+                    ? `Thinking… ${elapsed}s`
+                    : run.output.includes("```agentos-workflow")
+                      ? `Preparing the changes… ${elapsed}s`
+                      : `Writing… ${elapsed}s`}
+              </p>
+            </div>
+          )}
+          {error && <p className="st-error">{error}</p>}
+        </div>
+        {scrolledUp && (
+          <button type="button" className="st-copilot-latest" onClick={follow}>
+            <ArrowDown size={12} /> {pending ? "Follow the answer" : "Latest"}
+          </button>
         )}
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className="st-copilot-msg"
-            data-role={message.role}
-            data-summary={message.summary || undefined}
-          >
-            {message.summary && <small>Summary of the earlier chat</small>}
-            {message.role === "copilot" ? (
-              <AssistantMessage text={message.text} />
-            ) : (
-              <>
-                <p>{message.text}</p>
-                {!!message.attachments?.length && <AttachmentList value={message.attachments} />}
-              </>
-            )}
-            {!!message.changes?.length && (
-              <ul className="st-copilot-changes">
-                {message.changes.map((change) => (
-                  <li key={change}>{change}</li>
-                ))}
-              </ul>
-            )}
-            {!!message.problems?.length && (
-              <ul className="st-copilot-problems">
-                {message.problems.map((problem) => (
-                  <li key={problem}>{problem}</li>
-                ))}
-              </ul>
-            )}
-            {!!message.changes?.length && <small>Applied to the canvas · ⌘Z to undo</small>}
-          </div>
-        ))}
-        {pending && (
-          <div className="st-copilot-msg" data-role="copilot">
-            {pending.kind === "chat" && run && replyText(run.output) ? (
-              <AssistantMessage text={replyText(run.output.split("```agentos-workflow")[0]!)} />
-            ) : null}
-            <p className="st-copilot-thinking">
-              {pending.kind === "compact"
-                ? `Compacting the chat… ${elapsed}s`
-                : !run || !run.output
-                  ? `Thinking… ${elapsed}s`
-                  : run.output.includes("```agentos-workflow")
-                    ? `Preparing the changes… ${elapsed}s`
-                    : `Writing… ${elapsed}s`}
-            </p>
-          </div>
-        )}
-        {error && <p className="st-error">{error}</p>}
       </div>
       <form
         className="st-copilot-input"
