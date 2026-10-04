@@ -38,6 +38,24 @@ function readMessages(taskId: string): Message[] {
     return [];
   }
 }
+// The request in flight is remembered outside the panel, so switching tabs while the engine works
+// doesn't lose the answer: it's applied when the panel opens again.
+const pendingKey = (taskId: string) => `agentos:copilot-pending:${taskId}`;
+function readPending(taskId: string) {
+  try {
+    return localStorage.getItem(pendingKey(taskId)) || "";
+  } catch {
+    return "";
+  }
+}
+function savePending(taskId: string, runId: string) {
+  try {
+    if (runId) localStorage.setItem(pendingKey(taskId), runId);
+    else localStorage.removeItem(pendingKey(taskId));
+  } catch {
+    /* Still tracked while the panel stays open. */
+  }
+}
 
 const starters = [
   "What does this workflow produce, and where are the files saved?",
@@ -69,7 +87,12 @@ export function CopilotPanel({
   const [messages, setMessages] = useState<Message[]>(() => readMessages(taskId));
   const [text, setText] = useState("");
   const [engine, setEngine] = useState<"codex" | "claude">("codex");
-  const [pending, setPending] = useState<{ runId: string; graph: TaskCanvasGraph } | null>(null);
+  const [pendingId, setPendingIdState] = useState(() => readPending(taskId));
+  const setPendingId = (runId: string) => {
+    savePending(taskId, runId);
+    setPendingIdState(runId);
+  };
+  const pending = pendingId ? { runId: pendingId } : null;
   const [error, setError] = useState("");
   const codex = useInstalledTools("codex");
   const claude = useInstalledTools("claude");
@@ -98,15 +121,36 @@ export function CopilotPanel({
 
   // When the engine answers, apply its plan to the canvas as one undoable change.
   useEffect(() => {
-    if (!pending || !run || isActiveRun(run)) return;
-    setPending(null);
+    if (!pending) return;
+    if (!run) {
+      // Runs are loaded but this one is gone (history was cleared): stop waiting for it.
+      if (live.runs.length) {
+        setPendingId("");
+        setMessages((m) => [
+          ...m,
+          {
+            id: crypto.randomUUID(),
+            role: "copilot",
+            text: "That request was lost. Send it again.",
+          },
+        ]);
+      }
+      return;
+    }
+    if (isActiveRun(run)) return;
+    setPendingId("");
     if (run.status !== "completed") {
       setMessages((m) => [
         ...m,
         {
           id: crypto.randomUUID(),
           role: "copilot",
-          text: run.status === "canceled" ? "Stopped." : run.error || "The engine didn't answer.",
+          text:
+            run.status === "canceled"
+              ? "Stopped."
+              : run.status === "interrupted"
+                ? "The app closed before I finished. Send it again."
+                : run.error || "The engine didn't answer.",
         },
       ]);
       return;
@@ -132,7 +176,7 @@ export function CopilotPanel({
         problems: result.problems,
       },
     ]);
-  }, [run?.status, pending?.runId]);
+  }, [run?.status, pending?.runId, !!live.runs.length]);
 
   // A workflow created from a goal on Home starts building as soon as it opens.
   useEffect(() => {
@@ -178,7 +222,7 @@ export function CopilotPanel({
     };
     try {
       await startLive(live);
-      setPending({ runId: id, graph });
+      setPendingId(id);
     } catch (cause) {
       setError(String(cause).replace(/^Error: /, ""));
     }
