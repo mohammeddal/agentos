@@ -20,6 +20,8 @@ import {
 import { readProviderPermissions } from "../engines/provider-permissions";
 import { useInstalledTools } from "../engines/installed-tools";
 import { AssistantMessage } from "../../shared/AssistantMessage";
+import { AttachmentEditor, AttachmentList } from "../attachments/Attachments";
+import type { Attachment } from "../attachments/attachment-model";
 import type { TaskCanvasGraph } from "../tasks/task-canvas-model";
 import {
   applyPlan,
@@ -39,7 +41,10 @@ type Message = {
   problems?: string[];
   /** A compacted chat: this summary stands in for everything before it. */
   summary?: boolean;
+  /** Files sent with a user message. */
+  attachments?: Attachment[];
 };
+const filesIn = (messages: Message[]) => messages.flatMap((m) => m.attachments || []);
 
 const storageKey = (taskId: string) => `agentos:copilot:${taskId}`;
 function readMessages(taskId: string): Message[] {
@@ -117,6 +122,8 @@ export function CopilotPanel({
   const live = useLiveRuntime();
   const [messages, setMessages] = useState<Message[]>(() => readMessages(taskId));
   const [text, setText] = useState("");
+  const [files, setFiles] = useState<Attachment[]>([]);
+  const [attaching, setAttaching] = useState(false);
   const [engine, setEngine] = useState<"codex" | "claude">("codex");
   const [pending, setPendingState] = useState(() => readPending(taskId));
   const setPending = (next: Pending | null) => {
@@ -236,7 +243,13 @@ export function CopilotPanel({
       return;
     }
     // Apply to the canvas as it is now, so edits made while waiting are kept where possible.
-    const result = applyPlan(company, graph, mergePatch(company, graph, plan), tools);
+    const result = applyPlan(
+      company,
+      graph,
+      mergePatch(company, graph, plan),
+      tools,
+      filesIn(messages),
+    );
     if (result.changes.length) apply(result.graph);
     setMessages((m) => [
       ...m,
@@ -264,11 +277,22 @@ export function CopilotPanel({
   }, [taskId]);
 
   async function send(message = text) {
-    const request = message.trim();
-    if (!request || pending) return;
+    // Files alone are a valid message: the copilot is asked what to do with them.
+    const sent = message === text ? files : [];
+    const request = message.trim() || (sent.length ? "Here are some files for this workflow." : "");
+    if (!request || pending || attaching) return;
     setError("");
     setText("");
-    setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text: request }]);
+    setFiles([]);
+    setMessages((m) => [
+      ...m,
+      {
+        id: crypto.randomUUID(),
+        role: "user",
+        text: request,
+        ...(sent.length ? { attachments: sent } : {}),
+      },
+    ]);
     const id = crypto.randomUUID();
     const live: LiveRequest = {
       id,
@@ -285,8 +309,11 @@ export function CopilotPanel({
           id: "chat",
           label: "Workflow copilot",
           engine,
-          prompt: copilotPrompt(company, graph, tools, request, facts, messages),
-          attachments: [],
+          prompt: copilotPrompt(company, graph, tools, request, facts, messages, {
+            now: sent,
+            earlier: filesIn(messages),
+          }),
+          attachments: sent.map((file) => file.id),
           agentId: "",
           after: [],
           condition: "success",
@@ -458,7 +485,10 @@ export function CopilotPanel({
             {message.role === "copilot" ? (
               <AssistantMessage text={message.text} />
             ) : (
-              <p>{message.text}</p>
+              <>
+                <p>{message.text}</p>
+                {!!message.attachments?.length && <AttachmentList value={message.attachments} />}
+              </>
             )}
             {!!message.changes?.length && (
               <ul className="st-copilot-changes">
@@ -502,47 +532,57 @@ export function CopilotPanel({
           void send();
         }}
       >
-        <textarea
-          rows={3}
-          value={text}
-          placeholder="e.g. Add a step after the collector that checks sources, using notebooklm"
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-              event.preventDefault();
-              void send();
-            }
-          }}
-        />
-        <div>
-          <select
-            aria-label="Copilot engine"
-            value={engine}
-            onChange={(event) => setEngine(event.target.value as "codex" | "claude")}
-          >
-            <option value="codex">Codex</option>
-            <option value="claude">Claude Code</option>
-          </select>
-          {pending ? (
-            <button
-              type="button"
-              className="st-copilot-send"
-              aria-label="Stop"
-              onClick={() => void controlLive(pending.runId).catch(() => undefined)}
-            >
-              <Square size={12} fill="currentColor" />
-            </button>
-          ) : (
-            <button
-              type="submit"
-              className="st-copilot-send"
-              aria-label="Send"
-              disabled={!text.trim()}
-            >
-              <ArrowUp size={14} />
-            </button>
-          )}
-        </div>
+        <AttachmentEditor
+          value={files}
+          onChange={setFiles}
+          onBusy={setAttaching}
+          disabled={!!pending}
+          compact
+          actions={
+            <>
+              <select
+                aria-label="Copilot engine"
+                value={engine}
+                onChange={(event) => setEngine(event.target.value as "codex" | "claude")}
+              >
+                <option value="codex">Codex</option>
+                <option value="claude">Claude Code</option>
+              </select>
+              {pending ? (
+                <button
+                  type="button"
+                  className="st-copilot-send"
+                  aria-label="Stop"
+                  onClick={() => void controlLive(pending.runId).catch(() => undefined)}
+                >
+                  <Square size={12} fill="currentColor" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className="st-copilot-send"
+                  aria-label="Send"
+                  disabled={(!text.trim() && !files.length) || attaching}
+                >
+                  <ArrowUp size={14} />
+                </button>
+              )}
+            </>
+          }
+        >
+          <textarea
+            rows={3}
+            value={text}
+            placeholder="e.g. Add a step after the collector that checks sources, using notebooklm. Drop or paste files and images here."
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                void send();
+              }
+            }}
+          />
+        </AttachmentEditor>
       </form>
     </div>
   );

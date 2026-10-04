@@ -286,14 +286,19 @@ export function WorkflowStudio({
     const resources = attachedTo(node.id);
     const tools = resources.filter((r) => r.kind !== "context");
     const notes = resources.filter((r) => r.kind === "context");
+    const fileCount = notes.reduce((n, r) => n + (r.attachmentIds || []).length, 0);
+    const notesLabel = notes.length
+      ? `${notes.length === 1 ? notes[0]!.title : `${notes.length} notes`}${fileCount ? ` · ${fileCount} file${fileCount === 1 ? "" : "s"}` : ""}`
+      : "";
     return {
       tools: tools.slice(0, 3),
       more: tools.slice(3),
       notes,
+      notesLabel,
       labels: [
         ...tools.slice(0, 3).map((r) => r.title),
         ...(tools.length > 3 ? [`+${tools.length - 3}`] : []),
-        ...(notes.length ? [notes.length === 1 ? notes[0]!.title : `${notes.length} notes`] : []),
+        ...(notesLabel ? [notesLabel] : []),
       ],
     };
   };
@@ -1538,7 +1543,7 @@ export function WorkflowStudio({
                 {!showResources &&
                   attachedTo(node.id).length > 0 &&
                   (() => {
-                    const { tools: shown, more, notes } = chipsOf(node);
+                    const { tools: shown, more, notes, notesLabel } = chipsOf(node);
                     const chip = (resource: CanvasNode, label: string, key: string) => {
                       const ChipIcon = kindIcons[resource.kind];
                       return (
@@ -1570,12 +1575,7 @@ export function WorkflowStudio({
                             +{more.length}
                           </span>
                         )}
-                        {notes.length > 0 &&
-                          chip(
-                            notes[0]!,
-                            notes.length === 1 ? notes[0]!.title : `${notes.length} notes`,
-                            "notes",
-                          )}
+                        {notes.length > 0 && chip(notes[0]!, notesLabel, "notes")}
                       </div>
                     );
                   })()}

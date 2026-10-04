@@ -1,3 +1,4 @@
+import type { Attachment } from "../attachments/attachment-model";
 import type { Company } from "../company/company-model";
 import type { Capability } from "../engines/engine-inventory";
 import {
@@ -27,7 +28,8 @@ export type PlanStep = {
   after?: string[];
   when?: "success" | "failure" | "always" | undefined;
   tools?: string[];
-  context?: { title: string; notes: string }[];
+  /** "files": names of files the user attached in this chat, kept with the step for its runs. */
+  context?: { title: string; notes: string; files?: string[] }[];
 };
 export type CopilotPlan = {
   summary?: string;
@@ -94,7 +96,11 @@ export function describeWorkflow(
         tools: resources.filter((n) => n.kind !== "context").map((n) => n.title),
         context: resources
           .filter((n) => n.kind === "context")
-          .map((n) => ({ title: n.title, notes: clip(n.prompt) })),
+          .map((n) => ({
+            title: n.title,
+            notes: clip(n.prompt),
+            ...(n.files?.length ? { files: n.files.map((f) => f.name) } : {}),
+          })),
       };
     }),
   };
@@ -110,7 +116,10 @@ export function copilotPrompt(
   /** Recent chat turns, so follow-ups like "why?" make sense. Each request starts a fresh engine
    * conversation; resuming one would resend every earlier copy of the workflow. */
   recent: ChatTurn[] = [],
+  /** Files sent with this message (the engine receives them) and earlier in the chat. */
+  files: { now: Attachment[]; earlier: Attachment[] } = { now: [], earlier: [] },
 ): string {
+  const describe = (list: Attachment[]) => list.map((f) => `${f.name} (${f.kind})`).join(", ");
   // A compacted chat starts with its summary; only turns after it are sent in full.
   let summaryAt = -1;
   recent.forEach((m, i) => {
@@ -152,7 +161,8 @@ export function copilotPrompt(
     '- "kind": "agent" (set "agent" to an exact company agent name), "office" (set "office"), "prompt" (custom step; set "engine": "codex" or "claude"), "approval" (set "reviewer": "me" or an agent name).',
     '- "after": ids that must finish first; "start" means right after the workflow begins.',
     '- "when": "success" (default), "failure", or "always".',
-    '- "tools": installed tool names only. "context": [{"title","notes"}].',
+    '- "tools": installed tool names only. "context": [{"title","notes","files"}].',
+    '- "files" in a context item: exact names of files the user attached in this chat. Use it only when the user wants a file kept with a step (a style reference, a brand guide, sample data); the step then receives it on every run.',
     '- "instructions": a specific brief for that step: what to do, inputs, and what to hand off.',
     '- Instructions ending in "(shortened)" were cut for length. When you change such a step, write its complete new instructions.',
     "",
@@ -172,6 +182,12 @@ export function copilotPrompt(
       : "",
     `Current workflow:\n\`\`\`json\n${workflowJson}\n\`\`\``,
     "",
+    files.earlier.length
+      ? `Files attached earlier in this chat (names only; not included now): ${describe(files.earlier)}`
+      : "",
+    files.now.length
+      ? `Files attached to this message (you can read them; images are visual input): ${describe(files.now)}`
+      : "",
     `User: ${request.slice(0, 20_000)}`,
   ].join("\n");
 }
@@ -274,6 +290,8 @@ export function applyPlan(
   graph: TaskCanvasGraph,
   plan: CopilotPlan,
   tools: InstalledTool[],
+  /** Files attached in the copilot chat, which a plan can keep with a step by name. */
+  chatFiles: Attachment[] = [],
 ): { graph: TaskCanvasGraph; changes: string[]; problems: string[] } {
   const changes: string[] = [];
   const problems: string[] = [];
@@ -438,11 +456,37 @@ export function applyPlan(
       const reuse = previous.find(
         (n) => n.kind === "context" && lower(n.title) === lower(item.title),
       );
+      const base = reuse || newCanvasNode("context", 0, 0);
       const resource: CanvasNode = {
-        ...(reuse || newCanvasNode("context", 0, 0)),
+        ...base,
         title: item.title.slice(0, 120),
-        prompt: (item.notes || "").slice(0, 6000),
+        prompt: (item.notes ?? base.prompt ?? "").slice(0, 6000),
       };
+      if (Array.isArray(item.files)) {
+        // Listed names replace the block's files; they may be new chat files or ones it already has.
+        const known = [...(base.files || []), ...chatFiles];
+        const kept: Attachment[] = [];
+        for (const name of item.files) {
+          const file = known.find((f) => lower(f.name) === lower(String(name)));
+          if (!file)
+            problems.push(`“${name}” isn't a file attached in this chat, so it wasn't kept.`);
+          else if (kept.some((f) => f.id === file.id)) continue;
+          else if (kept.length >= 8) problems.push("A context block holds up to 8 files.");
+          else {
+            kept.push(file);
+            if (!base.files?.some((f) => f.id === file.id))
+              changes.push(`Kept ${file.name} with ${targetNode.title}`);
+          }
+        }
+        const named = new Set((base.files || []).map((f) => f.id));
+        resource.files = kept;
+        resource.attachmentIds = [
+          ...new Set([
+            ...(base.attachmentIds || []).filter((id) => !named.has(id)),
+            ...kept.map((f) => f.id),
+          ]),
+        ].slice(0, 8);
+      }
       if (!reuse) {
         added = true;
         changes.push(`Added context “${resource.title}”`);

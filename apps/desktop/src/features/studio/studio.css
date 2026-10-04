@@ -1116,10 +1116,25 @@
   padding: 10px 12px 12px;
   border-top: 1px solid var(--st-line);
 }
-.st-copilot-input > div {
+.st-copilot-input .co-attachment-editor {
+  display: grid;
+  gap: 6px;
+}
+.st-copilot-input .co-attachment-list {
+  margin: 0;
+}
+.st-copilot-input .co-attachment-actions {
   display: flex;
   align-items: center;
   gap: 6px;
+  margin-left: auto;
+}
+.st-copilot-msg .co-attachment-list {
+  margin: 4px 0 0;
+}
+.st-context-files small {
+  color: var(--st-muted);
+  font-size: 11px;
 }
 .st-studio .st-copilot-input select {
   width: auto;

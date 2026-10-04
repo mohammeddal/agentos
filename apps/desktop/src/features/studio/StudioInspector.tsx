@@ -25,6 +25,7 @@ import { schedulePreview, type TaskSchedule } from "../tasks/task-workflow";
 import { useInstalledTools } from "../engines/installed-tools";
 import { readSkillDocument, type Capability } from "../engines/engine-inventory";
 import { AssistantMessage } from "../../shared/AssistantMessage";
+import { AttachmentEditor } from "../attachments/Attachments";
 import { ModelPicker } from "../engines/ModelPicker";
 import type { ModelChoice } from "../engines/model-choice";
 import { projectRepository } from "../projects/project-repository";
@@ -553,6 +554,7 @@ export function NodeWorkflow({
               />
             </Field>
           )}
+          <ContextFiles node={node} update={update} />
         </>
       )}
       {["mcp", "skill", "connector"].includes(node.kind) && (
@@ -582,6 +584,38 @@ export function NodeWorkflow({
         </Field>
       )}
     </section>
+  );
+}
+
+/** Files a context block sends to its step on every run (images, PDFs, text). */
+function ContextFiles({
+  node,
+  update,
+}: {
+  node: CanvasNode;
+  update: (patch: Partial<CanvasNode>) => void;
+}) {
+  const named = node.files || [];
+  // Files picked in the older builder have no names saved; keep them as they are.
+  const unnamed = (node.attachmentIds || []).filter((id) => !named.some((f) => f.id === id));
+  return (
+    <div className="st-field st-context-files">
+      <span>Files</span>
+      <AttachmentEditor
+        value={named}
+        onChange={(files) =>
+          update({ files, attachmentIds: [...unnamed, ...files.map((f) => f.id)].slice(0, 8) })
+        }
+        onBusy={() => undefined}
+        compact
+      >
+        <small>
+          {named.length || unnamed.length
+            ? `Sent to the step on every run${unnamed.length ? ` · ${unnamed.length} earlier file${unnamed.length === 1 ? "" : "s"}` : ""}.`
+            : "Drop, paste, or attach images, PDFs, or text files the step should always see."}
+        </small>
+      </AttachmentEditor>
+    </div>
   );
 }
 

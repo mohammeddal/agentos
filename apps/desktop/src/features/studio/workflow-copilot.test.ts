@@ -201,4 +201,55 @@ describe("workflow copilot", () => {
     expect(prompt).not.toContain("msg-0 ");
     expect(prompt.length).toBeLessThan(160_000);
   });
+  it("sends attached files and can keep one with a step", () => {
+    const image = {
+      id: "11111111-2222-3333-4444-555555555555",
+      name: "style.png",
+      size: 2048,
+      kind: "image" as const,
+      mime: "image/png",
+    };
+    const prompt = copilotPrompt(starterCompany, empty(), tools, "Use this style", "", [], {
+      now: [image],
+      earlier: [],
+    });
+    expect(prompt).toContain("Files attached to this message");
+    expect(prompt).toContain("style.png (image)");
+
+    const result = applyPlan(
+      starterCompany,
+      empty(),
+      {
+        steps: [
+          {
+            id: "visuals",
+            kind: "prompt",
+            title: "Make visuals",
+            context: [
+              {
+                title: "Style reference",
+                notes: "Match this look",
+                files: ["Style.PNG", "nope.pdf"],
+              },
+            ],
+          },
+        ],
+      },
+      tools,
+      [image],
+    );
+    const context = result.graph.nodes.find((n) => n.kind === "context")!;
+    expect(context.attachmentIds).toEqual([image.id]);
+    expect(context.files?.[0]?.name).toBe("style.png");
+    expect(isTaskCanvas(result.graph)).toBe(true);
+    expect(result.changes).toContain("Kept style.png with Make visuals");
+    expect(result.problems[0]).toContain("nope.pdf");
+
+    // Later edits keep the file even though it was attached in an earlier chat.
+    const described = describeWorkflow(starterCompany, result.graph);
+    expect(described.steps[0]!.context?.[0]?.files).toEqual(["style.png"]);
+    const again = applyPlan(starterCompany, result.graph, described, tools);
+    expect(again.graph.nodes.find((n) => n.kind === "context")!.attachmentIds).toEqual([image.id]);
+    expect(again.problems).toEqual([]);
+  });
 });

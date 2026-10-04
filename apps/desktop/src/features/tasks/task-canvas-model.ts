@@ -1,3 +1,4 @@
+import { validAttachments, type Attachment } from "../attachments/attachment-model";
 import {
   companyDomains,
   type Company,
@@ -45,6 +46,8 @@ export type CanvasNode = {
   maxSteps: number;
   /** Task attachment IDs selected for this context block. Optional for older saved canvases. */
   attachmentIds?: string[];
+  /** Names and types of those attachments, so the Studio can show and preview them. */
+  files?: Attachment[];
   /** Primary context source. Missing on older canvases and treated as notes. */
   contextType?: ContextType;
   /** Discovery state captured when a local capability was selected. */
@@ -387,6 +390,7 @@ export function isTaskCanvas(value: unknown): value is TaskCanvasGraph {
             n.attachmentIds.length <= 8 &&
             new Set(n.attachmentIds).size === n.attachmentIds.length &&
             n.attachmentIds.every((id) => typeof id === "string" && !!id))) &&
+        (n.files === undefined || validAttachments(n.files)) &&
         (n.contextType === undefined || Object.hasOwn(contextTypeNames, n.contextType)) &&
         (n.capabilityStatus === undefined ||
           ["", "found", "configured", "disabled", "cached"].includes(n.capabilityStatus)) &&
