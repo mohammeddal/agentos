@@ -107,6 +107,9 @@ export function copilotPrompt(
   request: string,
   /** Facts the copilot can answer from: where files go, schedule, the latest run. */
   facts = "",
+  /** Recent chat turns, so follow-ups like "why?" make sense. Each request starts a fresh engine
+   * conversation; resuming one would resend every earlier copy of the workflow. */
+  recent: { role: "user" | "copilot"; text: string }[] = [],
 ): string {
   const agents = company.offices.flatMap((office) =>
     office.agents.map((a) => `- ${a.name} (${office.name}; ${a.role}; ${a.engine})`),
@@ -151,6 +154,15 @@ export function copilotPrompt(
     `Installed tools: ${toolNames.join(", ") || "none"}`,
     "",
     facts ? `Facts about this workflow:\n${facts.slice(0, 4000)}\n` : "",
+    recent.length
+      ? `Conversation so far (most recent last):\n${recent
+          .slice(-6)
+          .map(
+            (m) =>
+              `${m.role === "user" ? "User" : "Copilot"}: ${m.text.length > 1500 ? `${m.text.slice(0, 1500)}…` : m.text}`,
+          )
+          .join("\n")}\n`
+      : "",
     `Current workflow:\n\`\`\`json\n${workflowJson}\n\`\`\``,
     "",
     `User: ${request.slice(0, 20_000)}`,

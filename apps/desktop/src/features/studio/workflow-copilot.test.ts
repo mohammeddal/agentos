@@ -166,4 +166,17 @@ describe("workflow copilot", () => {
     const small = copilotPrompt(starterCompany, empty(), tools, "Add a step");
     expect(small).not.toContain("… (shortened)");
   });
+  it("carries the last few chat turns so follow-ups make sense", () => {
+    const recent = Array.from({ length: 10 }, (_, i) => ({
+      role: (i % 2 ? "copilot" : "user") as "user" | "copilot",
+      text: `turn ${i} ` + "z".repeat(i === 9 ? 5000 : 0),
+    }));
+    const prompt = copilotPrompt(starterCompany, empty(), tools, "Why?", "", recent);
+    expect(prompt).toContain("Conversation so far");
+    expect(prompt).not.toContain("turn 3 ");
+    expect(prompt).toContain("User: turn 4");
+    expect(prompt).toContain("Copilot: turn 9");
+    expect(prompt.indexOf("Conversation so far")).toBeLessThan(prompt.indexOf("User: Why?"));
+    expect(prompt).not.toContain("z".repeat(1600));
+  });
 });

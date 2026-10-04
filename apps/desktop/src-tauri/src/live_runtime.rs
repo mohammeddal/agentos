@@ -17,6 +17,9 @@ use std::{
 use tauri::Manager;
 
 const MAX_TEXT: usize = 1_000_000;
+/// Largest single engine message read. Reopening a long conversation returns its whole history in
+/// one message, which can be several megabytes.
+const MAX_LINE: usize = 64 * 1024 * 1024;
 fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -583,7 +586,9 @@ impl Runtime {
         // "auto" runs Claude in acceptEdits and answers its remaining tool prompts below.
         let claude_mode = if chat_only {
             "default"
-        } else if ["acceptEdits", "auto"].contains(&run.request.provider_permissions.claude.as_str()) {
+        } else if ["acceptEdits", "auto"]
+            .contains(&run.request.provider_permissions.claude.as_str())
+        {
             "acceptEdits"
         } else {
             "default"
@@ -652,14 +657,18 @@ impl Runtime {
         thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
             loop {
-                let mut line = String::new();
+                // Read bytes, not text: a line cut mid-character or holding invalid UTF-8 must
+                // not end the reader (that closes the pipe and the engine dies with "Broken pipe").
+                let mut bytes = Vec::new();
                 match reader
                     .by_ref()
-                    .take((MAX_TEXT + 1) as u64)
-                    .read_line(&mut line)
+                    .take((MAX_LINE + 1) as u64)
+                    .read_until(b'\n', &mut bytes)
                 {
-                    Ok(0) | Err(_) => break,
-                    Ok(_) if line.len() > MAX_TEXT && !line.ends_with('\n') => {
+                    Ok(0) => break,
+                    Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                    Err(_) => break,
+                    Ok(_) if bytes.len() > MAX_LINE && !bytes.ends_with(b"\n") => {
                         // One oversized message (e.g. a command that printed a huge file) must not
                         // end the run: drop the rest of that line and keep reading.
                         if !skip_line(&mut reader) {
@@ -671,7 +680,10 @@ impl Runtime {
                         }
                     }
                     Ok(_) => {
-                        if tx.send(line).is_err() {
+                        if tx
+                            .send(String::from_utf8_lossy(&bytes).into_owned())
+                            .is_err()
+                        {
                             break;
                         }
                     }
@@ -680,14 +692,23 @@ impl Runtime {
         });
         // Keep only a short, filtered tail of diagnostics for error messages; never persist
         // anything that looks like a credential.
-        let diagnostics = std::sync::Arc::new(Mutex::new(std::collections::VecDeque::<String>::new()));
+        let diagnostics =
+            std::sync::Arc::new(Mutex::new(std::collections::VecDeque::<String>::new()));
         let tail = diagnostics.clone();
         thread::spawn(move || {
             for line in BufReader::new(stderr).lines().map_while(Result::ok) {
                 let lower = line.to_lowercase();
-                if ["token", "bearer", "api_key", "apikey", "password", "secret", "authorization"]
-                    .iter()
-                    .any(|word| lower.contains(word))
+                if [
+                    "token",
+                    "bearer",
+                    "api_key",
+                    "apikey",
+                    "password",
+                    "secret",
+                    "authorization",
+                ]
+                .iter()
+                .any(|word| lower.contains(word))
                 {
                     continue;
                 }
@@ -727,6 +748,7 @@ impl Runtime {
         let mut output = String::new();
         let mut messages: HashMap<String, String> = HashMap::new();
         let mut initialized = false;
+        let mut threaded = false;
         let started = Instant::now();
         let mut checkpoint = Instant::now();
         loop {
@@ -785,14 +807,25 @@ impl Runtime {
                 self.update(id, true, |_| {});
                 checkpoint = Instant::now();
             }
-            let line =
-                match lines.recv_timeout(Duration::from_millis(80)) {
-                    Ok(v) => v,
-                    Err(mpsc::RecvTimeoutError::Timeout) => continue,
-                    Err(_) => return Err({
+            let line = match lines.recv_timeout(Duration::from_millis(80)) {
+                Ok(v) => v,
+                Err(mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(_) => {
+                    return Err({
                         thread::sleep(Duration::from_millis(150));
-                        let tail = diagnostics.lock().unwrap().iter().cloned().collect::<Vec<_>>().join("\n");
-                        let code = process.0.try_wait().ok().flatten().map(|status| status.to_string());
+                        let tail = diagnostics
+                            .lock()
+                            .unwrap()
+                            .iter()
+                            .cloned()
+                            .collect::<Vec<_>>()
+                            .join("\n");
+                        let code = process
+                            .0
+                            .try_wait()
+                            .ok()
+                            .flatten()
+                            .map(|status| status.to_string());
                         format!(
                             "Engine exited before completing{}.{}",
                             code.map(|c| format!(" ({c})")).unwrap_or_default(),
@@ -803,9 +836,9 @@ impl Runtime {
                             }
                         )
                     }
-                            .into(),
-                    ),
-                };
+                    .into())
+                }
+            };
             let v: Value = match serde_json::from_str(&line) {
                 Ok(v) => v,
                 Err(_) => continue,
@@ -815,6 +848,10 @@ impl Runtime {
                 let p = &v["params"];
                 if v.get("error").is_some() {
                     return Err(limited(&text(&v["error"], "message"), 4000));
+                }
+                if method == "agentos/skipped" && !threaded {
+                    // The skipped message was the reply to opening the conversation.
+                    return Err("This conversation is too large to reopen. Start a new chat and nothing will be lost from your files.".into());
                 }
                 if v["id"] == 1 && v.get("result").is_some() {
                     initialized = true;
@@ -861,6 +898,7 @@ impl Runtime {
                     if thread_id.is_empty() {
                         return Err("Codex did not return a conversation ID.".into());
                     }
+                    threaded = true;
                     self.update(id, true, |r| r.session_id = thread_id.clone());
                     self.event(
                         id,
@@ -891,7 +929,11 @@ impl Runtime {
                             || approval_scope(&v).is_some_and(|scope| allowed.contains(&scope)))
                     {
                         send(&mut stdin, elicitation_reply(&v["id"], true))?;
-                        self.event(id, "approval", &format!("{server} tool call allowed automatically."));
+                        self.event(
+                            id,
+                            "approval",
+                            &format!("{server} tool call allowed automatically."),
+                        );
                     } else {
                         let key = v["id"].to_string();
                         pending.insert(key.clone(), v.clone());
@@ -916,8 +958,18 @@ impl Runtime {
                             )?;
                             self.event(id,"approval","Action blocked in read-only chat. Create a task to request actions.");
                         } else if approval_scope(&v).is_some_and(|scope| allowed.contains(&scope)) {
-                            send(&mut stdin, json!({"id":v["id"],"result":{"decision":"accept"}}))?;
-                            self.event(id, "approval", &format!("{} allowed automatically.", approval_scope(&v).unwrap_or_default()));
+                            send(
+                                &mut stdin,
+                                json!({"id":v["id"],"result":{"decision":"accept"}}),
+                            )?;
+                            self.event(
+                                id,
+                                "approval",
+                                &format!(
+                                    "{} allowed automatically.",
+                                    approval_scope(&v).unwrap_or_default()
+                                ),
+                            );
                         } else {
                             let key = v["id"].to_string();
                             pending.insert(key.clone(), v.clone());
@@ -1025,7 +1077,10 @@ impl Runtime {
                             self.event(
                                 id,
                                 "approval",
-                                &format!("{} allowed automatically.", text(&v["request"], "tool_name")),
+                                &format!(
+                                    "{} allowed automatically.",
+                                    text(&v["request"], "tool_name")
+                                ),
                             );
                         } else if v["request"]["subtype"] == "can_use_tool" && !chat_only {
                             pending.insert(key.clone(), v.clone());
@@ -1159,12 +1214,21 @@ fn output_matches(output: &str, rule: Option<&Value>) -> bool {
 }
 /// Lists files modified since `since` (ms) under `root`, skipping VCS and dependency folders.
 fn changed_files(root: &Path, since: u64) -> Vec<String> {
-    const SKIP: [&str; 6] = [".git", "node_modules", "target", ".venv", "__pycache__", ".next"];
+    const SKIP: [&str; 6] = [
+        ".git",
+        "node_modules",
+        "target",
+        ".venv",
+        "__pycache__",
+        ".next",
+    ];
     let since = UNIX_EPOCH + Duration::from_millis(since.saturating_sub(2000));
     let mut found = vec![];
     let mut stack = vec![(root.to_path_buf(), 0)];
     while let Some((dir, depth)) = stack.pop() {
-        let Ok(entries) = fs::read_dir(&dir) else { continue };
+        let Ok(entries) = fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries.filter_map(Result::ok) {
             let Ok(meta) = entry.metadata() else { continue };
             let path = entry.path();
@@ -1241,7 +1305,11 @@ const GATE: &str = "gate";
 fn skip_line(reader: &mut impl BufRead) -> bool {
     loop {
         let mut chunk = Vec::new();
-        match reader.by_ref().take(64 * 1024).read_until(b'\n', &mut chunk) {
+        match reader
+            .by_ref()
+            .take(64 * 1024)
+            .read_until(b'\n', &mut chunk)
+        {
             Ok(0) | Err(_) => return false,
             Ok(_) if chunk.ends_with(b"\n") => return true,
             Ok(_) => continue,
@@ -1440,7 +1508,11 @@ pub fn live_control(
         if !run.approvals.iter().any(|a| a.id == id) {
             return Err("Approval is no longer pending.".into());
         }
-        Control::Decide(id, allow.ok_or("Missing decision")?, always.unwrap_or(false))
+        Control::Decide(
+            id,
+            allow.ok_or("Missing decision")?,
+            always.unwrap_or(false),
+        )
     } else {
         Control::Cancel
     };
@@ -1570,6 +1642,23 @@ mod tests {
         let mut next = String::new();
         reader.read_line(&mut next).unwrap();
         assert_eq!(next, "next line\n");
+    }
+    #[test]
+    fn lines_cut_mid_character_are_read_not_fatal() {
+        // "ب" is two bytes; capping inside it used to make the reader quit.
+        let input = "ببب\n{\"id\":2}\n".as_bytes().to_vec();
+        let mut reader = BufReader::new(&input[..]);
+        let mut bytes = Vec::new();
+        reader
+            .by_ref()
+            .take(3)
+            .read_until(b'\n', &mut bytes)
+            .unwrap();
+        assert!(String::from_utf8_lossy(&bytes).starts_with('ب'));
+        assert!(skip_line(&mut reader));
+        let mut next = Vec::new();
+        reader.read_until(b'\n', &mut next).unwrap();
+        assert_eq!(next, b"{\"id\":2}\n");
     }
     #[test]
     fn sign_off_gates_must_gate_something() {

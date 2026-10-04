@@ -200,7 +200,9 @@ export function CopilotPanel({
     const id = crypto.randomUUID();
     const live: LiveRequest = {
       id,
-      key: `copilot:${taskId}`,
+      // A new key per request: each starts a fresh engine conversation (recent turns go in the
+      // prompt), so the saved conversation never grows too large to reopen.
+      key: `copilot:${taskId}:${id}`,
       title: `Workflow copilot · ${request.slice(0, 80)}`,
       mode: "chat",
       folder: "",
@@ -211,7 +213,7 @@ export function CopilotPanel({
           id: "chat",
           label: "Workflow copilot",
           engine,
-          prompt: copilotPrompt(company, graph, tools, request, facts),
+          prompt: copilotPrompt(company, graph, tools, request, facts, messages),
           attachments: [],
           agentId: "",
           after: [],
