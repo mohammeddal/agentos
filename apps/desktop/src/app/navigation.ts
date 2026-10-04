@@ -17,9 +17,9 @@ export type WorkspaceRoute = {
   taskId?: string;
 };
 export const destinations = [
-  { view: "start", label: "Start", description: "Write a prompt or continue a chat" },
-  { view: "inbox", label: "Inbox", description: "Approvals and failures waiting on you" },
   { view: "map", label: "Company", description: "Offices, agents, and workflows" },
+  { view: "start", label: "Chat", description: "Write a prompt or continue a chat" },
+  { view: "inbox", label: "Inbox", description: "Approvals and failures waiting on you" },
   { view: "activity", label: "Activity", description: "Runs, approvals, and results" },
   { view: "memory", label: "Library", description: "Memory and local capabilities" },
 ] as const;
@@ -73,9 +73,9 @@ export function parseRoute(hash: string): WorkspaceRoute {
     if (/^projects\/[^/]+$/.test(path))
       return { view: "start", projectId: decodeURIComponent(path.slice("projects/".length)) };
   } catch {
-    /* Malformed links return to the safe start page. */
+    /* Malformed links return to the company map, the home page. */
   }
-  return { view: "start" };
+  return { view: "map" };
 }
 export type FindResult = {
   id: string;

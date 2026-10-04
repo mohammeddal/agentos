@@ -73,7 +73,7 @@ export function WorkspaceNavigation({
 
   return (
     <aside className={`co-sidebar ${mobile ? "co-mobile-navigation" : ""}`}>
-      <button className="co-brand" onClick={() => navigate("start")} aria-label="AgentOS home">
+      <button className="co-brand" onClick={() => navigate("map")} aria-label="AgentOS home">
         <AudioLines size={25} />
         AgentOS<span className="co-alpha">alpha</span>
       </button>

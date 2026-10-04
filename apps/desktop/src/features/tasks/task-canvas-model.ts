@@ -49,7 +49,65 @@ export type CanvasNode = {
   contextType?: ContextType;
   /** Discovery state captured when a local capability was selected. */
   capabilityStatus?: "" | "found" | "configured" | "disabled" | "cached";
+  /** Studio appearance: accent colour and custom size. Never affects execution. */
+  style?: NodeStyle;
 };
+export type NodeStyle = { fill?: string; w?: number; h?: number };
+/** Visual-only objects drawn in the Studio: they annotate a workflow but never run. */
+export type DecorKind = "rect" | "ellipse" | "text" | "sticky" | "section";
+export type DecorItem = {
+  id: string;
+  type: DecorKind;
+  name: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  fill: string;
+  stroke: string;
+  text: string;
+  fontSize: number;
+  radius: number;
+  hidden?: boolean;
+  locked?: boolean;
+};
+export const decorKinds: DecorKind[] = ["rect", "ellipse", "text", "sticky", "section"];
+const hexColor = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
+/** Studio coordinates are unbounded in practice; keep a generous sanity limit. */
+export const STUDIO_LIMIT = 20000;
+export function isDecorItem(value: unknown): value is DecorItem {
+  if (!value || typeof value !== "object") return false;
+  const d = value as DecorItem;
+  return (
+    typeof d.id === "string" &&
+    !!d.id &&
+    decorKinds.includes(d.type) &&
+    typeof d.name === "string" &&
+    d.name.length <= 200 &&
+    [d.x, d.y].every((n) => Number.isFinite(n) && Math.abs(n) <= STUDIO_LIMIT) &&
+    [d.w, d.h].every((n) => Number.isFinite(n) && n >= 1 && n <= STUDIO_LIMIT) &&
+    hexColor.test(d.fill) &&
+    hexColor.test(d.stroke) &&
+    typeof d.text === "string" &&
+    d.text.length <= 4000 &&
+    Number.isFinite(d.fontSize) &&
+    d.fontSize >= 6 &&
+    d.fontSize <= 200 &&
+    Number.isFinite(d.radius) &&
+    d.radius >= 0 &&
+    d.radius <= 500 &&
+    (d.hidden === undefined || typeof d.hidden === "boolean") &&
+    (d.locked === undefined || typeof d.locked === "boolean")
+  );
+}
+function isNodeStyle(value: unknown): value is NodeStyle {
+  if (!value || typeof value !== "object") return false;
+  const s = value as NodeStyle;
+  return (
+    (s.fill === undefined || hexColor.test(s.fill)) &&
+    [s.w, s.h].every((n) => n === undefined || (Number.isFinite(n) && n >= 80 && n <= 1200))
+  );
+}
 export type CanvasEdge = {
   id: string;
   from: string;
@@ -57,7 +115,13 @@ export type CanvasEdge = {
   kind: "flow" | "attachment";
   condition: "success" | "failure" | "always" | "approved";
 };
-export type TaskCanvasGraph = { version: 1; nodes: CanvasNode[]; edges: CanvasEdge[] };
+export type TaskCanvasGraph = {
+  version: 1;
+  nodes: CanvasNode[];
+  edges: CanvasEdge[];
+  /** Studio-only annotations (shapes, text, stickies, sections). */
+  decor?: DecorItem[];
+};
 export const attachmentKinds: BlockKind[] = ["context", "mcp", "skill", "connector", "restriction"];
 export const canvasSize = { width: 2400, height: 1600, nodeWidth: 210, nodeHeight: 130 };
 export function fitCanvas(graph: TaskCanvasGraph, width: number, height: number) {
@@ -291,7 +355,12 @@ export function isTaskCanvas(value: unknown): value is TaskCanvasGraph {
     !Array.isArray(graph.nodes) ||
     graph.nodes.length > 80 ||
     !Array.isArray(graph.edges) ||
-    graph.edges.length > 160
+    graph.edges.length > 160 ||
+    (graph.decor !== undefined &&
+      (!Array.isArray(graph.decor) ||
+        graph.decor.length > 400 ||
+        !graph.decor.every(isDecorItem) ||
+        new Set(graph.decor.map((d) => d.id)).size !== graph.decor.length))
   )
     return false;
   if (
@@ -308,10 +377,9 @@ export function isTaskCanvas(value: unknown): value is TaskCanvasGraph {
         ) &&
         Number.isFinite(n.x) &&
         Number.isFinite(n.y) &&
-        n.x >= 0 &&
-        n.x <= canvasSize.width - canvasSize.nodeWidth &&
-        n.y >= 0 &&
-        n.y <= canvasSize.height - canvasSize.nodeHeight &&
+        Math.abs(n.x) <= STUDIO_LIMIT &&
+        Math.abs(n.y) <= STUDIO_LIMIT &&
+        (n.style === undefined || isNodeStyle(n.style)) &&
         typeof n.readOnly === "boolean" &&
         typeof n.network === "boolean" &&
         (n.attachmentIds === undefined ||

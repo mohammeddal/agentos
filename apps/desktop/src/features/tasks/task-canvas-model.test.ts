@@ -249,7 +249,9 @@ describe("visual task blueprints", () => {
       {},
       { ...g, version: 2 },
       { ...g, nodes: [g.nodes[0], g.nodes[0]] },
-      { ...g, nodes: g.nodes.map((n) => ({ ...n, x: -1 })) },
+      // The Studio allows negative coordinates, but not unbounded ones.
+      { ...g, nodes: g.nodes.map((n) => ({ ...n, x: -50000 })) },
+      { ...g, nodes: g.nodes.map((n) => ({ ...n, x: Number.NaN })) },
       { ...g, nodes: g.nodes.map((n) => ({ ...n, prompt: "x".repeat(6001) })) },
       {
         ...g,

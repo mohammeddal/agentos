@@ -11,9 +11,9 @@ import {
 describe("workspace navigation", () => {
   it("keeps focused primary destinations and places workflows inside the company hub", () => {
     expect(destinations.map((destination) => destination.view)).toEqual([
+      "map",
       "start",
       "inbox",
-      "map",
       "activity",
       "memory",
     ]);
@@ -46,7 +46,7 @@ describe("workspace navigation", () => {
   });
   it("falls back safely for malformed and unknown links", () => {
     for (const hash of ["", "#invalid", "#/projects/%zz", "#/projects/foo/bar"])
-      expect(parseRoute(hash)).toEqual({ view: "start" });
+      expect(parseRoute(hash)).toEqual({ view: "map" });
   });
   it("finds agents by name, engine and office without reading external files", () => {
     expect(

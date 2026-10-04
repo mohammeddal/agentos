@@ -335,7 +335,8 @@ export function isCompanyTask(value: unknown): value is CompanyTask {
     !!task.assignment &&
     (task.assignment.kind === "domains" || task.assignment.kind === "agents") &&
     Array.isArray(task.assignment.targets) &&
-    task.assignment.targets.length > 0 &&
+    // Visual workflows may run directly on an engine with no company agent.
+    (task.assignment.targets.length > 0 || !!task.canvas) &&
     task.assignment.targets.every((target) => typeof target === "string" && !!target.trim())
   );
 }

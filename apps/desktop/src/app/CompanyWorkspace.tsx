@@ -28,7 +28,6 @@ import {
 import { AgentForm, OfficeForm, RenameForm } from "../features/company/CompanyForms";
 import { CompanyDialog } from "../shared/CompanyDialog";
 import { HelpTip } from "../shared/HelpTip";
-import { TaskForm } from "../features/tasks/CompanyTasks";
 import { CompanyMemory } from "../features/memory/CompanyMemory";
 import { EngineLibrary } from "../features/engines/EngineLibrary";
 import { EngineSettings, type EngineSettingsFocus } from "../features/engines/EngineSettings";
@@ -41,6 +40,7 @@ import { emptyPrompt, PROMPT_STORAGE, taskFromPrompt } from "../features/start/p
 import { TaskCanvas, type ResourceSetupKind } from "../features/tasks/TaskCanvas";
 import type { Engine } from "../features/engines/engine-inventory";
 import { WorkDetail } from "../features/tasks/WorkDetail";
+import { WorkflowStudio } from "../features/studio/WorkflowStudio";
 import { WorkspaceNavigation } from "./WorkspaceNavigation";
 import { QuickFind } from "./QuickFind";
 import { useWorkspaceRoute } from "./useWorkspaceRoute";
@@ -634,47 +634,26 @@ export function CompanyWorkspace() {
           ) : view === "activity" ? (
             <LiveHistory query={query} summaryView />
           ) : isWorkflowBuilder ? (
-            isNewWorkflow ? (
-              <div className="co-workflow-builder-shell">
-                <TaskForm
-                  key={`new:${newWorkflow?.key || 0}`}
-                  company={company}
-                  existing={undefined}
-                  initialDomain={newWorkflow?.domain}
-                  initialProjectId={newWorkflow?.projectId}
-                  initialAgentId={newWorkflow?.agentId}
-                  initialOfficeId={newWorkflow?.officeId}
-                  storageError={storageError}
-                  openResourceSettings={(task, kind, engine) => {
-                    upsertTask(task);
-                    openResourceSettings(kind, engine, task.id);
-                  }}
-                  save={(task) => {
-                    upsertTask(task);
-                    go({ view: "tasks", taskId: task.id });
-                  }}
-                  start={async (task, fromStepId) => {
-                    await runWorkflow(task, fromStepId);
-                    go({ view: "tasks", taskId: task.id });
-                  }}
-                />
-              </div>
-            ) : workflowPage ? (
-              <div className="co-workflow-builder-shell">
-                <TaskForm
-                  key={workflowPage.id}
-                  company={company}
-                  existing={workflowPage}
-                  initialDomain={undefined}
-                  storageError={storageError}
-                  openResourceSettings={(task, kind, engine) => {
-                    upsertTask(task);
-                    openResourceSettings(kind, engine, task.id);
-                  }}
-                  save={upsertTask}
-                  start={runWorkflow}
-                />
-              </div>
+            isNewWorkflow || workflowPage ? (
+              <WorkflowStudio
+                key={isNewWorkflow ? `new:${newWorkflow?.key || 0}` : `task:${workflowPage!.id}`}
+                company={company}
+                task={isNewWorkflow ? undefined : workflowPage}
+                init={{
+                  ...(newWorkflow?.projectId ? { projectId: newWorkflow.projectId } : {}),
+                  ...(newWorkflow?.officeId ? { officeId: newWorkflow.officeId } : {}),
+                  ...(newWorkflow?.agentId ? { agentId: newWorkflow.agentId } : {}),
+                }}
+                save={(task) => {
+                  upsertTask(task);
+                  if (isNewWorkflow) go({ view: "tasks", taskId: task.id });
+                }}
+                run={async (task, fromStepId) => {
+                  await runWorkflow(task, fromStepId);
+                  if (isNewWorkflow) go({ view: "tasks", taskId: task.id });
+                }}
+                close={() => go({ view: "map" })}
+              />
             ) : (
               <section className="co-workflow-missing">
                 <GitBranch size={24} />
