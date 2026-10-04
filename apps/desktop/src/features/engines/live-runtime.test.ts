@@ -722,6 +722,25 @@ describe("partialRequest", () => {
     expect(next.context).toContain("from a");
   });
 
+  it("starts from every step of a canvas block and reuses outputs across earlier runs", () => {
+    const blockRequest = {
+      ...request,
+      steps: [
+        step("canvas-n1-x"),
+        step("canvas-n2-a", ["canvas-n1-x"]),
+        step("canvas-n2-b", ["canvas-n1-x"]),
+        step("canvas-n3-x", ["canvas-n2-a", "canvas-n2-b"]),
+      ],
+    };
+    const older = {
+      createdAt: 1,
+      results: [{ id: "canvas-n1-x", label: "N1", status: "completed", output: "older n1" }],
+    } as never;
+    const newer = { createdAt: 2, results: [] } as never;
+    const next = partialRequest(blockRequest, "node:n2", [newer, older]);
+    expect(next.steps.map((s) => s.id)).toEqual(["canvas-n2-a", "canvas-n2-b", "canvas-n3-x"]);
+    expect(next.context).toContain("older n1");
+  });
   it("refuses when earlier steps have no output to reuse", () => {
     expect(() => partialRequest(request, "b")).toThrow(/Run the whole workflow/);
   });

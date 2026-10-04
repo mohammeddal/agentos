@@ -1105,3 +1105,35 @@
 .st-toast {
   bottom: 40px;
 }
+
+.st-node-run {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 4px;
+  border: 1px solid var(--st-line);
+  border-radius: 5px;
+  background: var(--st-node);
+  color: var(--st-muted);
+  cursor: pointer;
+  opacity: 0;
+}
+.st-node:hover .st-node-run,
+.st-node[data-selected] .st-node-run {
+  opacity: 1;
+}
+.st-node-run:hover {
+  border-color: var(--st-blue);
+  background: var(--st-blue);
+  color: #fff;
+}
+.st-node header em + .st-node-run {
+  margin-left: 4px;
+}
+.st-node header > span + .st-node-run {
+  margin-left: auto;
+}
+.st-section > .st-button {
+  justify-content: center;
+}

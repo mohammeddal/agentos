@@ -39,7 +39,7 @@ import {
   Users,
   Workflow,
 } from "lucide-react";
-import type { Company, CompanyTask } from "../company/company-model";
+import type { Company, CompanyAgent, CompanyTask } from "../company/company-model";
 import { isCompanyTask } from "../company/company-model";
 import {
   blockNames,
@@ -166,6 +166,7 @@ export function WorkflowStudio({
   save,
   run,
   close,
+  addAgent,
 }: {
   company: Company;
   task?: CompanyTask | undefined;
@@ -173,6 +174,8 @@ export function WorkflowStudio({
   save: (task: CompanyTask) => void;
   run: (task: CompanyTask, fromStepId?: string) => Promise<void>;
   close: () => void;
+  /** Adds an agent to an office; used to turn custom steps into real agents. */
+  addAgent?: (officeId: string, agent: CompanyAgent) => void;
 }) {
   const [taskId] = useState(() => task?.id || crypto.randomUUID());
   const [createdAt] = useState(() => task?.createdAt || new Date().toISOString());
@@ -469,6 +472,11 @@ export function WorkflowStudio({
           handle,
         });
       }
+      return;
+    }
+    const runFrom = target.closest<HTMLElement>("[data-run-from]")?.dataset.runFrom;
+    if (runFrom) {
+      void runWorkflow(`node:${runFrom}`);
       return;
     }
     const port = target.closest<HTMLElement>("[data-port]")?.dataset.port;
@@ -857,6 +865,66 @@ export function WorkflowStudio({
       }),
     },
   ];
+
+  // ── Run from a step, and custom steps → agents ───────────────────────────
+  const hasRun = runs.some((r) => r.results.some((result) => result.status === "completed"));
+  const canRunFrom = (node: CanvasNode) =>
+    !!task &&
+    hasRun &&
+    !activeRun &&
+    ["agent", "office", "domain", "prompt"].includes(node.kind) &&
+    graph.edges.some((e) => e.kind === "flow" && e.to === node.id && e.from !== root?.id);
+  const [agentOfficeId, setAgentOfficeId] = useState("");
+  const homeOffice =
+    company.offices.find((o) => o.id === agentOfficeId) ||
+    company.offices.find((o) => o.id === (task?.officeId || init.officeId)) ||
+    company.offices[0];
+  const officePicker =
+    company.offices.length > 1 && homeOffice ? (
+      <label className="st-field">
+        <span>Office</span>
+        <select value={homeOffice.id} onChange={(event) => setAgentOfficeId(event.target.value)}>
+          {company.offices.map((office) => (
+            <option key={office.id} value={office.id}>
+              {office.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    ) : null;
+  const customSteps = graph.nodes.filter((n) => n.kind === "prompt");
+  function agentFromStep(node: CanvasNode, officeId: string): CompanyAgent {
+    const firstSentence = node.prompt.split(/(?<=[.!?])\s/)[0]?.trim() || "";
+    return {
+      id: crypto.randomUUID(),
+      name: (node.title || "New agent").slice(0, 48),
+      role: (firstSentence || node.title || "Workflow step").slice(0, 100),
+      engine: node.engine === "claude" ? "Claude Code" : "Codex",
+    };
+  }
+  function saveAsAgents(nodes: CanvasNode[], officeId: string) {
+    if (!addAgent || !nodes.length) return;
+    const office = company.offices.find((o) => o.id === officeId);
+    let next = graph;
+    for (const node of nodes) {
+      const agent = agentFromStep(node, officeId);
+      addAgent(officeId, agent);
+      next = {
+        ...next,
+        nodes: next.nodes.map((n) =>
+          n.id === node.id
+            ? { ...n, kind: "agent" as const, reference: agent.id, title: agent.name, engine: "" }
+            : n,
+        ),
+      };
+    }
+    commit(next);
+    setNotice(
+      nodes.length === 1
+        ? `“${nodes[0]!.title || "Step"}” is now an agent in ${office?.name || "the office"}.`
+        : `${nodes.length} steps are now agents in ${office?.name || "the office"}.`,
+    );
+  }
 
   // ── Rendering helpers ─────────────────────────────────────────────────
   const agents = company.offices.flatMap((office) =>
@@ -1359,6 +1427,17 @@ export function WorkflowStudio({
                   <Icon size={13} />
                   <span>{node.kind === "task" ? "Start" : blockNames[node.kind]}</span>
                   {status && <em data-status={status}>{status}</em>}
+                  {canRunFrom(node) && (
+                    <button
+                      type="button"
+                      className="st-node-run"
+                      data-run-from={node.id}
+                      aria-label={`Run from ${node.title}`}
+                      title="Run from this step · earlier steps reuse their last results"
+                    >
+                      <Play size={10} fill="currentColor" />
+                    </button>
+                  )}
                 </header>
                 <strong>{node.title || blockNames[node.kind]}</strong>
                 <p>{subtitle(node)}</p>
@@ -1555,11 +1634,48 @@ export function WorkflowStudio({
                 }}
               />
             ) : (
-              <NodeWorkflow
-                company={company}
-                node={selectedNodes[0]!}
-                update={(patch) => updateNode(selectedNodes[0]!.id, patch)}
-              />
+              <>
+                <NodeWorkflow
+                  company={company}
+                  node={selectedNodes[0]!}
+                  update={(patch) => updateNode(selectedNodes[0]!.id, patch)}
+                />
+                {(canRunFrom(selectedNodes[0]!) ||
+                  (selectedNodes[0]!.kind === "prompt" && addAgent && homeOffice)) && (
+                  <section className="st-section">
+                    {canRunFrom(selectedNodes[0]!) && (
+                      <button
+                        type="button"
+                        className="st-button"
+                        onClick={() => void runWorkflow(`node:${selectedNodes[0]!.id}`)}
+                      >
+                        <Play size={12} fill="currentColor" /> Run from this step
+                      </button>
+                    )}
+                    {selectedNodes[0]!.kind === "prompt" && addAgent && homeOffice && (
+                      <>
+                        {officePicker}
+
+                        <button
+                          type="button"
+                          className="st-button"
+                          onClick={() => saveAsAgents([selectedNodes[0]!], homeOffice.id)}
+                        >
+                          <Bot size={13} /> Save as an agent in {homeOffice.name}
+                        </button>
+                      </>
+                    )}
+                    <p className="st-hint">
+                      {canRunFrom(selectedNodes[0]!)
+                        ? "Running from here reuses the last results of earlier steps. "
+                        : ""}
+                      {selectedNodes[0]!.kind === "prompt"
+                        ? "Agents appear in the office on the map and can be reused in other workflows."
+                        : ""}
+                    </p>
+                  </section>
+                )}
+              </>
             )
           ) : selectedDecor.length === 1 ? (
             <DecorDesign
@@ -1568,12 +1684,36 @@ export function WorkflowStudio({
               setBox={(box) => commit(applyBox(graph, selectedDecor[0]!.id, box))}
             />
           ) : (
-            <WorkflowSettings
-              company={company}
-              meta={meta}
-              change={changeMeta}
-              folderLabel={folderLabel}
-            />
+            <>
+              {customSteps.length > 0 && addAgent && homeOffice && (
+                <section className="st-section">
+                  <h4>Custom steps</h4>
+                  <p className="st-hint">
+                    {customSteps.length} {customSteps.length === 1 ? "step runs" : "steps run"}{" "}
+                    directly on an engine, so{" "}
+                    {customSteps.length === 1 ? "it isn't" : "they aren't"} in any office. Save them
+                    as agents to see them on the map and reuse them.
+                  </p>
+                  {officePicker}
+                  <button
+                    type="button"
+                    className="st-button"
+                    onClick={() => saveAsAgents(customSteps, homeOffice.id)}
+                  >
+                    <Bot size={13} />{" "}
+                    {customSteps.length === 1
+                      ? `Save as an agent in ${homeOffice.name}`
+                      : `Save all ${customSteps.length} as agents in ${homeOffice.name}`}
+                  </button>
+                </section>
+              )}
+              <WorkflowSettings
+                company={company}
+                meta={meta}
+                change={changeMeta}
+                folderLabel={folderLabel}
+              />
+            </>
           )}
         </div>
       </aside>

@@ -10,6 +10,7 @@ import {
 } from "./company-model";
 import { controlLive, isActiveRun, type LiveRun } from "../engines/live-runtime";
 import { runLabel } from "../engines/run-presentation";
+import { canvasRunStatuses } from "../canvas/run-state";
 import { RunOutcome } from "../engines/RunOutcome";
 import { stripMemoryBlocks } from "../memory/run-learning";
 import { AgentWorkForm } from "./AgentWorkForm";
@@ -319,6 +320,11 @@ export function WorkflowPanel({
   const latest = runs[0];
   const active = !!latest && isActiveRun(latest);
   const team = taskParticipants(company, task.assignment);
+  // Every step on the canvas, including custom steps that aren't company agents.
+  const steps = (task.canvas?.nodes || [])
+    .filter((n) => ["agent", "office", "domain", "prompt", "approval"].includes(n.kind))
+    .sort((a, b) => a.x - b.x || a.y - b.y);
+  const statuses = task.canvas ? canvasRunStatuses(task.canvas, latest) : {};
   const currentAgent = team.find((agent) => agent.id === latest?.currentAgentId);
   async function start() {
     setBusy(true);
@@ -376,17 +382,68 @@ export function WorkflowPanel({
       <Section title="Runs">
         <RecentRuns runs={runs} />
       </Section>
-      <Section title={`Team · ${team.length}`}>
-        {team.length ? (
-          team.map((agent) => (
-            <button key={agent.id} className="map-link" onClick={() => selectAgent(agent.id)}>
-              <Bot size={13} /> {agent.name} <small>{agent.role}</small>
-            </button>
-          ))
-        ) : (
-          <p className="map-muted">No agents yet. Open the workflow to add some.</p>
-        )}
-      </Section>
+      {steps.length ? (
+        <Section title={`Steps · ${steps.length}`}>
+          {steps.map((node) => {
+            const agent =
+              node.kind === "agent" ? team.find((a) => a.id === node.reference) : undefined;
+            const status = statuses[node.id];
+            return (
+              <button
+                key={node.id}
+                className="map-link map-step"
+                onClick={() => (agent ? selectAgent(agent.id) : open())}
+                title={agent ? "Show this agent" : "Open in the Studio"}
+              >
+                <i
+                  data-state={
+                    status === "working"
+                      ? "working"
+                      : status === "approval"
+                        ? "approval"
+                        : status === "failed"
+                          ? "failed"
+                          : status === "done"
+                            ? "done"
+                            : undefined
+                  }
+                />
+                {node.kind === "agent" ? (
+                  <Bot size={13} />
+                ) : node.kind === "approval" ? (
+                  <ShieldAlert size={13} />
+                ) : (
+                  <GitBranch size={13} />
+                )}
+                <span>{node.title}</span>
+                <small>
+                  {agent
+                    ? agent.role
+                    : node.kind === "prompt"
+                      ? "Custom step"
+                      : node.kind === "approval"
+                        ? "Approval"
+                        : node.kind === "office"
+                          ? "Whole office"
+                          : node.kind}
+                </small>
+              </button>
+            );
+          })}
+        </Section>
+      ) : (
+        <Section title={`Team · ${team.length}`}>
+          {team.length ? (
+            team.map((agent) => (
+              <button key={agent.id} className="map-link" onClick={() => selectAgent(agent.id)}>
+                <Bot size={13} /> {agent.name} <small>{agent.role}</small>
+              </button>
+            ))
+          ) : (
+            <p className="map-muted">No agents yet. Open the workflow to add some.</p>
+          )}
+        </Section>
+      )}
     </>
   );
 }

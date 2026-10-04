@@ -1757,3 +1757,33 @@
     animation: none;
   }
 }
+
+.map-step {
+  display: grid !important;
+  grid-template-columns: 8px 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.map-step span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.map-step i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--co-border);
+}
+.map-step i[data-state="working"] {
+  background: var(--st-working);
+}
+.map-step i[data-state="approval"] {
+  background: var(--st-approval);
+}
+.map-step i[data-state="failed"] {
+  background: var(--st-failed);
+}
+.map-step i[data-state="done"] {
+  background: var(--st-done);
+}

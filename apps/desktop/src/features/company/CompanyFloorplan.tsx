@@ -314,7 +314,13 @@ export function CompanyFloorplan({
         onClick={() => setSelection({ kind: "workflow", id: task.id })}
         onDoubleClick={() => openWorkflow(task)}
       >
-        <MeetingTable seats={taskParticipants(company, task.assignment).length} />
+        <MeetingTable
+          seats={
+            task.canvas?.nodes.filter((n) =>
+              ["agent", "office", "domain", "prompt"].includes(n.kind),
+            ).length || taskParticipants(company, task.assignment).length
+          }
+        />
         <span className="map-table-icon" aria-hidden="true">
           {task.schedule?.kind === "cron" ? <Clock3 size={12} /> : <Play size={11} />}
         </span>

@@ -397,8 +397,8 @@ export function CompanyWorkspace() {
     };
     upsertTask(task);
     const request = await taskRequest(nextCompany, task);
-    const previous = live.runs.find((run) => run.request.key === request.key && run.results.length);
-    await startLive(fromStepId ? partialRequest(request, fromStepId, previous) : request);
+    const history = live.runs.filter((run) => run.request.key === request.key);
+    await startLive(fromStepId ? partialRequest(request, fromStepId, history) : request);
   }
   async function assignWork(agent: CompanyAgent, text: string) {
     // One-off work for a single agent is saved as a one-step workflow so it can be watched and rerun.
@@ -774,6 +774,14 @@ export function CompanyWorkspace() {
                   if (isNewWorkflow) go({ view: "tasks", taskId: task.id });
                 }}
                 close={() => go({ view: "map" })}
+                addAgent={(officeId, agent) =>
+                  setCompany((c) => ({
+                    ...c,
+                    offices: c.offices.map((o) =>
+                      o.id === officeId ? { ...o, agents: [...o.agents, agent] } : o,
+                    ),
+                  }))
+                }
               />
             ) : (
               <section className="co-workflow-missing">

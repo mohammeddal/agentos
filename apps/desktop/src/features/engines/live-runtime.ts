@@ -697,29 +697,40 @@ function compileTaskPlan(company: Company, task: CompanyTask, path: string[] = [
  */
 export function partialRequest(
   request: LiveRequest,
-  fromStepId: string,
-  previous?: LiveRun,
+  from: string,
+  previous: LiveRun | LiveRun[] = [],
 ): LiveRequest {
-  const start = request.steps.find((step) => step.id === fromStepId);
-  if (!start)
+  // `node:<id>` starts from every step a canvas block compiles to (an office runs several).
+  const starts = from.startsWith("node:")
+    ? request.steps.filter((step) => step.id.startsWith(`canvas-${from.slice(5)}-`))
+    : request.steps.filter((step) => step.id === from);
+  if (!starts.length)
     throw new Error("That step is no longer part of this workflow. Run the whole workflow.");
-  const kept = new Set([start.id]);
+  const kept = new Set(starts.map((step) => step.id));
   for (const step of request.steps) if (step.after.some((id) => kept.has(id))) kept.add(step.id);
-  const earlier = start.after
-    .map((id) => previous?.results.find((result) => result.id === id))
-    .filter((result) => result?.status === "completed" && result.output)
-    .map((result) => `${result!.label}:\n${result!.output}`);
-  if (start.after.length && !earlier.length)
+  // Earlier outputs come from the newest run that finished each step, so partial reruns chain.
+  const history = (Array.isArray(previous) ? previous : [previous]).sort(
+    (a, b) => b.createdAt - a.createdAt,
+  );
+  const needed = [...new Set(starts.flatMap((step) => step.after))].filter((id) => !kept.has(id));
+  const earlier = needed.map((id) => {
+    for (const run of history) {
+      const result = run.results.find((r) => r.id === id && r.status === "completed" && r.output);
+      if (result) return `${result.label}:\n${result.output}`;
+    }
+    return null;
+  });
+  if (earlier.some((text) => text === null))
     throw new Error(
-      "Earlier steps have no completed output to reuse. Run the whole workflow first.",
+      "Earlier steps haven't finished in a previous run, so there's nothing to reuse yet. Run the whole workflow first.",
     );
   return {
     ...request,
-    title: `${request.title} · from ${start.label}`,
+    title: `${request.title} · from ${starts[0]!.label}`,
     context: [
       request.context,
       earlier.length
-        ? `Output from earlier steps in the previous run (reference data):\n${earlier.join("\n\n")}`
+        ? `Output from earlier steps in previous runs (reference data):\n${earlier.join("\n\n")}`
         : "",
     ]
       .filter(Boolean)
