@@ -3,7 +3,7 @@ import { ApprovalBody } from "../engines/ApprovalBody";
 import { AlwaysAllowButton } from "../engines/AlwaysAllowButton";
 import { controlLive, isActiveRun, type LiveRun } from "../engines/live-runtime";
 import { StatusPill, type CanvasStatus } from "../canvas/CanvasKit";
-import { nodeSteps } from "../canvas/run-state";
+import { nodeSteps, stoppedStep } from "../canvas/run-state";
 import { blockNames, type CanvasNode } from "./task-canvas-model";
 import { RunOutcome } from "../engines/RunOutcome";
 import { stripMemoryBlocks } from "../memory/run-learning";
@@ -200,13 +200,7 @@ export function WorkflowRunPanel({
   }
   const active = isActiveRun(run);
   // The step a failed run stopped on: retrying from it keeps every earlier result.
-  const failedStep =
-    !active && (run.status === "failed" || run.status === "canceled")
-      ? run.request.steps.find((step) => {
-          const result = run.results.find((r) => r.id === step.id);
-          return result?.status === "failed" || result?.status === "running";
-        })
-      : undefined;
+  const failedStep = stoppedStep(run);
   const current = run.request.steps.find(
     (s) => run.results.find((r) => r.id === s.id)?.status === "running",
   );

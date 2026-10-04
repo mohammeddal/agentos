@@ -63,3 +63,13 @@ export function canvasRunStatuses(
   }
   return statuses;
 }
+
+/** The step a failed or stopped run ended on; retrying from it keeps every earlier result. */
+export function stoppedStep(run: LiveRun | undefined) {
+  if (!run || isActiveRun(run) || (run.status !== "failed" && run.status !== "canceled"))
+    return undefined;
+  return run.request.steps.find((step) => {
+    const result = run.results.find((r) => r.id === step.id);
+    return result?.status === "failed" || result?.status === "running";
+  });
+}

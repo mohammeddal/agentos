@@ -11,7 +11,7 @@ import {
 } from "./company-model";
 import { controlLive, isActiveRun, type LiveRun } from "../engines/live-runtime";
 import { runLabel } from "../engines/run-presentation";
-import { canvasRunStatuses } from "../canvas/run-state";
+import { canvasRunStatuses, stoppedStep } from "../canvas/run-state";
 import { RunOutcome } from "../engines/RunOutcome";
 import { stripMemoryBlocks } from "../memory/run-learning";
 import { AgentWorkForm } from "./AgentWorkForm";
@@ -327,13 +327,7 @@ export function WorkflowPanel({
   const [error, setError] = useState("");
   const latest = runs[0];
   const active = !!latest && isActiveRun(latest);
-  const failedStep =
-    latest && (latest.status === "failed" || latest.status === "canceled")
-      ? latest.request.steps.find((step) => {
-          const result = latest.results.find((r) => r.id === step.id);
-          return result?.status === "failed" || result?.status === "running";
-        })
-      : undefined;
+  const failedStep = stoppedStep(latest);
   const team = taskParticipants(company, task.assignment);
   // Every step on the canvas, including custom steps that aren't company agents.
   const steps = (task.canvas?.nodes || [])

@@ -1531,6 +1531,31 @@ mod tests {
         ));
     }
     #[test]
+    fn changed_files_skip_system_junk() {
+        let root = std::env::temp_dir().join(format!("agentos-files-{}", now()));
+        fs::create_dir_all(root.join("posts")).unwrap();
+        fs::write(root.join("posts/day.md"), "hi").unwrap();
+        fs::write(root.join("posts/.DS_Store"), "x").unwrap();
+        fs::write(root.join("Thumbs.db"), "x").unwrap();
+        let files = changed_files(&root, now() - 60_000);
+        assert_eq!(files, vec!["posts/day.md".to_string()]);
+        let _ = fs::remove_dir_all(root);
+    }
+    #[test]
+    fn oversized_lines_are_skipped_not_fatal() {
+        let big = "x".repeat(200_000);
+        let input = format!("{big}\nnext line\n");
+        let mut reader = BufReader::new(input.as_bytes());
+        let mut first = String::new();
+        // Read a capped prefix, as the engine reader does, then skip the rest of the line.
+        reader.by_ref().take(1000).read_line(&mut first).unwrap();
+        assert!(!first.ends_with('\n'));
+        assert!(skip_line(&mut reader));
+        let mut next = String::new();
+        reader.read_line(&mut next).unwrap();
+        assert_eq!(next, "next line\n");
+    }
+    #[test]
     fn sign_off_gates_must_gate_something() {
         let mut r = request();
         r.mode = "task".into();
