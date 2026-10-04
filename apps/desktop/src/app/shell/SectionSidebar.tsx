@@ -111,6 +111,7 @@ type SidebarProps = {
   editProject: (id: string) => void;
   go: (route: WorkspaceRoute) => void;
   newWorkflow: (officeId?: string) => void;
+  focusOffice: (officeId: string) => void;
   newChat: () => void;
   lifecycle: (entry: DirectoryEntry, lifecycle: Lifecycle) => void;
   activityFilter: ActivityFilter;
@@ -176,6 +177,7 @@ function RowMenu({
 }
 
 function HomeList({
+  focusOffice,
   company,
   scope,
   route,
@@ -214,20 +216,39 @@ function HomeList({
         const open = !closed.includes(group.id);
         return (
           <div key={group.id || "other"} className="sh-tree">
-            <button
-              className="sh-row sh-row-parent"
-              aria-expanded={open}
-              onClick={() =>
-                setClosed((list) =>
-                  open ? [...list, group.id] : list.filter((id) => id !== group.id),
-                )
-              }
-            >
-              <ChevronRight size={12} className="sh-caret" />
-              <Building2 size={14} />
-              <span>{group.name}</span>
-              <small>{group.tasks.length || ""}</small>
-            </button>
+            <div className="sh-row-wrap">
+              <button
+                className="sh-caret-button"
+                aria-label={open ? `Collapse ${group.name}` : `Expand ${group.name}`}
+                aria-expanded={open}
+                onClick={() =>
+                  setClosed((list) =>
+                    open ? [...list, group.id] : list.filter((id) => id !== group.id),
+                  )
+                }
+              >
+                <ChevronRight size={12} className="sh-caret" />
+              </button>
+              <button
+                className="sh-row sh-row-parent"
+                title={group.id ? "Show on the map" : undefined}
+                onClick={() => group.id && focusOffice(group.id)}
+              >
+                <Building2 size={14} />
+                <span>{group.name}</span>
+                <small>{group.tasks.length || ""}</small>
+              </button>
+              {group.id && (
+                <button
+                  className="sh-row-add-icon"
+                  aria-label={`New workflow in ${group.name}`}
+                  title="New workflow"
+                  onClick={() => newWorkflow(group.id)}
+                >
+                  <Plus size={13} />
+                </button>
+              )}
+            </div>
             {open &&
               group.tasks.map((task) => (
                 <div key={task.id} className="sh-row-wrap">
@@ -246,14 +267,6 @@ function HomeList({
                   />
                 </div>
               ))}
-            {open && group.id && !group.tasks.length && (
-              <button
-                className="sh-row sh-row-child sh-row-add"
-                onClick={() => newWorkflow(group.id)}
-              >
-                <Plus size={12} /> <span>New workflow</span>
-              </button>
-            )}
           </div>
         );
       })}

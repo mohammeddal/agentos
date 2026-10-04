@@ -1,13 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  Building2,
-  ChevronRight,
-  GitBranch,
-  Menu,
-  Search,
-  SquareTerminal,
-  Trash2,
-} from "lucide-react";
+import { GitBranch, Search, Trash2 } from "lucide-react";
 import {
   isCompany,
   starterCompany,
@@ -27,7 +19,6 @@ import {
 } from "../features/company/company-structure";
 import { AgentForm, OfficeForm, RenameForm } from "../features/company/CompanyForms";
 import { CompanyDialog } from "../shared/CompanyDialog";
-import { HelpTip } from "../shared/HelpTip";
 import { CompanyMemory } from "../features/memory/CompanyMemory";
 import { EngineLibrary } from "../features/engines/EngineLibrary";
 import { EngineSettings, type EngineSettingsFocus } from "../features/engines/EngineSettings";
@@ -39,7 +30,6 @@ import { SectionSidebar, type ActivityFilter } from "./shell/SectionSidebar";
 import { TodayStrip } from "./shell/TodayStrip";
 import "./shell/shell.css";
 import type { LiveRun } from "../features/engines/live-runtime";
-import { LiveHistory } from "../features/engines/LiveExecution";
 import { ProjectForm } from "../features/projects/CompanyProjects";
 import { CompanyStart } from "../features/start/CompanyStart";
 import { emptyPrompt, PROMPT_STORAGE, taskFromPrompt } from "../features/start/prompt-composer";
@@ -48,7 +38,6 @@ import type { Engine } from "../features/engines/engine-inventory";
 import { WorkDetail } from "../features/tasks/WorkDetail";
 import { WorkflowStudio } from "../features/studio/WorkflowStudio";
 import { newCanvasNode } from "../features/tasks/task-canvas-model";
-import { WorkspaceNavigation } from "./WorkspaceNavigation";
 import { QuickFind } from "./QuickFind";
 import { useWorkspaceRoute } from "./useWorkspaceRoute";
 import { useLiveSchedules } from "../features/engines/live-schedules";
@@ -72,13 +61,7 @@ import {
 import { useLiveNotifications } from "../features/engines/live-notifications";
 import { learnFromRuns } from "../features/memory/run-learning";
 import { TerminalDock } from "../features/terminal/TerminalDock";
-import {
-  destinations,
-  primaryView,
-  viewLabels,
-  type FindResult,
-  type WorkspaceView,
-} from "./navigation";
+import { primaryView, viewLabels, type FindResult, type WorkspaceView } from "./navigation";
 
 const STORAGE = "agentos:company:v1";
 type DialogState =
@@ -110,16 +93,6 @@ function initialTheme(): "light" | "dark" {
     return "light";
   }
 }
-const descriptions: Record<WorkspaceView, string> = {
-  start: "",
-  inbox: "Approvals from chats, workflows, and agents, plus recent failures.",
-  tasks: "Build workflows from tasks, agents, context, and approvals.",
-  map: "Your offices, agents, and workflows in one place.",
-  activity: "Runs stay summarized until you open the details you need.",
-  memory: "Facts, lessons, and context worth keeping.",
-  engines: "Discover the tools and skills already available locally.",
-  settings: "Manage local engines, project discovery, and notifications.",
-};
 
 const NEW_WORKFLOW = "new";
 type NewWorkflowInit = {
@@ -229,7 +202,7 @@ export function CompanyWorkspace() {
       kind,
       engine,
     }));
-    go({ view: "settings" });
+    go({ view: "engines" });
   }
   /** Starts a new chat prefilled with a request; `actions` lets it make changes. */
   function startChatWith(text: string, actions = false, engine = "Codex") {
@@ -526,43 +499,6 @@ export function CompanyWorkspace() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [dialog, openTabs.tabs, scopeProject]);
-  const navigationProps = {
-    directory: {
-      company: storedCompany,
-      selectedChat: route.chatId,
-      selectedProject: view === "start" && !route.chatId ? route.projectId : undefined,
-      selectedTask: route.taskId || inspectedTask?.id,
-      openEntry: openDirectoryEntry,
-      createEntry: createDirectoryEntry,
-      lifecycle: updateLifecycle,
-      editProject: (id: string) => {
-        const project = company.projects?.find((p) => p.id === id);
-        if (project) setDialog({ type: "project", project });
-      },
-    },
-    openRun: (runKey: string) => {
-      setDialog(null);
-      if (runKey.startsWith("chat:")) go({ view: "start", chatId: runKey.slice(5) });
-      else if (runKey.startsWith("task:")) go({ view: "tasks", taskId: runKey.slice(5) });
-    },
-    view,
-    theme,
-    navigate: (next: WorkspaceView) => {
-      setDialog(null);
-      setView(next);
-    },
-    find: () => setDialog({ type: "find" }),
-    rename: () => setDialog({ type: "rename" }),
-    engineSettings: () => {
-      setEngineSettingsFocus((current) => ({
-        id: (current?.id || 0) + 1,
-      }));
-      setDialog(null);
-      setView("settings");
-    },
-    help: () => setDialog({ type: "help" }),
-    toggleTheme: () => setTheme((t) => (t === "light" ? "dark" : "light")),
-  };
   const group = primaryView(view);
   // ⌘K commands: run and create things, not just find them.
   const lastFailed = live.runs
@@ -689,6 +625,10 @@ export function CompanyWorkspace() {
           setQuery("");
           go(next);
         }}
+        focusOffice={(id) => {
+          setMapFocus((current) => ({ kind: "office", id, key: (current?.key || 0) + 1 }));
+          if (view !== "map") go({ view: "map" });
+        }}
         newWorkflow={(officeId) =>
           openNewWorkflow({
             ...(officeId ? { officeId } : {}),
@@ -720,42 +660,10 @@ export function CompanyWorkspace() {
           }}
           newChat={() => createDirectoryEntry("chat", scopeProject || undefined)}
           find={() => setDialog({ type: "find" })}
-          title={isNewWorkflow ? "New workflow" : viewLabels[primaryView(view)]}
+          title={isNewWorkflow ? "New workflow" : viewLabels[view === "inbox" ? "activity" : view]}
           terminalOpen={terminalOpen}
           toggleTerminal={() => setTerminalOpen((open) => !open)}
         />
-        <header className="co-topbar sh-legacy-topbar" hidden>
-          <button
-            className="co-mobile-menu co-icon-button"
-            aria-label="Open navigation"
-            onClick={() => setDialog({ type: "navigation" })}
-          >
-            <Menu size={18} />
-          </button>
-          <div className="co-breadcrumb">
-            <Building2 size={15} />
-            <button onClick={openCompany}>{company.name}</button>
-            <ChevronRight size={13} />
-            <span>
-              {route.chatId
-                ? "Chat"
-                : destinations.find((d) => d.view === group)?.label || viewLabels[view]}
-            </span>
-          </div>
-          <div className="co-top-actions">
-            <HelpTip label="About local storage" align="end">
-              Company data and history stay on this Mac. Provider requests use the selected engine.
-            </HelpTip>
-            <button
-              aria-label={terminalOpen ? "Close terminal" : "Open terminal"}
-              aria-pressed={terminalOpen}
-              title="Terminal · Cmd/Ctrl J"
-              onClick={() => setTerminalOpen((open) => !open)}
-            >
-              <SquareTerminal size={17} />
-            </button>
-          </div>
-        </header>
         {directoryNotice && (
           <div className="co-directory-status" role="status">
             <span>{directoryNotice}</span>
@@ -766,48 +674,13 @@ export function CompanyWorkspace() {
         )}
         <main
           id="workspace-content"
-          className={`co-content ${companyMap ? "co-map-mode" : view === "start" ? "co-start-mode" : ""} ${isWorkflowBuilder ? "co-workflow-page" : ""}`}
+          className={`co-content ${companyMap ? "co-map-mode" : view === "start" ? "co-start-mode" : view === "activity" || view === "inbox" ? "co-activity-mode" : ""} ${isWorkflowBuilder ? "co-workflow-page" : ""}`}
         >
-          {view !== "start" &&
-            view !== "activity" &&
-            view !== "inbox" &&
-            !isWorkflowBuilder &&
-            !companyMap && (
-              <section className="co-page-heading">
-                <div>
-                  <div className="co-page-title-line">
-                    <h1>{isWorkflowBuilder ? "Workflow Builder" : viewLabels[view]}</h1>
-                  </div>
-                  {isWorkflowBuilder && (
-                    <p>{isNewWorkflow ? "New workflow" : workflowPage?.title}</p>
-                  )}
-                </div>
-              </section>
-            )}
-          {false && group === "memory" && (
-            <nav className="co-page-tabs" aria-label="Library sections">
-              {(["memory", "engines"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  aria-current={view === tab ? "page" : undefined}
-                  onClick={() => setView(tab)}
-                >
-                  {viewLabels[tab]}
-                </button>
-              ))}
-            </nav>
-          )}
-          {!isWorkflowBuilder &&
-            !["start", "settings", "activity", "inbox"].includes(view) &&
-            !companyMap && (
-              <div className="co-section-toolbar">
-                {view === "tasks" && (
-                  <div className="co-section-title">
-                    <span className="co-directory-count">
-                      {`${tasks.length} ${tasks.length === 1 ? "workflow" : "workflows"}`}
-                    </span>
-                  </div>
-                )}
+          {!isWorkflowBuilder && !companyMap && !["start", "activity", "inbox"].includes(view) && (
+            // One header pattern for every page: title on the left, search on the right.
+            <section className="co-page-heading sh-page-head">
+              <h1>{viewLabels[view]}</h1>
+              {view !== "settings" && (
                 <div className="co-search">
                   <Search size={14} />
                   <input
@@ -829,8 +702,9 @@ export function CompanyWorkspace() {
                     </button>
                   )}
                 </div>
-              </div>
-            )}
+              )}
+            </section>
+          )}
           {view === "start" ? (
             <CompanyStart
               key={route.chatId || `new:${route.projectId || "company"}:${composerVersion}`}
@@ -859,9 +733,13 @@ export function CompanyWorkspace() {
               }}
             />
           ) : view === "engines" ? (
-            <EngineLibrary query={query} />
+            <EngineLibrary
+              query={query}
+              setupWithChat={setupWithChat}
+              focus={engineSettingsFocus}
+            />
           ) : view === "settings" ? (
-            <EngineSettings focus={engineSettingsFocus} setupWithChat={setupWithChat} />
+            <EngineSettings />
           ) : view === "memory" ? (
             <CompanyMemory
               company={company}
@@ -909,15 +787,17 @@ export function CompanyWorkspace() {
             )
           ) : (
             <>
-              <TodayStrip
-                company={company}
-                openActivity={(filter) => {
-                  setActivityFilter(filter);
-                  setView("activity");
-                }}
-                openWorkflow={(id) => go({ view: "tasks", taskId: id })}
-              />
               <CompanyFloorplan
+                toolbar={
+                  <TodayStrip
+                    company={company}
+                    openActivity={(filter) => {
+                      setActivityFilter(filter);
+                      setView("activity");
+                    }}
+                    openWorkflow={(id) => go({ view: "tasks", taskId: id })}
+                  />
+                }
                 company={company}
                 focus={mapFocus}
                 openSettings={() => setView("settings")}
@@ -963,7 +843,7 @@ export function CompanyWorkspace() {
               : dialog.type === "delete-structure"
                 ? `Delete ${dialog.target.kind}?`
                 : dialog.type === "find"
-                  ? "Find anything"
+                  ? "Search or run a command"
                   : dialog.type === "navigation"
                     ? "Workspace"
                     : dialog.type === "canvas"
@@ -986,7 +866,7 @@ export function CompanyWorkspace() {
                                     : "Add a teammate"
                                   : dialog.type === "rename"
                                     ? "Make it your company"
-                                    : "Getting started"
+                                    : "Help & shortcuts"
           }
           close={() => setDialog(null)}
         >
@@ -1099,7 +979,6 @@ export function CompanyWorkspace() {
           {dialog.type === "find" && (
             <QuickFind company={company} choose={chooseResult} actions={paletteActions} />
           )}
-          {dialog.type === "navigation" && <WorkspaceNavigation {...navigationProps} mobile />}
           {dialog.type === "inspect-task" &&
             (inspectedTask ? (
               <WorkDetail
@@ -1313,31 +1192,50 @@ export function CompanyWorkspace() {
             />
           )}
           {dialog.type === "help" && (
-            <div className="co-guide">
-              <p>Six places to find your work. Start small; add structure when you need it.</p>
-              {destinations.map((d) => (
-                <div key={d.view}>
-                  <span>
-                    <strong>{d.label}</strong>
-                    <p>{d.description}</p>
-                  </span>
-                  <button
-                    className="co-button"
-                    onClick={() => {
-                      setDialog(null);
-                      setView(d.view);
-                    }}
-                  >
-                    Open
-                  </button>
-                </div>
-              ))}
-              <div className="co-form-note">
-                The Mac app uses your installed Codex or Claude Code CLI and sign-in. Chats are
-                read-only; task details show execution and approvals. Some advanced canvas blocks
-                remain non-executable and will block a run. Rehearsals are simulations. Library
-                discovery reads metadata only.
-              </div>
+            <div className="sh-help">
+              <section>
+                <h3>How it works</h3>
+                <ol>
+                  <li>
+                    <strong>Home</strong> is your company: offices, agents, and the workflows they
+                    run. Open a workflow to edit it in the Studio.
+                  </li>
+                  <li>
+                    <strong>Build workflows</strong> on the canvas or by asking the Studio Copilot.
+                    Steps run on your installed Codex or Claude Code.
+                  </li>
+                  <li>
+                    <strong>Activity</strong> shows what needs your approval, what&apos;s running,
+                    and every result.
+                  </li>
+                  <li>
+                    <strong>Library</strong> holds notes your agents use and the tools they can
+                    call.
+                  </li>
+                </ol>
+              </section>
+              <section>
+                <h3>Shortcuts</h3>
+                <dl>
+                  {[
+                    ["⌘K", "Search or run a command"],
+                    ["⌘T", "New chat"],
+                    ["⌘1–9", "Switch open tabs"],
+                    ["⌃1–4", "Home, Chat, Activity, Library"],
+                    ["⌘J", "Terminal"],
+                    ["⌘↵", "Run the workflow (Studio)"],
+                    ["⇧A", "Auto-arrange (Studio)"],
+                    ["V H F R O T S C", "Studio tools"],
+                  ].map(([keys, label]) => (
+                    <div key={keys}>
+                      <dt>
+                        <kbd>{keys}</kbd>
+                      </dt>
+                      <dd>{label}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
             </div>
           )}
         </CompanyDialog>

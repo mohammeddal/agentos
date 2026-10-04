@@ -7,6 +7,7 @@ import {
   CircleCheck,
   ChevronRight,
   FileSearch,
+  MessageSquarePlus,
   Plug,
   RefreshCw,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import {
   type Engine,
   type Inventory,
 } from "./engine-inventory";
+import { setupPrompt } from "./EngineSettings";
 import "./engine-library.css";
 import { HelpTip } from "../../shared/HelpTip";
 
@@ -29,7 +31,17 @@ const statusNames = {
   disabled: "Disabled in source",
   cached: "Cached · not verified",
 };
-export function EngineLibrary({ query }: { query: string }) {
+export function EngineLibrary({
+  query,
+  setupWithChat,
+  focus,
+}: {
+  query: string;
+  /** Opens a chat that can make changes, prefilled with a setup request. */
+  setupWithChat?: ((prompt: string, engine: Engine) => void) | undefined;
+  /** Set when a workflow asked to set up a missing capability. */
+  focus?: { id: number; kind?: CapabilityKind; engine?: Engine } | null | undefined;
+}) {
   const [engine, setEngine] = useState<Engine>(() => {
     try {
       const saved = localStorage.getItem("agentos:inventory-engine");
@@ -38,7 +50,7 @@ export function EngineLibrary({ query }: { query: string }) {
       return "codex";
     }
   });
-  const [workspace] = useState(() => {
+  const [workspace, setWorkspace] = useState(() => {
     try {
       return localStorage.getItem("agentos:inventory-workspace") || "";
     } catch {
@@ -72,6 +84,9 @@ export function EngineLibrary({ query }: { query: string }) {
       if (request.current === id) setBusy(false);
     }
   }
+  useEffect(() => {
+    if (focus?.engine && focus.engine !== engine) setEngine(focus.engine);
+  }, [focus?.id]);
   useEffect(() => {
     void refresh(engine);
     try {
@@ -115,13 +130,57 @@ export function EngineLibrary({ query }: { query: string }) {
             </option>
           </select>
         </label>
+        <label className="co-engine-source co-engine-folder">
+          Project folder
+          <input
+            aria-label="Project folder to include"
+            placeholder="Optional absolute path"
+            value={workspace}
+            onChange={(event) => setWorkspace(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              try {
+                localStorage.setItem("agentos:inventory-workspace", workspace.trim());
+              } catch {
+                /* Session only. */
+              }
+              void refresh();
+            }}
+          />
+        </label>
         <div className="co-engine-actions">
+          {setupWithChat &&
+            (["mcp", "skill"] as const).map((target) => (
+              <button
+                key={target}
+                className="co-button"
+                disabled={engine === "gemini"}
+                title="Describe what you need; the engine installs and configures it, asking first"
+                onClick={() => setupWithChat(setupPrompt(target, engine), engine)}
+              >
+                <MessageSquarePlus size={14} />
+                New {target === "mcp" ? "MCP server" : "skill"}
+              </button>
+            ))}
           <button className="co-button" disabled={busy} onClick={() => void refresh()}>
             <RefreshCw size={14} />
             {busy ? "Scanning…" : "Refresh"}
           </button>
         </div>
       </div>
+      {focus?.kind && setupWithChat && (
+        <div className="co-engine-setup-note">
+          <strong>Add {capabilityNames[focus.kind].toLowerCase()}</strong>
+          <p>Pick an installed one below, or let {engineNames[engine]} set up a new one for you.</p>
+          <button
+            className="co-button co-button-primary"
+            onClick={() => setupWithChat(setupPrompt(focus.kind!, engine), engine)}
+          >
+            <MessageSquarePlus size={14} />
+            Set it up with chat
+          </button>
+        </div>
+      )}
       {error && (
         <div role="alert" className="co-form-error">
           {error} No previous results are shown as current. Try Refresh inventory.

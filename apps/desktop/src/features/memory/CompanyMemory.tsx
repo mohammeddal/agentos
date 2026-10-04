@@ -294,58 +294,117 @@ export function CompanyMemory({
     library?.entries.filter((entry) => entry.scope.startsWith("agent:")).length || 0;
   return (
     <section className="co-memory">
-      <div className="co-memory-header">
-        <div>
-          <BookOpen size={21} />
-          <span>
-            <strong>Notes your agents can use.</strong>
-            <small>
-              {library?.strict
-                ? "Strict review: only reviewed notes with evidence reach agents."
-                : "Every note that isn’t archived is shared with agents in its scope."}
-            </small>
-          </span>
-        </div>
+      <div className="co-memory-bar">
+        <nav className="co-memory-levels" aria-label="Memory level">
+          {(
+            [
+              ["company", "Main", companyCount],
+              ["office", "Offices", officeCount],
+              ["agent", "Agents", agentCount],
+            ] as const
+          ).map(([tier, label, count]) => (
+            <button
+              key={tier}
+              type="button"
+              aria-pressed={tab === "library" && scopeTier === tier}
+              disabled={
+                (tier === "office" && !officeScopes.length) ||
+                (tier === "agent" && !agentScopes.length)
+              }
+              onClick={() => {
+                setTab("library");
+                chooseTier(tier);
+              }}
+            >
+              {label}
+              <small>{count}</small>
+            </button>
+          ))}
+        </nav>
+        {tab === "library" && scopeTier !== "company" && (
+          <select
+            aria-label={scopeTier === "office" ? "Office" : "Agent"}
+            value={scope}
+            onChange={(event) => chooseScope(event.target.value)}
+          >
+            {(scopeTier === "office" ? officeScopes : agentScopes).map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        )}
+        <span className="co-memory-bar-gap" />
         {back && (
           <button className="co-button" onClick={back}>
             <ArrowLeft size={14} />
             Back to workflow
           </button>
         )}
-        <button className="co-button" disabled={busy} onClick={() => void load()}>
-          <RefreshCw size={14} />
-          Reload from disk
-        </button>
         <button
-          role="switch"
-          aria-label="Memory enabled"
-          aria-checked={library?.enabled || false}
-          disabled={!library || busy}
-          className="co-button"
-          onClick={() => library && void persist({ ...library, enabled: !library.enabled })}
+          className="co-button co-button-primary"
+          disabled={busy || !library}
+          onClick={() => {
+            setTab("library");
+            newEntry();
+          }}
         >
-          {library?.enabled ? "Memory on" : "Memory off"}
+          <Plus size={14} />
+          New note
         </button>
-        <button
-          role="switch"
-          aria-checked={library?.strict || false}
-          disabled={!library || busy}
-          className="co-button"
-          title="Require review and evidence before notes reach agents"
-          onClick={() => library && void persist({ ...library, strict: !library.strict })}
-        >
-          {library?.strict ? "Strict review on" : "Strict review off"}
-        </button>
-        <button
-          role="switch"
-          aria-checked={library ? library.learn !== false : false}
-          disabled={!library || busy}
-          className="co-button"
-          title="Save lessons agents report and failed runs as notes automatically"
-          onClick={() => library && void persist({ ...library, learn: library.learn === false })}
-        >
-          {library?.learn === false ? "Learning off" : "Learning from runs"}
-        </button>
+        <details className="co-memory-menu">
+          <summary aria-label="Memory settings" title="Memory settings">
+            <SlidersHorizontal size={15} />
+          </summary>
+          <div>
+            <label>
+              <input
+                type="checkbox"
+                checked={library?.enabled || false}
+                disabled={!library || busy}
+                onChange={() => library && void persist({ ...library, enabled: !library.enabled })}
+              />
+              <span>
+                Memory on<small>Share notes with agents</small>
+              </span>
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={library ? library.learn !== false : false}
+                disabled={!library || busy}
+                onChange={() =>
+                  library && void persist({ ...library, learn: library.learn === false })
+                }
+              />
+              <span>
+                Learn from runs<small>Save lessons and failures automatically</small>
+              </span>
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={library?.strict || false}
+                disabled={!library || busy}
+                onChange={() => library && void persist({ ...library, strict: !library.strict })}
+              />
+              <span>
+                Strict review<small>Only reviewed notes with evidence reach agents</small>
+              </span>
+            </label>
+            <button type="button" onClick={() => setTab(tab === "context" ? "library" : "context")}>
+              <Eye size={13} /> {tab === "context" ? "Back to notes" : "Preview what agents see"}
+            </button>
+            <button type="button" disabled={busy} onClick={() => void load()}>
+              <RefreshCw size={13} /> Reload from disk
+            </button>
+            {file?.directory && (
+              <small className="co-memory-path" title={file.directory}>
+                <FolderOpen size={12} /> {file.directory}
+              </small>
+            )}
+          </div>
+        </details>
       </div>
       {error && (
         <p className="co-form-error" role="alert">
@@ -366,110 +425,6 @@ export function CompanyMemory({
         </p>
       ) : (
         <>
-          <div className="co-memory-storage">
-            <FolderOpen size={17} />
-            <div>
-              <strong>Local Markdown workspace</strong>
-              <code>{file?.directory}</code>
-              <small>
-                MEMORY.md is the index. Every memory below is a normal Markdown file you can open,
-                edit, and reload from disk. Only reviewed files enter agent context.
-              </small>
-            </div>
-          </div>
-          <nav className="co-activity-filters" aria-label="Memory view">
-            <button aria-pressed={tab === "library"} onClick={() => setTab("library")}>
-              Files · {library.entries.length + 1}
-            </button>
-            <button
-              aria-pressed={tab === "issues"}
-              onClick={() => {
-                setCandidates(issueCandidates());
-                setTab("issues");
-              }}
-            >
-              Learn from issues
-            </button>
-            <button aria-pressed={tab === "context"} onClick={() => setTab("context")}>
-              Context preview
-            </button>
-          </nav>
-          <section className="co-memory-scope" aria-label="Memory scope">
-            <div className="co-memory-scope-heading">
-              <span>
-                <strong>{selectedScope?.label || "Main memory"}</strong>
-                <small>
-                  {scopeTier === "company"
-                    ? "Shared context for the whole company"
-                    : scopeTier === "office"
-                      ? "Context shared by this office"
-                      : "Context specific to this agent"}
-                </small>
-              </span>
-              <em>{visible.length} shown</em>
-            </div>
-            <nav className="co-memory-scope-levels" aria-label="Memory level">
-              <button
-                type="button"
-                aria-pressed={scopeTier === "company"}
-                onClick={() => chooseTier("company")}
-              >
-                <BookOpen size={14} />
-                <span>
-                  <strong>Main</strong>
-                  <small>{companyCount}</small>
-                </span>
-              </button>
-              <button
-                type="button"
-                aria-pressed={scopeTier === "office"}
-                disabled={!officeScopes.length}
-                onClick={() => chooseTier("office")}
-              >
-                <Building2 size={14} />
-                <span>
-                  <strong>Offices</strong>
-                  <small>{officeCount}</small>
-                </span>
-              </button>
-              <button
-                type="button"
-                aria-pressed={scopeTier === "agent"}
-                disabled={!agentScopes.length}
-                onClick={() => chooseTier("agent")}
-              >
-                <Bot size={14} />
-                <span>
-                  <strong>Agents</strong>
-                  <small>{agentCount}</small>
-                </span>
-              </button>
-            </nav>
-            {scopeTier === "office" && (
-              <label>
-                Office
-                <select value={scope} onChange={(event) => chooseScope(event.target.value)}>
-                  {officeScopes.map((office) => (
-                    <option key={office.value} value={office.value}>
-                      {office.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            {scopeTier === "agent" && (
-              <label>
-                Agent
-                <select value={scope} onChange={(event) => chooseScope(event.target.value)}>
-                  {agentScopes.map((agent) => (
-                    <option key={agent.value} value={agent.value}>
-                      {agent.label} · {agent.office}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-          </section>
           {conflicts.size > 0 && (
             <div className="co-memory-warning">
               {conflicts.size} reviewed records have conflicting statements under the same title and
@@ -479,30 +434,21 @@ export function CompanyMemory({
           )}
           {tab === "library" && (
             <>
-              <div className="co-memory-tools">
-                <label>
-                  Show
-                  <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-                    <option value="all">All records</option>
-                    <option value="draft">Needs review</option>
-                    <option value="reviewed">Reviewed</option>
-                    <option value="archived">Archived</option>
-                  </select>
-                </label>
-                <button className="co-button co-button-primary" disabled={busy} onClick={newEntry}>
-                  <Plus size={14} />
-                  New memory
-                </button>
-              </div>
+              {library.strict && (
+                <div className="co-memory-tools">
+                  <label>
+                    Show
+                    <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+                      <option value="all">All notes</option>
+                      <option value="draft">Needs review</option>
+                      <option value="reviewed">Reviewed</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </label>
+                </div>
+              )}
               <div className="co-memory-workspace">
                 <aside className="co-memory-files" aria-label="Markdown memory files">
-                  <button className={!draft ? "selected" : ""} onClick={() => setDraft(null)}>
-                    <FileText size={14} />
-                    <span>
-                      <strong>MEMORY.md</strong>
-                      <small>Workspace index</small>
-                    </span>
-                  </button>
                   {visible.map((entry) => (
                     <button
                       className={draft?.id === entry.id ? "selected" : ""}
@@ -511,7 +457,7 @@ export function CompanyMemory({
                     >
                       <FileText size={14} />
                       <span>
-                        <strong>{entry.title}.md</strong>
+                        <strong>{entry.title}</strong>
                         <small>
                           {conflicts.has(entry.id)
                             ? "Conflict · excluded"
@@ -526,20 +472,12 @@ export function CompanyMemory({
                       </span>
                     </button>
                   ))}
-                  {!visible.length && <p>No files in this scope.</p>}
+                  {!visible.length && <p>No notes here yet.</p>}
                 </aside>
                 {!draft ? (
-                  <article className="co-memory-file-view co-memory-preview">
-                    <header>
-                      <span>
-                        <FileText size={16} />
-                        <strong>MEMORY.md</strong>
-                      </span>
-                      <small>Generated index · read only</small>
-                    </header>
-                    <div className="co-memory-rendered">
-                      <ReactMarkdown>{memoryDocuments(library)[0]!.contents}</ReactMarkdown>
-                    </div>
+                  <article className="co-memory-file-view co-memory-empty">
+                    <FileText size={20} />
+                    <p>Select a note, or create one with New note.</p>
                   </article>
                 ) : (
                   <form
@@ -592,7 +530,7 @@ export function CompanyMemory({
                     <header className="co-memory-editor-bar">
                       <span>
                         <FileText size={16} />
-                        <strong>{documentTitle(documentDraft) || "Untitled memory"}.md</strong>
+                        <strong>{documentTitle(documentDraft) || "Untitled note"}</strong>
                         <small>
                           {editorMode === "details"
                             ? "File settings"
@@ -766,54 +704,6 @@ export function CompanyMemory({
                       </button>
                     </footer>
                   </form>
-                )}
-              </div>
-            </>
-          )}
-          {tab === "issues" && (
-            <>
-              <div className="co-runtime-notice">
-                <ShieldCheck size={21} />
-                <div>
-                  <strong>Turn an issue into a reviewed lesson.</strong>
-                  <p>
-                    Record the failure, evidence, and a prevention step. Live failures and rehearsal
-                    observations are labeled separately. Captured records remain drafts until you
-                    review them; they are never promoted to facts automatically.
-                  </p>
-                </div>
-              </div>
-              <div className="co-memory-records">
-                {candidates
-                  .filter((e) => !library.entries.some((saved) => saved.sourceId === e.sourceId))
-                  .map((entry) => (
-                    <article className="co-memory-record" key={entry.sourceId}>
-                      <span>
-                        <em>
-                          {entry.sourceId.startsWith("live:")
-                            ? "LIVE RUN ISSUE"
-                            : "REHEARSAL OBSERVATION"}
-                        </em>
-                        <small>Unverified</small>
-                      </span>
-                      <h3>{entry.title}</h3>
-                      <p>{entry.evidence}</p>
-                      <button
-                        className="co-button"
-                        disabled={!library.enabled || busy}
-                        onClick={() => {
-                          openEntry({ ...entry, scope });
-                          setTab("library");
-                        }}
-                      >
-                        Draft a lesson
-                      </button>
-                    </article>
-                  ))}
-                {!candidates.some(
-                  (e) => !library.entries.some((saved) => saved.sourceId === e.sourceId),
-                ) && (
-                  <p>No uncaptured issues. You can record an issue or lesson with New memory.</p>
                 )}
               </div>
             </>

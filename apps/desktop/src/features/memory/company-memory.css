@@ -543,3 +543,124 @@
   gap: 8px;
   margin-top: 12px;
 }
+
+/* Compact toolbar: scope on the left, New note and settings on the right. */
+.co-memory-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.co-memory-bar > select {
+  max-width: 240px;
+  padding: 6px 8px;
+  border: 1px solid var(--co-border);
+  border-radius: 6px;
+  background: var(--co-card);
+  color: var(--co-text);
+}
+.co-memory-bar-gap {
+  flex: 1;
+}
+.co-memory-levels {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--co-soft);
+}
+.co-memory-levels button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--co-secondary);
+  font-size: 12px;
+}
+.co-memory-levels button[aria-pressed="true"] {
+  background: var(--co-card);
+  color: var(--co-text);
+  box-shadow: 0 1px 2px #0000001a;
+}
+.co-memory-levels small {
+  color: var(--co-muted);
+  font-size: 10px;
+}
+.co-memory-menu {
+  position: relative;
+}
+.co-memory-menu > summary {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--co-border);
+  border-radius: 6px;
+  background: var(--co-card);
+  list-style: none;
+  cursor: pointer;
+}
+.co-memory-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.co-memory-menu > div {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 2px;
+  width: 280px;
+  padding: 6px;
+  border: 1px solid var(--co-border);
+  border-radius: 10px;
+  background: var(--co-card);
+  box-shadow: var(--co-shadow);
+}
+.co-memory-menu label,
+.co-memory-menu button {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 12px;
+  text-align: left;
+}
+.co-memory-menu label:hover,
+.co-memory-menu button:hover {
+  background: var(--co-hover);
+}
+.co-memory-menu label span {
+  display: grid;
+}
+.co-memory-menu label small {
+  color: var(--co-muted);
+  font-size: 10.5px;
+}
+.co-memory-path {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 6px 8px 2px;
+  border-top: 1px solid var(--co-border);
+  overflow: hidden;
+  color: var(--co-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.co-memory-empty {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  min-height: 300px;
+  color: var(--co-muted);
+}

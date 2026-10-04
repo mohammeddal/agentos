@@ -289,14 +289,8 @@ export function AgentPanel({
         </Section>
       )}
       <footer className="map-panel-footer">
-        <button className="co-button" onClick={history}>
-          Run history
-        </button>
         <button className="co-button" onClick={configure}>
-          Configure
-        </button>
-        <button className="co-button" onClick={editOffice}>
-          Edit office
+          Edit agent
         </button>
       </footer>
     </>

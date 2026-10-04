@@ -1,5 +1,5 @@
 import { useResizableWidth } from "../../shared/useResizableWidth";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Clock3, Maximize2, Minus, Play, Plus, Settings2 } from "lucide-react";
 import {
   taskParticipants,
@@ -25,7 +25,7 @@ import { runLabel } from "../engines/run-presentation";
 import "./company-floorplan.css";
 
 type Selection = { kind: "agent" | "workflow"; id: string } | null;
-export type MapFocus = { kind: "agent" | "workflow"; id: string; key: number };
+export type MapFocus = { kind: "agent" | "workflow" | "office"; id: string; key: number };
 
 const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 1.6;
@@ -45,6 +45,8 @@ type Props = {
   runWorkflow: (task: CompanyTask) => Promise<void>;
   assignWork: (agent: CompanyAgent, text: string) => Promise<void>;
   openSettings: () => void;
+  /** Status summary shown in the map's bar (the Today strip). */
+  toolbar?: ReactNode;
 };
 
 export function CompanyFloorplan({
@@ -61,6 +63,7 @@ export function CompanyFloorplan({
   runWorkflow,
   assignWork,
   openSettings,
+  toolbar,
 }: Props) {
   const live = useLiveRuntime();
   const panel = useResizableWidth("agentos:map-panel-width", 420);
@@ -205,18 +208,15 @@ export function CompanyFloorplan({
   }
   useEffect(() => {
     if (!focus) return;
+    if (focus.kind === "office") {
+      const room = layout.rooms.find((r) => r.office.id === focus.id);
+      if (room) fitBox(room);
+      return;
+    }
     setSelection({ kind: focus.kind, id: focus.id });
     reveal(focus.kind, focus.id);
   }, [focus?.key]);
 
-  function chip(stateName: AgentMapState) {
-    if (highlight === stateName) return setHighlight(null);
-    setHighlight(stateName);
-    const first = agents.find(({ agent }) => state(agent) === stateName);
-    if (!first) return;
-    if (stateName === "approval") setSelection({ kind: "agent", id: first.agent.id });
-    reveal("agent", first.agent.id);
-  }
   // Arrow keys move between desks by position; Enter opens the focused desk; Esc closes.
   function onKeyDown(event: React.KeyboardEvent) {
     if (event.key === "Escape") {
@@ -333,21 +333,7 @@ export function CompanyFloorplan({
   return (
     <section className="map" aria-label="Company floor plan" onKeyDown={onKeyDown}>
       <div className="map-bar">
-        <div className="map-chips" role="group" aria-label="Team status">
-          {(["working", "approval", "ready", "offline"] as const).map((stateName) => (
-            <button
-              key={stateName}
-              className="map-chip"
-              data-state={stateName}
-              aria-pressed={highlight === stateName}
-              disabled={!counts[stateName]}
-              onClick={() => chip(stateName)}
-            >
-              <i aria-hidden="true" />
-              <strong>{counts[stateName]}</strong> {agentStateLabels[stateName].toLowerCase()}
-            </button>
-          ))}
-        </div>
+        <div className="map-toolbar">{toolbar}</div>
         <div className="map-zoom" role="group" aria-label="Zoom">
           <button
             className="co-icon-button"

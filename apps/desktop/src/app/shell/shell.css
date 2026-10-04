@@ -265,11 +265,44 @@
   color: var(--co-muted);
   transition: transform 0.12s;
 }
-.sh-row-parent[aria-expanded="true"] .sh-caret {
+.sh-caret-button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 30px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.sh-caret-button[aria-expanded="true"] .sh-caret {
   transform: rotate(90deg);
 }
+.sh-row-parent {
+  padding-left: 2px;
+}
+.sh-row-add-icon {
+  position: absolute;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--co-secondary);
+  opacity: 0;
+}
+.sh-row-wrap:hover > .sh-row-add-icon,
+.sh-row-add-icon:focus-visible {
+  opacity: 1;
+}
+.sh-row-add-icon:hover {
+  background: var(--co-card);
+}
 .sh-row-child {
-  padding-left: 30px;
+  padding-left: 26px;
 }
 .sh-row-add {
   color: var(--co-muted);
@@ -532,4 +565,85 @@
 }
 .sh-app .sh-legacy-topbar {
   display: none !important;
+}
+
+/* Home: the map fills the page; one status bar (Today) instead of two. */
+.sh-app .co-content.co-map-mode {
+  max-width: none;
+  padding: 0;
+}
+.sh-app .co-map-mode > .map {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.sh-app .map-bar {
+  min-height: 48px;
+  padding: 8px 12px;
+}
+.sh-app .map-toolbar .sh-today {
+  margin: 0;
+}
+.sh-app .map-toolbar {
+  min-width: 0;
+}
+
+.sh-app .sh-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.sh-app .sh-page-head h1 {
+  margin: 0;
+}
+.sh-app .sh-page-head .co-search {
+  width: 260px;
+}
+
+.sh-help {
+  display: grid;
+  gap: 18px;
+  font-size: 13px;
+}
+.sh-help h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--co-muted);
+  font-weight: 600;
+}
+.sh-help ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.5;
+}
+.sh-help dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+.sh-help dl div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sh-help dt {
+  min-width: 64px;
+}
+.sh-help dd {
+  margin: 0;
+  color: var(--co-secondary);
+}
+.sh-help kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--co-border);
+  border-radius: 4px;
+  background: var(--co-soft);
+  font:
+    11px ui-monospace,
+    monospace;
 }
