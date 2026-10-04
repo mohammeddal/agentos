@@ -4,6 +4,7 @@ import { isTaskCanvas, newCanvasNode, type TaskCanvasGraph } from "../tasks/task
 import {
   applyPlan,
   describeWorkflow,
+  mergePatch,
   parsePlan,
   replyText,
   type InstalledTool,
@@ -109,5 +110,44 @@ describe("workflow copilot", () => {
     );
     expect(result.problems[0]).toContain("isn't installed");
     expect(result.graph.edges.some((e) => e.kind === "attachment")).toBe(false);
+  });
+  it("applies a patch: changes only listed steps and reconnects around removed ones", () => {
+    const base = applyPlan(
+      starterCompany,
+      empty(),
+      {
+        steps: [
+          { id: "a", kind: "prompt", title: "Collect", instructions: "Collect news" },
+          { id: "b", kind: "prompt", title: "Verify", after: ["a"] },
+          { id: "c", kind: "prompt", title: "Write", after: ["b"] },
+        ],
+      },
+      tools,
+    ).graph;
+    const ids = Object.fromEntries(
+      describeWorkflow(starterCompany, base).steps.map((s) => [s.title, s.id]),
+    );
+    const patch = parsePlan(
+      "Done.\n```agentos-workflow\n" +
+        JSON.stringify({
+          steps: [{ id: ids.Write, instructions: "Write 3 Arabic posts" }],
+          remove: [ids.Verify],
+        }) +
+        "\n```",
+    )!;
+    const merged = mergePatch(starterCompany, base, patch);
+    const result = applyPlan(starterCompany, base, merged, tools);
+    const g = result.graph;
+    expect(g.nodes.find((n) => n.title === "Collect")!.prompt).toBe("Collect news");
+    expect(g.nodes.find((n) => n.title === "Write")!.prompt).toBe("Write 3 Arabic posts");
+    expect(g.nodes.some((n) => n.title === "Verify")).toBe(false);
+    // Write now follows Collect directly.
+    expect(
+      g.edges.some((e) => e.from === ids.Collect && e.to === ids.Write && e.kind === "flow"),
+    ).toBe(true);
+    expect(result.changes).toEqual(["Updated Write", "Removed Verify"]);
+  });
+  it("treats a reply without a block as an answer, not a change", () => {
+    expect(parsePlan("Files are saved in the project folder under reports/.")).toBeNull();
   });
 });

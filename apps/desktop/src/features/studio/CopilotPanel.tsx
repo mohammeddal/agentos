@@ -15,6 +15,7 @@ import type { TaskCanvasGraph } from "../tasks/task-canvas-model";
 import {
   applyPlan,
   copilotPrompt,
+  mergePatch,
   parsePlan,
   replyText,
   type InstalledTool,
@@ -39,6 +40,7 @@ function readMessages(taskId: string): Message[] {
 }
 
 const starters = [
+  "What does this workflow produce, and where are the files saved?",
   "Build a workflow that collects today's AI news, verifies it, and drafts 3 Arabic posts.",
   "Add an approval step before anything is published.",
   "Make the first step use notebooklm and write clearer instructions for every step.",
@@ -54,10 +56,13 @@ export function CopilotPanel({
   taskId,
   graph,
   apply,
+  facts,
 }: {
   company: Company;
   taskId: string;
   graph: TaskCanvasGraph;
+  /** Where files go, schedule, and the latest run, so questions get real answers. */
+  facts: string;
   apply: (next: TaskCanvasGraph) => void;
 }) {
   const live = useLiveRuntime();
@@ -74,6 +79,13 @@ export function CopilotPanel({
   ];
   const transcript = useRef<HTMLDivElement>(null);
   const run = pending ? live.runs.find((r) => r.request.id === pending.runId) : undefined;
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!pending) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [pending?.runId]);
+  const elapsed = run ? Math.max(0, Math.round((now - run.createdAt) / 1000)) : 0;
 
   useEffect(() => {
     try {
@@ -108,7 +120,7 @@ export function CopilotPanel({
       return;
     }
     // Apply to the canvas as it is now, so edits made while waiting are kept where possible.
-    const result = applyPlan(company, graph, plan, tools);
+    const result = applyPlan(company, graph, mergePatch(company, graph, plan), tools);
     if (result.changes.length) apply(result.graph);
     setMessages((m) => [
       ...m,
@@ -142,7 +154,7 @@ export function CopilotPanel({
           id: "chat",
           label: "Workflow copilot",
           engine,
-          prompt: copilotPrompt(company, graph, tools, request),
+          prompt: copilotPrompt(company, graph, tools, request, facts),
           attachments: [],
           agentId: "",
           after: [],
@@ -205,7 +217,16 @@ export function CopilotPanel({
         ))}
         {pending && (
           <div className="st-copilot-msg" data-role="copilot">
-            <p className="st-copilot-thinking">Designing the workflow…</p>
+            {run && replyText(run.output) ? (
+              <AssistantMessage text={replyText(run.output.split("```agentos-workflow")[0]!)} />
+            ) : null}
+            <p className="st-copilot-thinking">
+              {!run || !run.output
+                ? `Thinking… ${elapsed}s`
+                : run.output.includes("```agentos-workflow")
+                  ? `Preparing the changes… ${elapsed}s`
+                  : `Writing… ${elapsed}s`}
+            </p>
           </div>
         )}
         {error && <p className="st-error">{error}</p>}

@@ -29,7 +29,14 @@ export type PlanStep = {
   tools?: string[];
   context?: { title: string; notes: string }[];
 };
-export type CopilotPlan = { summary?: string; name?: string; outcome?: string; steps: PlanStep[] };
+export type CopilotPlan = {
+  summary?: string;
+  name?: string;
+  outcome?: string;
+  steps: PlanStep[];
+  /** Ids of steps to delete. Steps not listed are kept as they are. */
+  remove?: string[];
+};
 export type InstalledTool = Capability & { engine: "codex" | "claude" };
 
 const FENCE = "agentos-workflow";
@@ -91,6 +98,8 @@ export function copilotPrompt(
   graph: TaskCanvasGraph,
   tools: InstalledTool[],
   request: string,
+  /** Facts the copilot can answer from: where files go, schedule, the latest run. */
+  facts = "",
 ): string {
   const agents = company.offices.flatMap((office) =>
     office.agents.map((a) => `- ${a.name} (${office.name}; ${a.role}; ${a.engine})`),
@@ -100,25 +109,34 @@ export function copilotPrompt(
     200,
   );
   return [
-    "You are the AgentOS workflow copilot. You design and edit multi-step agent workflows. You do not run them and you must not use tools, edit files, or run commands.",
-    "Building blocks:",
-    '- step kinds: "agent" (a company agent, set "agent" to its exact name), "office" (a whole office, set "office"), "prompt" (a custom step run directly on "codex" or "claude"), "approval" (pauses until "reviewer" approves: "me" or an agent name).',
-    '- "after": ids of steps that must finish first; use "start" for the first steps. Steps with the same "after" run in parallel.',
-    '- "when": run after the previous step "success" (default), "failure", or "always".',
-    '- "tools": names of installed MCP servers, skills, or connectors the step must use. Only use names from the installed list.',
-    '- "context": reference notes for a step: [{"title": "...", "notes": "..."}].',
-    '- Write each step\'s "instructions" as a clear, specific brief for that agent: what to do, inputs to use, and what to hand off.',
+    "You are the AgentOS workflow copilot for one workflow. You answer questions about it and edit it on request. You never run it, use tools, edit files, or run commands.",
+    "",
+    "First decide what the user wants:",
+    "- A QUESTION (what does it do, where is the output saved, why did it fail, what does a step do): answer briefly and concretely from the facts below. Do NOT include a workflow block and do not change anything.",
+    "- A CHANGE (add, remove, rewrite, reorder, attach a tool): say in one or two sentences what you changed, then include ONE workflow block containing only what changes.",
+    "- Unclear: ask one short question and include no block.",
+    "",
+    "Workflow block format (a patch):",
+    `\`\`\`${FENCE}\n{"summary":"...","steps":[{"id":"existing-or-new-id","title":"...","instructions":"..."}],"remove":["id-to-delete"]}\n\`\`\``,
+    "- List only steps you add or change. For a changed step include its id and only the fields that change. Unlisted steps stay exactly as they are.",
+    '- New steps need "id" (short, new), "kind", and "after".',
+    '- Optional top-level "name" and "outcome" rename the workflow or change its goal.',
+    "",
+    "Step fields:",
+    '- "kind": "agent" (set "agent" to an exact company agent name), "office" (set "office"), "prompt" (custom step; set "engine": "codex" or "claude"), "approval" (set "reviewer": "me" or an agent name).',
+    '- "after": ids that must finish first; "start" means right after the workflow begins.',
+    '- "when": "success" (default), "failure", or "always".',
+    '- "tools": installed tool names only. "context": [{"title","notes"}].',
+    '- "instructions": a specific brief for that step: what to do, inputs, and what to hand off.',
     "",
     `Company agents:\n${agents.join("\n") || "- none (use prompt steps)"}`,
     "",
     `Installed tools:\n${toolNames.join("\n") || "- none"}`,
     "",
-    `Current workflow (edit this; keep ids of steps you keep):\n\`\`\`json\n${JSON.stringify(describeWorkflow(company, graph), null, 1)}\n\`\`\``,
+    facts ? `Facts about this workflow:\n${facts}\n` : "",
+    `Current workflow:\n\`\`\`json\n${JSON.stringify(describeWorkflow(company, graph))}\n\`\`\``,
     "",
-    `User request: ${request}`,
-    "",
-    `Reply with one or two sentences saying what you changed, then the COMPLETE updated workflow in a fenced block:\n\`\`\`${FENCE}\n{"summary":"...","name":"...","outcome":"...","steps":[{"id":"...","kind":"agent","agent":"...","title":"...","instructions":"...","after":["start"],"tools":[],"context":[]}]}\n\`\`\``,
-    "If the request is unclear, ask one short question instead and omit the block.",
+    `User: ${request}`,
   ].join("\n");
 }
 
@@ -128,7 +146,10 @@ export function parsePlan(text: string): CopilotPlan | null {
   if (!match) return null;
   try {
     const value = JSON.parse(match[1]!) as CopilotPlan;
-    if (!value || !Array.isArray(value.steps) || value.steps.length > 40) return null;
+    if (!value || typeof value !== "object") return null;
+    if (!Array.isArray(value.steps)) value.steps = [];
+    if (value.steps.length > 40) return null;
+    if (value.remove !== undefined && !Array.isArray(value.remove)) delete value.remove;
     const steps = value.steps.filter(
       (s): s is PlanStep => !!s && typeof s === "object" && typeof s.id === "string" && !!s.id,
     );
@@ -147,6 +168,46 @@ export function replyText(text: string): string {
  * Applies a plan to the canvas. Steps keep their block (position, colour) when the id matches;
  * new blocks are laid out by flow. Annotations are never touched.
  */
+/**
+ * Turns a patch (only changed steps, plus ids to remove) into the complete plan by merging it
+ * with the current workflow. Unlisted steps keep everything, including their connections.
+ */
+export function mergePatch(
+  company: Company,
+  graph: TaskCanvasGraph,
+  patch: CopilotPlan,
+): CopilotPlan {
+  const current = describeWorkflow(company, graph);
+  const removed = new Set(patch.remove || []);
+  const steps = current.steps
+    .filter((step) => !removed.has(step.id))
+    .map((step) => {
+      const change = patch.steps.find((s) => s.id === step.id);
+      if (!change) return step;
+      const defined = Object.fromEntries(
+        Object.entries(change).filter(([, value]) => value !== undefined && value !== null),
+      ) as Partial<PlanStep>;
+      return { ...step, ...defined };
+    });
+  for (const step of patch.steps)
+    if (!current.steps.some((s) => s.id === step.id) && !removed.has(step.id)) steps.push(step);
+  // Steps that waited on a removed step now follow what it followed.
+  for (const step of steps)
+    if (step.after?.some((id) => removed.has(id))) {
+      const inherited = step.after.flatMap((id) =>
+        removed.has(id) ? current.steps.find((s) => s.id === id)?.after || ["start"] : [id],
+      );
+      step.after = [...new Set(inherited.filter((id) => !removed.has(id)))];
+    }
+  return {
+    ...current,
+    ...(patch.name ? { name: patch.name } : {}),
+    ...(typeof patch.outcome === "string" ? { outcome: patch.outcome } : {}),
+    ...(patch.summary ? { summary: patch.summary } : {}),
+    steps,
+  };
+}
+
 export function applyPlan(
   company: Company,
   graph: TaskCanvasGraph,

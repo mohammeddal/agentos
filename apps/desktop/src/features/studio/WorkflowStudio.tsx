@@ -1482,6 +1482,14 @@ export function WorkflowStudio({
               company={company}
               taskId={taskId}
               graph={graph}
+              facts={[
+                `Files are saved to: ${folderLabel}. Each run works in that folder; finished runs list the files they changed.`,
+                `Schedule: ${meta.schedule.kind === "cron" ? `cron ${meta.schedule.expression} (${meta.schedule.timeZone})` : "runs when started by hand"}.`,
+                `Before it starts: ${meta.approval.kind === "none" ? "starts right away" : meta.approval.kind === "human" ? "waits for the user's approval" : "an agent reviews first"}.`,
+                viewedRun
+                  ? `Latest run: ${viewedRun.status} on ${new Date(viewedRun.createdAt).toLocaleString()}${viewedRun.error ? `; error: ${viewedRun.error.slice(0, 400)}` : ""}${viewedRun.files?.length ? `; files changed: ${viewedRun.files.slice(0, 20).join(", ")}` : "; no files changed"}${viewedRun.output ? `; final output (excerpt): ${viewedRun.output.slice(-1200)}` : ""}`
+                  : "It has not run yet.",
+              ].join("\n")}
               apply={(next) => {
                 commit(next);
                 window.requestAnimationFrame(() =>
