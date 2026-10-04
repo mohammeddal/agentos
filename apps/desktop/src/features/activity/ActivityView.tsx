@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { describeApproval } from "../engines/approval-text";
 import { ArrowUpRight, GitBranch, MessageSquare, MessageSquarePlus, Search } from "lucide-react";
 import { useLiveRuntime, type LiveRun } from "../engines/live-runtime";
 import { runLabel } from "../engines/run-presentation";
@@ -84,7 +85,7 @@ export function ActivityView({
                 <strong>{run.request.title}</strong>
                 <small>
                   {run.approvals.length
-                    ? run.approvals[0]!.title
+                    ? describeApproval(run.approvals[0]!).title
                     : run.error
                       ? run.error.slice(0, 120)
                       : `${run.request.steps.length} ${run.request.steps.length === 1 ? "step" : "steps"}`}

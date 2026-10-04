@@ -42,7 +42,7 @@ type Props = {
   editAgent: (officeId: string, agent: CompanyAgent) => void;
   inspectAgent: (officeId: string, agent: CompanyAgent) => void;
   openWorkflow: (task: CompanyTask) => void;
-  runWorkflow: (task: CompanyTask) => Promise<void>;
+  runWorkflow: (task: CompanyTask, fromStepId?: string) => Promise<void>;
   assignWork: (agent: CompanyAgent, text: string) => Promise<void>;
   openSettings: () => void;
   /** Status summary shown in the map's bar (the Today strip). */
@@ -604,6 +604,7 @@ export function CompanyFloorplan({
               runs={taskRuns(selectedTask)}
               close={() => setSelection(null)}
               runNow={() => runWorkflow(selectedTask)}
+              retryFrom={(stepId) => runWorkflow(selectedTask, stepId)}
               open={() => openWorkflow(selectedTask)}
               selectAgent={(id) => {
                 setSelection({ kind: "agent", id });

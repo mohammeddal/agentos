@@ -210,6 +210,24 @@ export function WorkflowStudio({
   const [connectFrom, setConnectFrom] = useState("");
   const [editingText, setEditingText] = useState("");
   const [leftTab, setLeftTab] = useState<"layers" | "blocks">("layers");
+  // Resources attached to a step show as chips inside it; blocks only when asked.
+  const [showResources, setShowResources] = useState(() => {
+    try {
+      return localStorage.getItem("agentos:studio-resources") === "blocks";
+    } catch {
+      return false;
+    }
+  });
+  function toggleResources() {
+    setShowResources((on) => {
+      try {
+        localStorage.setItem("agentos:studio-resources", on ? "chips" : "blocks");
+      } catch {
+        /* Session only. */
+      }
+      return !on;
+    });
+  }
   const [blockQuery, setBlockQuery] = useState("");
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     try {
@@ -246,6 +264,22 @@ export function WorkflowStudio({
   const statuses = useMemo(() => canvasRunStatuses(graph, viewedRun), [graph, viewedRun]);
   const decor = graph.decor || [];
   const root = graph.nodes.find((node) => node.kind === "task");
+  const attachedTo = (id: string) =>
+    graph.edges
+      .filter((e) => e.kind === "attachment" && e.to === id)
+      .map((e) => graph.nodes.find((n) => n.id === e.from))
+      .filter((n): n is CanvasNode => !!n);
+  const collapsed = new Set(
+    showResources
+      ? []
+      : graph.nodes
+          .filter(
+            (n) =>
+              attachmentKinds.includes(n.kind) &&
+              graph.edges.some((e) => e.kind === "attachment" && e.from === n.id),
+          )
+          .map((n) => n.id),
+  );
   const selectedNodes = graph.nodes.filter((node) => selection.includes(node.id));
   const selectedDecor = decor.filter((item) => selection.includes(item.id));
   const edge = graph.edges.find((candidate) => candidate.id === edgeId);
@@ -373,7 +407,10 @@ export function WorkflowStudio({
     }));
   }
   function fitAll(
-    box = unionBox([...graph.nodes.map(nodeBox), ...decor.filter((d) => !d.hidden).map(decorBox)]),
+    box = unionBox([
+      ...graph.nodes.filter((n) => !collapsed.has(n.id)).map(nodeBox),
+      ...decor.filter((d) => !d.hidden).map(decorBox),
+    ]),
   ) {
     const rect = viewport.current?.getBoundingClientRect();
     if (!rect) return;
@@ -1094,6 +1131,19 @@ export function WorkflowStudio({
           ))}
           <button
             type="button"
+            aria-label={showResources ? "Show resources as chips" : "Show resources as blocks"}
+            aria-pressed={showResources}
+            title={
+              showResources
+                ? "Resources: blocks · click for chips"
+                : "Resources: chips · click for blocks"
+            }
+            onClick={toggleResources}
+          >
+            <Plug size={16} />
+          </button>
+          <button
+            type="button"
             aria-label="Auto-arrange (Shift A)"
             title="Auto-arrange · ⇧A"
             onClick={arrange}
@@ -1355,7 +1405,7 @@ export function WorkflowStudio({
             {graph.edges.map((e) => {
               const from = graph.nodes.find((n) => n.id === e.from);
               const to = graph.nodes.find((n) => n.id === e.to);
-              if (!from || !to) return null;
+              if (!from || !to || collapsed.has(from.id)) return null;
               const attachment = e.kind === "attachment";
               const a = nodeBox(from);
               const b = nodeBox(to);
@@ -1399,6 +1449,7 @@ export function WorkflowStudio({
             )}
           </svg>
           {graph.nodes.map((node) => {
+            if (collapsed.has(node.id)) return null;
             const box = nodeBox(node);
             const Icon = kindIcons[node.kind];
             const status = statuses[node.id];
@@ -1441,6 +1492,30 @@ export function WorkflowStudio({
                 </header>
                 <strong>{node.title || blockNames[node.kind]}</strong>
                 <p>{subtitle(node)}</p>
+                {!showResources && attachedTo(node.id).length > 0 && (
+                  <div className="st-chips">
+                    {attachedTo(node.id).map((resource) => {
+                      const ChipIcon = kindIcons[resource.kind];
+                      return (
+                        <span
+                          key={resource.id}
+                          className="st-chip-resource"
+                          data-item={resource.id}
+                          data-selected={selection.includes(resource.id) || undefined}
+                          title={`${blockNames[resource.kind]} · ${resource.title}`}
+                          style={
+                            {
+                              "--accent": resource.style?.fill || kindColors[resource.kind],
+                            } as CSSProperties
+                          }
+                        >
+                          <ChipIcon size={10} />
+                          {resource.title}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 {canConnectTo(node) && <span className="st-port st-port-in" />}
                 {canConnectFrom(node) && (
                   <span

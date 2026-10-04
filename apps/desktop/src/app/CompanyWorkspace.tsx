@@ -143,6 +143,12 @@ export function CompanyWorkspace() {
     }
   }
   const openTabs = useOpenTabs(company, route);
+  // Notices are toasts: they confirm and get out of the way.
+  useEffect(() => {
+    if (!directoryNotice) return;
+    const timer = window.setTimeout(() => setDirectoryNotice(""), 6000);
+    return () => window.clearTimeout(timer);
+  }, [directoryNotice]);
   const tasks = company.tasks || [];
   const structureImpact =
     dialog?.type === "delete-structure"
@@ -238,10 +244,25 @@ export function CompanyWorkspace() {
     );
   }
   /** A chat answer becomes the outcome of a new workflow; the Studio copilot builds its steps. */
-  function workflowFromChat(request: string, reply: string, projectId?: string) {
+  function workflowFromChat(
+    request: string,
+    reply: string,
+    projectId?: string,
+    buildWithCopilot = false,
+  ) {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    const outcome = `${request}\n\nPlan from chat:\n${reply}`.slice(0, 6000);
+    const outcome = (reply ? `${request}\n\nPlan from chat:\n${reply}` : request).slice(0, 6000);
+    if (buildWithCopilot)
+      try {
+        // The Studio copilot picks this up and starts building the steps.
+        localStorage.setItem(
+          `agentos:copilot-autostart:${id}`,
+          `Build this workflow: ${request.slice(0, 2000)}`,
+        );
+      } catch {
+        /* The user can still ask the copilot themselves. */
+      }
     const root = {
       ...newCanvasNode("task", 120, 200, "task-root"),
       title: request.split("\n")[0]!.slice(0, 80) || "Workflow from chat",
@@ -798,6 +819,7 @@ export function CompanyWorkspace() {
               <CompanyFloorplan
                 toolbar={
                   <TodayStrip
+                    describe={(text) => workflowFromChat(text, "", scopeProject || undefined, true)}
                     company={company}
                     openActivity={(filter) => {
                       setActivityFilter(filter);

@@ -1176,7 +1176,12 @@ fn changed_files(root: &Path, since: u64) -> Vec<String> {
                 if depth < 8 && !SKIP.iter().any(|skip| name == *skip) {
                     stack.push((path, depth + 1));
                 }
-            } else if meta.modified().is_ok_and(|at| at >= since) {
+            } else if meta.modified().is_ok_and(|at| at >= since)
+                && !matches!(
+                    entry.file_name().to_str(),
+                    Some(".DS_Store" | "Thumbs.db" | "desktop.ini")
+                )
+            {
                 if let Ok(relative) = path.strip_prefix(root) {
                     found.push(relative.to_string_lossy().into_owned());
                 }

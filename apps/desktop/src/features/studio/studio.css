@@ -1162,3 +1162,39 @@
     animation: none;
   }
 }
+
+/* Attached resources as chips inside their step */
+.st-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.st-chip-resource {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 7px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--st-line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 9%, var(--st-node));
+  color: color-mix(in srgb, var(--accent) 75%, var(--st-text));
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.st-chip-resource svg {
+  flex: none;
+}
+.st-chip-resource[data-selected] {
+  outline: 2px solid var(--st-blue);
+  outline-offset: 1px;
+}
+.st-node p {
+  -webkit-line-clamp: 2;
+}

@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import type { Company } from "../../features/company/company-model";
 import { isActiveRun, useLiveRuntime } from "../../features/engines/live-runtime";
 import { schedulePreview } from "../../features/tasks/task-workflow";
@@ -8,11 +10,15 @@ export function TodayStrip({
   company,
   openActivity,
   openWorkflow,
+  describe,
 }: {
   company: Company;
   openActivity: (filter: ActivityFilter) => void;
   openWorkflow: (id: string) => void;
+  /** Creates a workflow from a plain-language goal; the Studio copilot builds it. */
+  describe?: (text: string) => void;
 }) {
+  const [goal, setGoal] = useState("");
   const live = useLiveRuntime();
   const runs = userRuns(live.runs);
   const start = new Date();
@@ -30,6 +36,27 @@ export function TodayStrip({
     .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))[0];
   return (
     <div className="sh-today" role="group" aria-label="Today">
+      {describe && (
+        <form
+          className="sh-intent"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (goal.trim()) describe(goal.trim());
+          }}
+        >
+          <Sparkles size={14} />
+          <input
+            aria-label="Describe a workflow to build"
+            placeholder="What should your team do? e.g. Every morning, collect AI news and draft 3 posts"
+            value={goal}
+            maxLength={2000}
+            onChange={(event) => setGoal(event.target.value)}
+          />
+          <button type="submit" disabled={!goal.trim()} aria-label="Build it">
+            <ArrowRight size={14} />
+          </button>
+        </form>
+      )}
       <button data-tone={needs ? "approval" : undefined} onClick={() => openActivity("needs")}>
         <strong>{needs}</strong> need you
       </button>

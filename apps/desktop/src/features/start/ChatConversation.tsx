@@ -1,4 +1,5 @@
 import type { CompanyChat } from "../company/company-model";
+import { ApprovalBody } from "../engines/ApprovalBody";
 import { AlwaysAllowButton } from "../engines/AlwaysAllowButton";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Archive, Copy, GitBranch, MoreHorizontal, Trash2 } from "lucide-react";
@@ -33,8 +34,7 @@ function ChatApprovals({ run }: { run: LiveRun }) {
     <>
       {run.approvals.map((approval) => (
         <section className="co-chat-approval" key={approval.id} aria-label="Approval needed">
-          <strong>{approval.title}</strong>
-          <pre>{approval.detail}</pre>
+          <ApprovalBody approval={approval} />
           <div>
             <button
               className="co-button co-button-primary"
@@ -134,7 +134,7 @@ export function ChatConversation({
           <div className="co-chat-turn" key={message.id}>
             <article className="co-chat-user">
               <span>You</span>
-              <p>{message.text}</p>
+              <p dir="auto">{message.text}</p>
               <AttachmentList value={message.attachments || []} />
             </article>
             {run?.output && (

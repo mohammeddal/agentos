@@ -134,6 +134,19 @@ export function CopilotPanel({
     ]);
   }, [run?.status, pending?.runId]);
 
+  // A workflow created from a goal on Home starts building as soon as it opens.
+  useEffect(() => {
+    const key = `agentos:copilot-autostart:${taskId}`;
+    let goal: string | null = null;
+    try {
+      goal = localStorage.getItem(key);
+      if (goal) localStorage.removeItem(key);
+    } catch {
+      /* Nothing to start. */
+    }
+    if (goal && !messages.length) void send(goal);
+  }, [taskId]);
+
   async function send(message = text) {
     const request = message.trim();
     if (!request || pending) return;

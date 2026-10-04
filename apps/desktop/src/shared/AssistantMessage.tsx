@@ -23,8 +23,13 @@ export function AssistantMessage({ text }: { text: string }) {
               [Image{alt ? `: ${alt}` : ""} · not loaded automatically]
             </span>
           ),
-          h1: ({ children }) => <h3>{children}</h3>,
-          h2: ({ children }) => <h3>{children}</h3>,
+          h1: ({ children }) => <h3 dir="auto">{children}</h3>,
+          h2: ({ children }) => <h3 dir="auto">{children}</h3>,
+          h3: ({ children }) => <h3 dir="auto">{children}</h3>,
+          // Each block picks its own direction, so Arabic and English mix correctly.
+          p: ({ children }) => <p dir="auto">{children}</p>,
+          li: ({ children }) => <li dir="auto">{children}</li>,
+          blockquote: ({ children }) => <blockquote dir="auto">{children}</blockquote>,
         }}
       >
         {stripMemoryBlocks(text)}

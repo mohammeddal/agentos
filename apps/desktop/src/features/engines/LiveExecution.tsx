@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { ApprovalBody } from "./ApprovalBody";
 import { AlwaysAllowButton } from "./AlwaysAllowButton";
 import { ChevronDown } from "lucide-react";
 import { isTauri } from "@tauri-apps/api/core";
@@ -105,8 +106,7 @@ export function LiveRunCard({ run, collapsible = false }: { run: LiveRun; collap
     <div className="co-live-run-details" id={detailId}>
       {run.approvals.map((approval) => (
         <section className="co-live-approval" key={approval.id}>
-          <strong>{approval.title}</strong>
-          <pre>{approval.detail}</pre>
+          <ApprovalBody approval={approval} />
           <button
             className="co-button co-button-primary"
             disabled={busy}

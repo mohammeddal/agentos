@@ -647,3 +647,79 @@
     11px ui-monospace,
     monospace;
 }
+
+.sh-app .co-directory-status {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(560px, calc(100vw - 40px));
+  margin: 0;
+  padding: 10px 12px 10px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #1e1e1e;
+  color: #fff;
+  font-size: 12.5px;
+  box-shadow: 0 10px 30px #0000003a;
+  transform: translateX(-50%);
+  animation: sh-toast-in 0.18s ease-out;
+}
+.sh-app .co-directory-status button {
+  border: 0;
+  background: transparent;
+  color: #fff !important;
+  opacity: 0.7;
+}
+@keyframes sh-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}
+
+.sh-intent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 360px;
+  min-width: 260px;
+  height: 32px;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--co-border);
+  border-radius: 8px;
+  background: var(--co-card);
+  color: var(--sh-accent);
+}
+.sh-intent:focus-within {
+  border-color: var(--sh-accent);
+  box-shadow: 0 0 0 3px var(--sh-accent-soft);
+}
+.sh-intent input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--co-text);
+  font-size: 12.5px;
+  outline: none;
+}
+.sh-intent button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--sh-accent);
+  color: #fff !important;
+}
+.sh-intent button:disabled {
+  opacity: 0.35;
+}
+.sh-app .map-toolbar {
+  flex: 1;
+}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ApprovalBody } from "../engines/ApprovalBody";
 import { AlwaysAllowButton } from "../engines/AlwaysAllowButton";
 import { controlLive, isActiveRun, type LiveRun } from "../engines/live-runtime";
 import { StatusPill, type CanvasStatus } from "../canvas/CanvasKit";
@@ -104,8 +105,7 @@ export function WorkflowRunPanel({
         <span>Needs your approval</span>
         {run.approvals.map((approval) => (
           <div key={approval.id} className="ck-section">
-            <strong>{approval.title}</strong>
-            <pre className="ck-output">{approval.detail}</pre>
+            <ApprovalBody approval={approval} />
             <div className="ck-actions">
               <button
                 type="button"
@@ -160,7 +160,9 @@ export function WorkflowRunPanel({
           </div>
         )}
         {result?.output ? (
-          <pre className="ck-output">{stripMemoryBlocks(result.output)}</pre>
+          <pre dir="auto" className="ck-output">
+            {stripMemoryBlocks(result.output)}
+          </pre>
         ) : (
           <p className="ck-empty">
             {state === "working"
@@ -197,6 +199,14 @@ export function WorkflowRunPanel({
     );
   }
   const active = isActiveRun(run);
+  // The step a failed run stopped on: retrying from it keeps every earlier result.
+  const failedStep =
+    !active && run.status === "failed"
+      ? run.request.steps.find((step) => {
+          const result = run.results.find((r) => r.id === step.id);
+          return result?.status === "failed" || result?.status === "running";
+        })
+      : undefined;
   const current = run.request.steps.find(
     (s) => run.results.find((r) => r.id === s.id)?.status === "running",
   );
@@ -256,11 +266,27 @@ export function WorkflowRunPanel({
             Stop run
           </button>
         ) : (
-          runAgain && (
-            <button type="button" className="co-button co-button-primary" onClick={runAgain}>
-              Run again
-            </button>
-          )
+          <>
+            {failedStep && runFrom && (
+              <button
+                type="button"
+                className="co-button co-button-primary"
+                title="Earlier steps keep their results; only this step and the ones after it run"
+                onClick={() => runFrom(failedStep.id)}
+              >
+                Retry from {failedStep.label}
+              </button>
+            )}
+            {runAgain && (
+              <button
+                type="button"
+                className={`co-button ${failedStep && runFrom ? "" : "co-button-primary"}`}
+                onClick={runAgain}
+              >
+                Run again
+              </button>
+            )}
+          </>
         )}
       </div>
       {error && <p className="ck-error">{error}</p>}

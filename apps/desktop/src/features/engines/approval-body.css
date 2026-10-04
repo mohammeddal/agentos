@@ -1,0 +1,28 @@
+.ap-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.ap-body > strong {
+  font-size: 13px;
+}
+.ap-summary {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--co-secondary, #5f5f5a);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.ap-body details summary {
+  color: var(--co-muted, #85857e);
+  font-size: 11px;
+  cursor: pointer;
+}
+.ap-body pre {
+  max-height: 200px;
+  margin: 6px 0 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 10.5px;
+}

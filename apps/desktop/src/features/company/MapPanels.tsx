@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { ApprovalBody } from "../engines/ApprovalBody";
 import { AlwaysAllowButton } from "../engines/AlwaysAllowButton";
 import { ArrowRight, Bot, GitBranch, Play, ShieldAlert, Square, X } from "lucide-react";
 import {
@@ -66,8 +67,7 @@ function Approvals({ run }: { run: LiveRun | undefined }) {
         <div key={approval.id}>
           <ShieldAlert size={16} />
           <div>
-            <strong>{approval.title}</strong>
-            <p>{approval.detail}</p>
+            <ApprovalBody approval={approval} />
             <div className="map-actions">
               <button
                 className="co-button co-button-primary"
@@ -155,7 +155,9 @@ function RecentRuns({ runs }: { runs: LiveRun[] }) {
               {run.error && <p className="map-error">{run.error}</p>}
               <RunOutcome run={run} />
               {run.output ? (
-                <pre className="map-output">{stripMemoryBlocks(run.output)}</pre>
+                <pre dir="auto" className="map-output">
+                  {stripMemoryBlocks(run.output)}
+                </pre>
               ) : (
                 !run.error && <p className="map-muted">No output recorded.</p>
               )}
@@ -262,7 +264,11 @@ export function AgentPanel({
         <Section title="Now">
           <strong className="map-now">{current.request.title}</strong>
           {step && <p className="map-muted">Step: {step.label}</p>}
-          {output && <pre className="map-output">{output.slice(0, 500)}</pre>}
+          {output && (
+            <pre dir="auto" className="map-output">
+              {output.slice(0, 500)}
+            </pre>
+          )}
           <div className="map-actions">
             <StopButton run={current} />
           </div>
@@ -304,6 +310,7 @@ export function WorkflowPanel({
   runs,
   close,
   runNow,
+  retryFrom,
   open,
   selectAgent,
 }: {
@@ -312,6 +319,7 @@ export function WorkflowPanel({
   runs: LiveRun[];
   close: () => void;
   runNow: () => Promise<void>;
+  retryFrom?: (stepId: string) => Promise<void>;
   open: () => void;
   selectAgent: (id: string) => void;
 }) {
@@ -319,6 +327,13 @@ export function WorkflowPanel({
   const [error, setError] = useState("");
   const latest = runs[0];
   const active = !!latest && isActiveRun(latest);
+  const failedStep =
+    latest && latest.status === "failed"
+      ? latest.request.steps.find((step) => {
+          const result = latest.results.find((r) => r.id === step.id);
+          return result?.status === "failed" || result?.status === "running";
+        })
+      : undefined;
   const team = taskParticipants(company, task.assignment);
   // Every step on the canvas, including custom steps that aren't company agents.
   const steps = (task.canvas?.nodes || [])
@@ -360,7 +375,11 @@ export function WorkflowPanel({
           <strong className="map-now">
             {currentAgent ? `${currentAgent.name} is working` : "Starting…"}
           </strong>
-          {latest.output && <pre className="map-output">{latest.output.slice(0, 500)}</pre>}
+          {latest.output && (
+            <pre dir="auto" className="map-output">
+              {latest.output.slice(0, 500)}
+            </pre>
+          )}
         </Section>
       )}
       {task.brief && <p className="map-muted">{task.brief}</p>}
@@ -373,6 +392,26 @@ export function WorkflowPanel({
           <Play size={13} /> {active ? "Running…" : busy ? "Starting…" : "Run now"}
         </button>
         {active && <StopButton run={latest} />}
+        {failedStep && retryFrom && (
+          <button
+            className="co-button"
+            disabled={busy}
+            title="Earlier steps keep their results"
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                await retryFrom(failedStep.id);
+              } catch (cause) {
+                setError(String(cause).replace(/^Error: /, ""));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Retry failed step
+          </button>
+        )}
         <button className="co-button" onClick={open}>
           Open workflow <ArrowRight size={13} />
         </button>

@@ -9,9 +9,9 @@ describe("safe readable assistant output", () => {
     const html = render(
       "## Result\n\nA **clear** answer.\n\n- One\n- Two\n\n```js\nconst x = 1;\n```",
     );
-    expect(html).toContain("<h3>Result</h3>");
+    expect(html).toContain('<h3 dir="auto">Result</h3>');
     expect(html).toContain("<strong>clear</strong>");
-    expect(html).toContain("<li>One</li>");
+    expect(html).toContain('<li dir="auto">One</li>');
     expect(html).toContain("<pre><code");
   });
   it("never embeds raw HTML, images or executable links", () => {
