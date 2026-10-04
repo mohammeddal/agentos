@@ -45,7 +45,14 @@ const isStep = (node: CanvasNode) => stepKinds.has(node.kind);
 const lower = (text: string) => text.trim().toLowerCase();
 
 /** The current workflow in the same shape the copilot answers with, so it edits rather than rebuilds. */
-export function describeWorkflow(company: Company, graph: TaskCanvasGraph): CopilotPlan {
+export function describeWorkflow(
+  company: Company,
+  graph: TaskCanvasGraph,
+  /** Shorten long step instructions (only for very large workflows). */
+  maxInstructions = Infinity,
+): CopilotPlan {
+  const clip = (text: string) =>
+    text.length > maxInstructions ? `${text.slice(0, maxInstructions)}… (shortened)` : text;
   const root = graph.nodes.find((n) => n.kind === "task");
   const agents = company.offices.flatMap((o) => o.agents);
   const attached = (id: string) =>
@@ -77,7 +84,7 @@ export function describeWorkflow(company: Company, graph: TaskCanvasGraph): Copi
             }
           : {}),
         title: node.title,
-        instructions: node.prompt,
+        instructions: clip(node.prompt),
         ...(node.kind === "prompt"
           ? { engine: node.engine === "claude" ? "claude" : "codex" }
           : {}),
@@ -87,7 +94,7 @@ export function describeWorkflow(company: Company, graph: TaskCanvasGraph): Copi
         tools: resources.filter((n) => n.kind !== "context").map((n) => n.title),
         context: resources
           .filter((n) => n.kind === "context")
-          .map((n) => ({ title: n.title, notes: n.prompt })),
+          .map((n) => ({ title: n.title, notes: clip(n.prompt) })),
       };
     }),
   };
@@ -104,10 +111,19 @@ export function copilotPrompt(
   const agents = company.offices.flatMap((office) =>
     office.agents.map((a) => `- ${a.name} (${office.name}; ${a.role}; ${a.engine})`),
   );
-  const toolNames = [...new Set(tools.map((t) => `${t.name} [${t.kind}, ${t.engine}]`))].slice(
-    0,
-    200,
-  );
+  // Names only: the copilot needs to know what exists, not each tool's details.
+  const toolNames = [
+    ...new Set(
+      tools
+        .filter((t) => t.kind !== "skill" || !t.scope.toLowerCase().includes("system"))
+        .map((t) => `${t.name} (${t.kind})`),
+    ),
+  ].slice(0, 150);
+  // Keep the whole prompt well inside the runtime limit: shorten instructions only if needed.
+  let workflowJson = JSON.stringify(describeWorkflow(company, graph));
+  for (const cap of [4000, 1500, 600])
+    if (workflowJson.length > 120_000)
+      workflowJson = JSON.stringify(describeWorkflow(company, graph, cap));
   return [
     "You are the AgentOS workflow copilot for one workflow. You answer questions about it and edit it on request. You never run it, use tools, edit files, or run commands.",
     "",
@@ -128,15 +144,16 @@ export function copilotPrompt(
     '- "when": "success" (default), "failure", or "always".',
     '- "tools": installed tool names only. "context": [{"title","notes"}].',
     '- "instructions": a specific brief for that step: what to do, inputs, and what to hand off.',
+    '- Instructions ending in "(shortened)" were cut for length. When you change such a step, write its complete new instructions.',
     "",
     `Company agents:\n${agents.join("\n") || "- none (use prompt steps)"}`,
     "",
-    `Installed tools:\n${toolNames.join("\n") || "- none"}`,
+    `Installed tools: ${toolNames.join(", ") || "none"}`,
     "",
-    facts ? `Facts about this workflow:\n${facts}\n` : "",
-    `Current workflow:\n\`\`\`json\n${JSON.stringify(describeWorkflow(company, graph))}\n\`\`\``,
+    facts ? `Facts about this workflow:\n${facts.slice(0, 4000)}\n` : "",
+    `Current workflow:\n\`\`\`json\n${workflowJson}\n\`\`\``,
     "",
-    `User: ${request}`,
+    `User: ${request.slice(0, 20_000)}`,
   ].join("\n");
 }
 

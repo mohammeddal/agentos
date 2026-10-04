@@ -3,6 +3,7 @@ import { starterCompany } from "../company/company-model";
 import { isTaskCanvas, newCanvasNode, type TaskCanvasGraph } from "../tasks/task-canvas-model";
 import {
   applyPlan,
+  copilotPrompt,
   describeWorkflow,
   mergePatch,
   parsePlan,
@@ -149,5 +150,20 @@ describe("workflow copilot", () => {
   });
   it("treats a reply without a block as an answer, not a change", () => {
     expect(parsePlan("Files are saved in the project folder under reports/.")).toBeNull();
+  });
+  it("keeps the copilot prompt inside the runtime limit for very large workflows", () => {
+    const steps = Array.from({ length: 40 }, (_, i) => ({
+      id: `s${i}`,
+      kind: "prompt" as const,
+      title: `Step ${i}`,
+      instructions: "Write a detailed brief. ".repeat(250),
+      after: i ? [`s${i - 1}`] : ["start"],
+    }));
+    const big = applyPlan(starterCompany, empty(), { steps }, tools).graph;
+    const prompt = copilotPrompt(starterCompany, big, tools, "x".repeat(30_000), "y".repeat(9000));
+    expect(prompt.length).toBeLessThan(200_000);
+    expect(prompt).toContain("… (shortened)");
+    const small = copilotPrompt(starterCompany, empty(), tools, "Add a step");
+    expect(small).not.toContain("… (shortened)");
   });
 });

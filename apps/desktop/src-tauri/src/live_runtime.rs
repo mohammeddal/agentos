@@ -1248,6 +1248,9 @@ fn skip_line(reader: &mut impl BufRead) -> bool {
         }
     }
 }
+/// Largest prompt or shared context sent to an engine (characters). Engines accept far more;
+/// this only guards against runaway input.
+const MAX_PROMPT: usize = 200_000;
 const ELICITATION: &str = "mcpServer/elicitation/request";
 fn elicitation_reply(id: &Value, allow: bool) -> Value {
     if allow {
@@ -1317,7 +1320,7 @@ fn validate(r: &RunRequest) -> Result<(), String> {
         || !["untrusted", "on-request", "never"].contains(&r.provider_permissions.codex.as_str())
         || !["default", "acceptEdits", "auto"].contains(&r.provider_permissions.claude.as_str())
         || r.title.len() > 300
-        || r.context.len() > 50000
+        || r.context.len() > MAX_PROMPT
         || r.steps.is_empty()
         || r.steps.len() > 40
     {
@@ -1364,6 +1367,20 @@ fn validate(r: &RunRequest) -> Result<(), String> {
                 return Err("Invalid model or reasoning effort.".into());
             }
         }
+        if s.prompt.len() > MAX_PROMPT {
+            return Err(format!(
+                "“{}” is too long to send ({} characters; the limit is {}). Shorten its instructions or attached context. Nothing was started.",
+                s.label,
+                s.prompt.chars().count(),
+                MAX_PROMPT
+            ));
+        }
+        if !s.after.iter().all(|id| seen.contains(id)) {
+            return Err(format!(
+                "“{}” waits for a step that isn't in this run. Nothing was started.",
+                s.label
+            ));
+        }
         if !safe(&s.id)
             || seen.contains(&s.id)
             || !s.after.iter().all(|id| seen.contains(id))
@@ -1372,7 +1389,6 @@ fn validate(r: &RunRequest) -> Result<(), String> {
                 "success" | "failure" | "always" | "approved" | "match"
             )
             || s.prompt.trim().is_empty()
-            || s.prompt.len() > 50000
             || !(matches!(s.engine.as_str(), "codex" | "claude")
                 // A sign-off gate only pauses for approval; it must actually gate something.
                 || (s.engine == GATE

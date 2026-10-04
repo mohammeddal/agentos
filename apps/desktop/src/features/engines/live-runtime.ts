@@ -223,7 +223,7 @@ async function memoryForContext(contextWithoutMemory: string, scopes: string[]) 
   ]
     .filter(Boolean)
     .join("\n\n");
-  if (result.length > 45000)
+  if (result.length > 180_000)
     throw new Error("Memory is too large for one run. Archive or narrow some notes first.");
   return result;
 }
