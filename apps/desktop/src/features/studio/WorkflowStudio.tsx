@@ -1428,16 +1428,18 @@ export function WorkflowStudio({
         </nav>
         <div className="st-panel">
           {rightTab === "run" ? (
-            <WorkflowRunPanel
-              runs={runs}
-              run={viewedRun}
-              selectRun={setViewRunId}
-              node={selectedNodes.length === 1 ? selectedNodes[0] : undefined}
-              isRoot={!selectedNodes.length || selectedNodes[0]?.kind === "task"}
-              status={selectedNodes.length === 1 ? statuses[selectedNodes[0]!.id] : undefined}
-              runAgain={() => void runWorkflow()}
-              runFrom={(stepId) => void runWorkflow(stepId)}
-            />
+            <div className="st-run">
+              <WorkflowRunPanel
+                runs={runs}
+                run={viewedRun}
+                selectRun={setViewRunId}
+                node={selectedNodes.length === 1 ? selectedNodes[0] : undefined}
+                isRoot={!selectedNodes.length || selectedNodes[0]?.kind === "task"}
+                status={selectedNodes.length === 1 ? statuses[selectedNodes[0]!.id] : undefined}
+                runAgain={() => void runWorkflow()}
+                runFrom={(stepId) => void runWorkflow(stepId)}
+              />
+            </div>
           ) : edge ? (
             <EdgeWorkflow
               edge={edge}

@@ -428,7 +428,9 @@
 }
 .st-panel {
   flex: 1;
-  overflow: auto;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 .st-section {
   display: grid;
@@ -576,12 +578,36 @@
   opacity: 0.3;
   cursor: default;
 }
-/* The run panel reuses the workflow canvas inspector styles. */
-.st-panel > :is(h3, p, section, details, div, label) {
-  margin-inline: 14px;
+/* The run panel reuses the workflow canvas inspector content; keep it inside the panel. */
+.st-run {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px 20px;
 }
-.st-panel > h3 {
-  margin-top: 14px;
+.st-run > *,
+.st-run :is(section, details, pre, label, select) {
+  min-width: 0;
+  max-width: 100%;
+}
+.st-run > h3 {
+  margin: 4px 0 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.st-run pre,
+.st-run code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.st-run .co-assistant-markdown pre {
+  white-space: pre;
+  overflow-x: auto;
+}
+.st-run .ck-step > summary span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Canvas */

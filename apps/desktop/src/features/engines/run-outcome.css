@@ -1,5 +1,6 @@
 .run-outcome {
   display: grid;
+  min-width: 0;
   gap: 8px;
   padding: 10px 12px;
   border: 1px solid var(--co-border);
@@ -64,8 +65,12 @@
   text-decoration: underline;
   cursor: pointer;
 }
+.run-outcome > * {
+  min-width: 0;
+}
 .run-outcome footer {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 8px;
 }
