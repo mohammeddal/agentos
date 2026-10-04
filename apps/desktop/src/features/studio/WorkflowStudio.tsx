@@ -65,6 +65,7 @@ import { useResizableWidth } from "../../shared/useResizableWidth";
 import {
   alignItems,
   applyBox,
+  autoArrange,
   decorBox,
   deleteItems,
   distributeItems,
@@ -678,6 +679,9 @@ export function WorkflowStudio({
         const dx = key === "arrowleft" ? -step : key === "arrowright" ? step : 0;
         const dy = key === "arrowup" ? -step : key === "arrowdown" ? step : 0;
         commit(moveItems(graph, graph, withSectionChildren(graph, selection), dx, dy, false));
+      } else if (event.shiftKey && !mod && key === "a") {
+        event.preventDefault();
+        arrange();
       } else if (event.shiftKey && event.code === "Digit1") fitAll();
       else if (event.shiftKey && event.code === "Digit2" && selectionBox) fitAll(selectionBox);
       else if (event.shiftKey && event.code === "Digit0") setView((v) => ({ ...v, zoom: 1 }));
@@ -698,6 +702,16 @@ export function WorkflowStudio({
       window.removeEventListener("keyup", up);
     };
   });
+  function arrange() {
+    const ids = selection.filter((id) => graph.nodes.some((n) => n.id === id));
+    const next = autoArrange(graph, ids.length > 1 ? ids : []);
+    commit(next);
+    const box = unionBox(
+      next.nodes.filter((n) => ids.length < 2 || ids.includes(n.id)).map(nodeBox),
+    );
+    window.requestAnimationFrame(() => fitAll(box));
+    setNotice("Arranged by flow. ⌘Z to undo.");
+  }
   function duplicate(ids: string[], source = graph) {
     if (!ids.length) return;
     try {
@@ -1004,6 +1018,14 @@ export function WorkflowStudio({
               {t.icon}
             </button>
           ))}
+          <button
+            type="button"
+            aria-label="Auto-arrange (Shift A)"
+            title="Auto-arrange · ⇧A"
+            onClick={arrange}
+          >
+            <Workflow size={16} />
+          </button>
           <span className="st-tools-gap" />
           <button
             type="button"
@@ -1463,6 +1485,13 @@ export function WorkflowStudio({
                 align={(how) => commit(alignItems(graph, selection, how))}
                 distribute={(axis) => commit(distributeItems(graph, selection, axis))}
               />
+              <button type="button" className="st-button" onClick={arrange}>
+                <Workflow size={13} /> Auto-arrange by flow · ⇧A
+              </button>
+              <p className="st-hint">
+                Align lines blocks up on one edge or centre; using both centre buttons stacks them
+                on one spot. Auto-arrange lays the flow out left to right instead.
+              </p>
             </section>
           ) : selectedNodes.length === 1 ? (
             rightTab === "design" ? (

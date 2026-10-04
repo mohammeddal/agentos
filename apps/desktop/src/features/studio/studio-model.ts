@@ -379,3 +379,86 @@ export function edgePath(from: Box, to: Box): string {
   const bend = Math.max(40, Math.abs(x2 - x1) / 2);
   return `M${x1} ${y1}C${x1 + bend} ${y1} ${x2 - bend} ${y2} ${x2} ${y2}`;
 }
+
+/**
+ * Tidy up: lays steps out left to right by flow depth and stacks each step's resources
+ * (context, tools) under it. Only blocks in `ids` move (all blocks when empty); annotations stay.
+ */
+export function autoArrange(graph: TaskCanvasGraph, ids: string[] = []): TaskCanvasGraph {
+  const targets = graph.nodes.filter((n) => !ids.length || ids.includes(n.id));
+  if (!targets.length) return graph;
+  const moving = new Set(targets.map((n) => n.id));
+  const isResource = (n: CanvasNode) =>
+    graph.edges.some((e) => e.from === n.id && e.kind === "attachment") ||
+    ["context", "mcp", "skill", "connector", "restriction"].includes(n.kind);
+  const steps = targets.filter((n) => !isResource(n));
+  const flow = graph.edges.filter(
+    (e) => e.kind === "flow" && moving.has(e.from) && moving.has(e.to),
+  );
+  // Longest-path depth so every step sits to the right of everything that feeds it.
+  const depth = new Map<string, number>();
+  const visit = (id: string, seen = new Set<string>()): number => {
+    if (depth.has(id)) return depth.get(id)!;
+    if (seen.has(id)) return 0;
+    seen.add(id);
+    const parents = flow.filter((e) => e.to === id).map((e) => e.from);
+    const value = parents.length ? Math.max(...parents.map((p) => visit(p, seen) + 1)) : 0;
+    depth.set(id, value);
+    return value;
+  };
+  steps.forEach((n) => visit(n.id));
+  const columns = new Map<number, CanvasNode[]>();
+  for (const step of [...steps].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    const column = depth.get(step.id) || 0;
+    columns.set(column, [...(columns.get(column) || []), step]);
+  }
+  const origin = {
+    x: Math.min(...targets.map((n) => n.x)),
+    y: Math.min(...targets.map((n) => n.y)),
+  };
+  const colGap = 96;
+  const rowGap = 48;
+  const width = Math.max(...targets.map((n) => nodeBox(n).w));
+  const placed = new Map<string, { x: number; y: number }>();
+  let tallest = 0;
+  for (const [column, members] of columns) {
+    let y = origin.y;
+    for (const member of members) {
+      placed.set(member.id, { x: origin.x + column * (width + colGap), y });
+      y += nodeBox(member).h + rowGap;
+    }
+    tallest = Math.max(tallest, y - origin.y);
+  }
+  // Resources go in a band under the steps, beneath the step they serve.
+  const band = origin.y + Math.max(tallest, NODE_H + rowGap) + rowGap;
+  const stackHeight = new Map<number, number>();
+  const loose: CanvasNode[] = [];
+  for (const resource of targets.filter(isResource)) {
+    const target = graph.edges.find((e) => e.from === resource.id && e.kind === "attachment")?.to;
+    const anchor = target
+      ? placed.get(target) || graph.nodes.find((n) => n.id === target)
+      : undefined;
+    if (!anchor) {
+      loose.push(resource);
+      continue;
+    }
+    const column = Math.round((anchor.x - origin.x) / (width + colGap));
+    const offset = stackHeight.get(column) || 0;
+    placed.set(resource.id, { x: anchor.x, y: band + offset });
+    stackHeight.set(column, offset + nodeBox(resource).h + rowGap / 2);
+  }
+  const lastColumn = Math.max(0, ...columns.keys());
+  loose.forEach((resource, index) =>
+    placed.set(resource.id, {
+      x: origin.x + (lastColumn + 1) * (width + colGap),
+      y: band + index * (NODE_H + rowGap / 2),
+    }),
+  );
+  return {
+    ...graph,
+    nodes: graph.nodes.map((n) => {
+      const at = placed.get(n.id);
+      return at ? { ...n, x: snap(at.x), y: snap(at.y) } : n;
+    }),
+  };
+}

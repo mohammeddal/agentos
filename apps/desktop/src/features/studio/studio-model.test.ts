@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isTaskCanvas, newCanvasNode, type TaskCanvasGraph } from "../tasks/task-canvas-model";
 import {
+  autoArrange,
   alignItems,
   deleteItems,
   distributeItems,
@@ -69,5 +70,32 @@ describe("studio model", () => {
     const g = { ...graph(), decor: [newDecor("sticky", 10, 10)] };
     g.nodes[1] = { ...g.nodes[1]!, x: 5000, style: { fill: "#4a72a6", w: 300 } };
     expect(isTaskCanvas(g)).toBe(true);
+  });
+  it("auto-arranges a stacked flow into columns with resources underneath", () => {
+    const stacked: TaskCanvasGraph = {
+      version: 1,
+      nodes: [
+        { ...newCanvasNode("task", 500, 500, "root") },
+        node("a", 500, 500),
+        node("b", 500, 500),
+        node("c", 500, 500),
+        { ...newCanvasNode("context", 500, 500, "ctx") },
+      ],
+      edges: [
+        { id: "1", from: "root", to: "a", kind: "flow", condition: "success" },
+        { id: "2", from: "a", to: "b", kind: "flow", condition: "success" },
+        { id: "3", from: "a", to: "c", kind: "flow", condition: "success" },
+        { id: "4", from: "ctx", to: "a", kind: "attachment", condition: "always" },
+      ],
+    };
+    const at = (g: TaskCanvasGraph, id: string) => g.nodes.find((n) => n.id === id)!;
+    const next = autoArrange(stacked);
+    expect(at(next, "a").x).toBeGreaterThan(at(next, "root").x);
+    expect(at(next, "b").x).toBe(at(next, "c").x);
+    expect(at(next, "b").x).toBeGreaterThan(at(next, "a").x);
+    expect(at(next, "b").y).not.toBe(at(next, "c").y);
+    expect(at(next, "ctx").x).toBe(at(next, "a").x);
+    expect(at(next, "ctx").y).toBeGreaterThan(at(next, "c").y);
+    expect(isTaskCanvas(next)).toBe(true);
   });
 });
