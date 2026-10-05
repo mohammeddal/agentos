@@ -1346,10 +1346,7 @@ pub(super) fn executable(engine: &str) -> Result<PathBuf, String> {
         .map(|p| Path::new(p).join(name))
         .collect();
     if engine == "codex" {
-        paths.extend([
-            PathBuf::from("/Applications/ChatGPT.app/Contents/Resources/codex"),
-            PathBuf::from("/Applications/Codex.app/Contents/Resources/codex"),
-        ]);
+        paths.extend(codex_app_paths());
     }
     paths
         .into_iter()
@@ -1374,6 +1371,21 @@ pub(super) fn executable(engine: &str) -> Result<PathBuf, String> {
                 "{name} is not installed. Install and sign in to its official CLI, then refresh."
             )
         })
+}
+/// Codex bundled inside the ChatGPT and Codex desktop apps. App updates have moved it, so both the
+/// current layout (`codex-cli/bin/codex`, a launcher for `CodexCLI.app`) and the older one are tried.
+fn codex_app_paths() -> Vec<PathBuf> {
+    ["ChatGPT", "Codex"]
+        .iter()
+        .flat_map(|app| {
+            let resources = PathBuf::from(format!("/Applications/{app}.app/Contents/Resources"));
+            [
+                resources.join("codex-cli/bin/codex"),
+                resources.join("codex-cli/CodexCLI.app/Contents/MacOS/codex"),
+                resources.join("codex"),
+            ]
+        })
+        .collect()
 }
 fn validate(r: &RunRequest) -> Result<(), String> {
     let safe = |s: &str| {
@@ -1642,6 +1654,18 @@ mod tests {
         let mut next = String::new();
         reader.read_line(&mut next).unwrap();
         assert_eq!(next, "next line\n");
+    }
+    #[test]
+    fn finds_codex_in_current_and_older_app_layouts() {
+        let paths = codex_app_paths();
+        let has = |p: &str| paths.iter().any(|x| x == Path::new(p));
+        assert!(has(
+            "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"
+        ));
+        assert!(has("/Applications/ChatGPT.app/Contents/Resources/codex"));
+        assert!(has(
+            "/Applications/Codex.app/Contents/Resources/codex-cli/bin/codex"
+        ));
     }
     #[test]
     fn lines_cut_mid_character_are_read_not_fatal() {
