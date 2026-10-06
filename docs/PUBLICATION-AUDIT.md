@@ -31,7 +31,7 @@ The initial npm audit reported five advisories: two moderate Vitest/mocker findi
 | npm dependency audit              | Zero known vulnerabilities                                       |
 | Gitleaks history/current files    | No findings                                                      |
 
-Local verification used Node 23.6.0, pnpm 9.15.2, and the installed Rust toolchain. CI is configured to repeat source checks on Node 22 LTS and compile/test the native app on macOS. This record describes local results; GitHub Actions provides the independent remote result after publication.
+Local verification used Node 23.6.0, pnpm 9.15.2, and the installed Rust toolchain. CI is configured to repeat source checks on Node 22 LTS and compile/test the native app on macOS. The [initial GitHub CI run](https://github.com/mohammeddal/agentos/actions/runs/37401889898) subsequently passed all three jobs: source/tests/web build, secrets/publication guard, and macOS native tests/build.
 
 ## Organization and documentation
 
@@ -42,7 +42,7 @@ The unreferenced earlier task form and its exclusive stylesheet were removed aft
 ## Remaining release limits
 
 - Public source readiness does not imply a security-audited production binary. Signing, notarization, native CSP hardening, and Rust dependency-advisory review remain outstanding.
-- Live provider generation was not rerun; tests requiring signed-in accounts stayed disabled. No claim is made about current provider quota, authentication, or every third-party integration.
+- Live provider generation was not part of the initial source-publication pass. A later same-day [provider verification](PROVIDER-SETUP.md) passed Codex replies/continuation and confirmed a Claude OAuth 401 blocker. Neither result proves every third-party integration works.
 - Browser screenshots used alternate loopback port 4175 because 4173 was occupied. Engine discovery returned the expected 403 from fixed-origin checks on that port; screenshots show offline/demo state. Native generation and private provider configuration were not accessed.
 - Vite reports a large JavaScript chunk warning. The build passes, but further code splitting is still an optimization opportunity.
 - This release does not claim native Windows/Linux verification, automatic updates, closed-app scheduling, or encrypted local storage.

@@ -6,10 +6,12 @@ This guide supersedes draft-only statements in the earlier UX verification and u
 
 ## First run
 
-1. Install the official Codex CLI or Claude Code. Sign in in Terminal with `codex login` or `claude auth login`.
-2. Open AgentOS. Library → Capabilities lists discovered records; its **Settings** panel holds connection checks and notification preferences. “Installed” means a CLI was found, not that its token is valid.
-3. In Start → Options choose Codex or Claude Code, a model, and its reasoning effort, then Send message. Chat history resumes the provider session on subsequent turns. You can change model/effort for the next message without losing the conversation. Old unsent drafts are preserved, not automatically transmitted.
-4. Create a task, choose its agents/domains and project, then open its details and choose Run task. Review any pending approval in task details or Activity.
+1. Install the official Codex CLI or Claude Code. Sign in in macOS Terminal with `codex login` or `claude auth login`, then complete the browser flow.
+2. Check `codex login status` or `claude auth status`, and open the native AgentOS app. Settings detects installed CLIs; its “Ready” label alone does not verify authentication.
+3. In **Chat**, choose Codex or Claude Code and send a short prompt. A real reply verifies more than a stored login or model catalog. Conversation history resumes the provider session on subsequent turns.
+4. For a workflow, open **Home → New workflow**. Use **Copilot** to build or edit by chatting, or add blocks manually; inspect the plan, save it, then choose **Run**.
+
+See [Provider setup and test status](PROVIDER-SETUP.md) for complete sign-in instructions and current evidence. On 2026-10-05, the native Codex integration test passed actual replies, continuation, and persisted history. The equivalent Claude test reached the provider but failed with HTTP 401 (invalid OAuth token), so live Claude execution remains unverified.
 
 An expired/revoked login requires provider reauthentication; AgentOS cannot repair that token. Claude can report a locally stored sign-in while a real request returns HTTP 401. No successful Claude generation should be claimed until it passes a real request.
 

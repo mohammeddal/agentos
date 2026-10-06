@@ -4,6 +4,13 @@ Current audit branch: `codex/task-workflow-audit`.
 
 This log records product, workflow, and native-runtime verification passes, newest first. For the native runtime architecture and provider boundaries, see [Live execution](LIVE-EXECUTION.md).
 
+## Provider onboarding verification — 2026-10-05
+
+- Verified the documented sign-in commands against official provider documentation and the installed CLI help. Sign-in happens in Terminal/browser, not an embedded AgentOS login form.
+- Ran `live_provider_smoke` separately for each engine through the native AgentOS runtime. Codex CLI `0.158.0-alpha.2.1` passed actual response, model/effort selection, conversation resume, and persisted history.
+- Claude Code `2.1.161` reported signed in through its auth-status command, but the actual AgentOS request failed with HTTP 401: invalid OAuth token. No successful Claude response, continuation, or end-to-end Copilot generation is claimed. User reauthentication is required before retrying.
+- These bounded checks used temporary workspaces, synthetic text, read-only chat, and no tools. Existing user data and sign-ins were not changed. See [Provider setup](PROVIDER-SETUP.md) for commands and scope.
+
 ## End-to-end quality audit follow-up
 
 - Walked the primary user journeys in an isolated browser store: clean Start composer; chat/task mode and provider settings; task creation from the workflow map; direct agent assignment; per-step model and approval configuration; task detail; approval rehearsal; compact Activity; scoped Markdown memory; the office map and agent inspector; and the browser-safe terminal boundary.

@@ -2,6 +2,8 @@
 
 ## Current AgentOS guides
 
+- [Provider setup and testing](PROVIDER-SETUP.md): sign in to Codex or Claude Code, verify a real reply, and understand tested coverage.
+
 - [Repository home](../README.md): screenshots, prerequisites, and quick start.
 - [Contributing](../CONTRIBUTING.md): fork setup, checks, and pull requests.
 - [Security policy](../SECURITY.md): private reporting and actual security limits.

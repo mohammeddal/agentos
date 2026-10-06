@@ -29,6 +29,12 @@ Projects organize related work and can use a selected local repository and branc
 
 A browser draft and a Copilot proposal are not proof of execution. Invalid graphs, missing assignments, incompatible capabilities, and unsupported policy restrictions can block a run. Check validation rather than assuming every visible block can execute. Earlier saved plans and alternate UI experiences remain supported where documented in [Live execution](LIVE-EXECUTION.md) and [Alternate experiences](ALTERNATE-EXPERIENCES.md).
 
+### Build by chatting with Copilot
+
+In the native workflow editor, select the **Copilot** tab, choose an installed and signed-in engine, and describe the desired workflow. For example: “Research a topic, draft a source-linked brief, then pause for my approval.” Follow up with changes such as “add a reviewer” or “attach these notes to the drafting step.” Supported changes update the canvas as one undoable edit; inspect the result before saving and running it. A generated plan is not a completed workflow run. Browser preview cannot generate Copilot responses.
+
+See [Provider setup](PROVIDER-SETUP.md) for Terminal sign-in commands and the actual provider test status.
+
 ## Permissions and execution
 
 Provider autonomy and workflow approvals are independent. **Ask me**, **Ask for risky actions**, and **Run on its own** change provider behavior; explicit approval blocks still stop the workflow. The default autonomy is **Ask for risky actions**. Review it before using an unfamiliar repository or provider configuration. Stored always-allow scopes can authorize subsequent matching requests.

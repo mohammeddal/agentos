@@ -24,7 +24,7 @@ AgentOS is an open-source macOS app that brings **Codex and Claude Code** into o
 ## What you can do
 
 - **Organize your team.** Create offices and agents with roles, instructions, engine choices, and skill references.
-- **Build visual workflows.** Connect work steps, context, conditions, and approval checkpoints. Use the native Copilot to help edit a workflow.
+- **Build workflows by chatting with Copilot.** Describe your goal, ask for changes, and watch the canvas update. You can also connect steps, context, conditions, and approvals manually.
 - **Work with context.** Scope notes, files, reviewed memory, and discovered provider capabilities to the steps that need them.
 - **Follow execution.** Inspect provider progress, results, failures, cancellations, and pending approvals.
 - **Keep a local workspace.** Save project structure, chats, workflows, memory, and run history on your machine.
@@ -32,6 +32,14 @@ AgentOS is an open-source macOS app that brings **Codex and Claude Code** into o
 ![AgentOS visual workflow editor with a synthetic research draft](docs/images/agentos-workflow.png)
 
 Screenshots show the actual browser preview with demo data, not completed provider runs. See [image provenance](docs/images/README.md).
+
+## Build a workflow by chatting
+
+In the **native Mac app**, open **Home → New workflow → Copilot**, choose Codex or Claude Code, and describe the workflow you want:
+
+> Build a workflow that researches a topic, drafts a brief with source links, and pauses for my approval.
+
+Continue the conversation with changes such as “add a review step” or “give the writer more context.” Copilot applies supported changes to the canvas as an undoable edit. Inspect the steps, connections, provider choices, and approval gates, then save and run the workflow. Creating a plan does not run its work steps. Copilot needs a working provider sign-in; browser preview cannot generate a plan.
 
 ## Quick start
 
@@ -56,7 +64,29 @@ Install Rust with Cargo and Xcode Command Line Tools, then:
 pnpm dev:desktop
 ```
 
-For live agent work, install and sign in to [Codex CLI](https://developers.openai.com/codex/cli/) or [Claude Code](https://code.claude.com/docs/en/overview). Use **Settings** to check the connection and review autonomy settings. AgentOS does not bundle either provider or silently install one. Provider access and usage limits still apply.
+### Sign in to Codex or Claude Code
+
+Sign in using the provider CLI in **macOS Terminal**, outside AgentOS. Install the provider you want first: [Codex CLI](https://developers.openai.com/codex/cli/) or [Claude Code](https://code.claude.com/docs/en/setup).
+
+**Codex — ChatGPT browser sign-in:**
+
+```sh
+codex login
+codex login status
+```
+
+**Claude Code — Anthropic browser sign-in:**
+
+```sh
+claude auth login
+claude auth status
+```
+
+Complete the browser sign-in, then reopen AgentOS. Open **Settings** to check CLI detection and review autonomy, and choose that engine in **Chat** or **Copilot**. Send a short message to verify a real response. The current “Ready” label means the executable was found; it does not validate your login or quota.
+
+AgentOS reuses these CLI sessions and does not provide its own provider login form, bundle providers, or copy credentials into the repository. Account eligibility, network access, and provider usage limits still apply. See [provider setup and test status](docs/PROVIDER-SETUP.md) for verification and troubleshooting. Official references: [Codex authentication](https://learn.chatgpt.com/docs/auth), [Claude CLI authentication commands](https://code.claude.com/docs/en/cli-reference).
+
+**Latest live check (2026-10-05):** Codex passed real replies, conversation continuation, and persistence through AgentOS. Claude Code's adapter is implemented, but the live request failed with an invalid OAuth token (HTTP 401); successful Claude execution remains unverified pending reauthentication. [Full test scope](docs/PROVIDER-SETUP.md#verified-status--2026-10-05).
 
 ### Build from source
 
