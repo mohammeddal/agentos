@@ -11,7 +11,7 @@
     "tauri:build:mac": "tauri build --bundles app,dmg"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.12.0",
+    "@tauri-apps/api": "^2.12.1",
     "@tauri-apps/plugin-notification": "^2",
     "cron-parser": "^5.10.1",
     "lucide-react": "^0.511.0",
