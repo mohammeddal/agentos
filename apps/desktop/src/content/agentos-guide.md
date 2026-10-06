@@ -4,10 +4,10 @@ AgentOS is a local-first Mac control plane for running work through the Codex an
 
 ## Main areas
 
-- **Start** is a focused chat. Choose Codex or Claude Code, a model, reasoning effort, a project, and attachments in the composer.
-- **Tasks** are saved, repeatable work. A task can run one agent or a visual multi-step workflow.
+- **Chat** is a focused conversation. Choose Codex or Claude Code, a model, reasoning effort, a project, and attachments in the composer.
+- **Workflows**, opened from Home or an office, are saved, repeatable work. A task can run one agent or a visual multi-step workflow.
 - **Workflow map** connects offices, agents, prompts, context, MCPs, skills, connectors, approvals, and restrictions. Each execution step can choose its own model and effort.
-- **Company map** shows offices and agents with live states: working, idle, not connected, or needs approval. Select a waiting agent to inspect and approve or reject the request without leaving the map.
+- **Home** opens the company map, which shows offices and agents with live states: working, idle, not connected, or needs approval. Select a waiting agent to inspect and approve or reject the request without leaving the map.
 - **Activity** summarizes runs. Open a run only when detailed steps, output, logs, or errors are needed.
 - **Memory** is reviewed Markdown-backed knowledge at company, office, and agent scope. Memory is reference context and never permission to bypass safeguards.
 - **Library** discovers skills, MCP servers, agents, and connectors available from local provider configuration.
@@ -25,7 +25,7 @@ AgentOS has two independent approval layers:
 1. **Workflow approvals** are explicit human or reviewer-agent checkpoints added to a task. They always remain in force.
 2. **Provider permissions** control how often Codex or Claude Code asks before using tools. They are configured in Settings and copied into each new run.
 
-Chat is intentionally read-only. Create or run a task when files or commands must change. Codex tasks remain restricted to the selected workspace. Claude Code can either ask for tool permissions or automatically accept workspace file edits; commands that are not covered by that mode can still ask.
+Chat is read-only unless the user explicitly enables actions. Action-enabled chats and workflows use the provider permissions selected in Settings. The autonomy choices are Ask me, Ask for risky actions (the default), and Run on its own. Explicit workflow approval blocks remain independent. Codex tasks remain restricted to the selected workspace. Claude Code can either ask for tool permissions or automatically accept workspace file edits; commands that are not covered by that mode can still ask.
 
 ## Local and honest behavior
 

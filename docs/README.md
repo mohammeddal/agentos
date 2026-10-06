@@ -2,6 +2,12 @@
 
 ## Current AgentOS guides
 
+- [Repository home](../README.md): screenshots, prerequisites, and quick start.
+- [Contributing](../CONTRIBUTING.md): fork setup, checks, and pull requests.
+- [Security policy](../SECURITY.md): private reporting and actual security limits.
+- [Releasing](RELEASING.md): source publication, native builds, and fork identity.
+- [Publication audit](PUBLICATION-AUDIT.md): current-run checks and scope.
+
 - [Live execution](LIVE-EXECUTION.md): native Codex/Claude setup, execution support, approval boundaries, and remaining limitations. Supersedes earlier draft-only notes.
 - [Usage](USAGE.md): navigation, prompts, tasks, canvas, projects, memory, capability discovery, and limitations.
 - [Chat product guide](../apps/desktop/src/content/agentos-guide.md): the bundled source of truth added to AgentOS chat context so provider answers describe the app accurately.

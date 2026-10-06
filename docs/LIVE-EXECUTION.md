@@ -1,5 +1,7 @@
 # Native live execution
 
+> For current navigation and autonomy controls, start with [Usage](USAGE.md). This technical guide also preserves earlier runtime implementation details; provider defaults below are superseded by the Settings-selected permissions described in Usage.
+
 This guide supersedes draft-only statements in the earlier UX verification and usage notes. Live execution is implemented in the installed Tauri app, not in the browser preview or legacy Studio route.
 
 ## First run
@@ -59,7 +61,7 @@ Codex transport follows the official [App Server input protocol](https://learn.c
 
 The native backend spawns known executables directly, without a shell-interpolated prompt. Finder launches resolve common CLI locations and the Codex binary bundled with ChatGPT/Codex. Account credentials remain provider-owned; AgentOS does not copy tokens into its stores.
 
-Chat/reviewer runs are restricted: Codex filesystem sandbox is read-only, action approvals are denied, configured MCP/app connections and web search are disabled for that session; Claude chat/reviewer sessions have tools and MCP disabled. Task runs use Codex's workspace-write sandbox and user approval reviewer, or Claude Code's default permission mode with bidirectional permission requests. These are provider boundaries, not a claim that every read or pre-authorized action requires fresh approval. Trusted CLI configuration matters. Claude hooks are disabled for AgentOS sessions. Network model requests still go to the provider.
+Read-only chat/reviewer runs are restricted: Codex filesystem sandbox is read-only, action approvals are denied, configured MCP/app connections and web search are disabled for that session; Claude chat/reviewer sessions have tools and MCP disabled. Task runs and explicitly action-enabled chats use the selected provider permissions from Settings. Codex uses a workspace-write sandbox with the configured approval policy and network setting; Claude uses the selected default, accept-edits, or automatic mode. Explicit workflow approval blocks remain independent of those settings. These are provider boundaries, not a claim that every read or pre-authorized action requires fresh approval. Trusted CLI configuration matters. Claude hooks are disabled for AgentOS sessions. Network model requests still go to the provider.
 
 Native run history is written under `~/Library/Application Support/com.agentos.desktop/runtime/runs.json` using atomic replacement and user-only permissions. It contains prompts, context, replies, and bounded event logs; it is not encrypted. Runs are limited to 40 plan steps, four concurrent requests, 30 minutes, 1 MB output, and 500 saved events per run. Completed run history is retained. Chat and task metadata remain in the native webview's versioned local storage; the browser's store is separate.
 

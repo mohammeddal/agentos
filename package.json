@@ -1,5 +1,5 @@
 {
-  "name": "staffforge",
+  "name": "agentos",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,8 @@
   ],
   "scripts": {
     "audit:source": "node scripts/audit-source.mjs",
-    "format": "prettier --write apps/desktop/src/app apps/desktop/src/features apps/desktop/src/shared scripts docs README.md",
-    "format:check": "prettier --check apps/desktop/src/app apps/desktop/src/features apps/desktop/src/shared scripts docs README.md",
+    "format": "prettier --write apps/desktop/src/app apps/desktop/src/features apps/desktop/src/shared scripts docs .github README.md CONTRIBUTING.md SECURITY.md package.json",
+    "format:check": "prettier --check apps/desktop/src/app apps/desktop/src/features apps/desktop/src/shared scripts docs .github README.md CONTRIBUTING.md SECURITY.md package.json",
     "dev": "pnpm --filter @staffforge/desktop dev",
     "dev:desktop": "pnpm --filter @staffforge/desktop tauri:dev",
     "build": "pnpm -r --if-present build",
@@ -20,13 +20,28 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b --pretty false && tsc -p apps/desktop/tsconfig.server.json",
-    "staffforge": "tsx apps/cli/src/index.ts"
+    "staffforge": "tsx apps/cli/src/index.ts",
+    "check:repo": "node --test scripts/test-repository.mjs && node scripts/check-repository.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
     "prettier": "3.6.2",
     "tsx": "^4.19.3",
     "typescript": "^5.8.3",
-    "vitest": "^3.1.3"
+    "vitest": "^4.1.11"
+  },
+  "description": "Local-first macOS workspace for AI agents, workflows, and approvals.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mohammeddal/agentos.git"
+  },
+  "homepage": "https://github.com/mohammeddal/agentos#readme",
+  "bugs": {
+    "url": "https://github.com/mohammeddal/agentos/issues"
+  },
+  "engines": {
+    "node": ">=22.13.0"
   }
 }

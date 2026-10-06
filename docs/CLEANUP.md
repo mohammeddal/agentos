@@ -29,3 +29,7 @@ README now describes the actual default AgentOS surface. Detailed usage and alte
 Run `pnpm audit:source` to identify broken relative imports and unreachable source candidates. The command does not delete anything and is not a whole-program dead-code proof. Public package exports and tests are intentional roots. Run type checking, tests, builds, and browser smoke checks before removing a flagged candidate.
 
 Formatting is pinned and scoped to the maintained company UI, shared files, scripts, and documentation. Legacy UI formatting is not part of the default formatting command, to keep future changes focused.
+
+## Public source preparation — 2026-10-05
+
+Removed the unreferenced `src/features/tasks/CompanyTasks.tsx` (old `TaskForm`) and its exclusive `company-tasks.css`. The source audit identified exactly these two unreachable files, and a repository-wide reference search found no consumers of the module or its export. The active editor is `src/features/studio/WorkflowStudio.tsx`. The old files remain recoverable from commit `dea8856`. No runtime stores or retained alternate experiences were removed.

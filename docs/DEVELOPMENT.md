@@ -27,7 +27,8 @@ apps/
       features/
         company/               # Offices, domains, agents, forms, floor plan, model
         start/                 # Prompt composer and saved chats
-        tasks/                 # Task editor, schedules, handoffs, canvas, task detail
+        tasks/                 # Task models, schedules, handoffs, and runtime views
+        studio/                # Current workflow editor, inspectors, and Copilot
         projects/              # Company project explorer and folder requests
         activity/              # Rehearsals, approvals, agent/run inspection
         memory/                # Local Markdown workspace, editor, scoped files, and validation
@@ -39,7 +40,7 @@ apps/
   cli/                         # Earlier core/runtime CLI
 packages/                      # Runtime ports, core, event store, policies, plugins
 plugins/core-pack/             # Built-in capability manifest
-scripts/audit-source.mjs       # Source reachability check; no deletion
+scripts/                      # Source, publication-path, and secret checks
 docs/                          # Current guides plus labeled historical references
 ```
 
@@ -47,7 +48,7 @@ Keep components, CSS, model functions, and unit tests with their feature. Put on
 
 ## Commands and checks
 
-Use Node.js 22+ and the pinned pnpm version in `package.json`. Install with `pnpm install --frozen-lockfile`. Native development also needs Rust and Xcode Command Line Tools.
+Use Node.js 22.13+ and the pinned pnpm version in `package.json`. Install with `pnpm install --frozen-lockfile`. Native development also needs Rust and Xcode Command Line Tools.
 
 | Command                                                        | Purpose                                                      |
 | -------------------------------------------------------------- | ------------------------------------------------------------ |
@@ -64,11 +65,11 @@ Use Node.js 22+ and the pinned pnpm version in `package.json`. Install with `pnp
 
 The source audit follows static/dynamic TypeScript imports and CSS imports from browser, Vite, CLI, public package exports, and test entry points. It is deliberately conservative: reachability is not proof that every export, selector, package dependency, or feature is used. Investigate candidates before deletion. It does not read local user data or delete files.
 
-Before UI handoff: check Start, Tasks, Company tabs, Library tabs, global search, modal keyboard focus, direct hashes, reload, Back/Forward, light/dark themes, and a 390px viewport. For canvas changes test drag/drop, connection ports, selector alternatives, fit, undo/redo, saving, and reopening after task edits. Smoke-test all retained alternate routes after moves or dependency changes. Store screenshots in ignored `output/playwright/`.
+Before UI handoff: check Home, Chat, workflow editor, Activity, Library, global search, modal keyboard focus, direct hashes, reload, Back/Forward, light/dark themes, and a 390px viewport. For canvas changes test drag/drop, connection ports, selector alternatives, fit, undo/redo, saving, and reopening after task edits. Smoke-test all retained alternate routes after moves or dependency changes. Store screenshots in ignored `output/playwright/`.
 
 ## Navigation and state
 
-`app/navigation.ts` owns destination labels, grouping, hash parsing, and pure search. `useWorkspaceRoute.ts` binds hashes to navigation. Primary navigation always has six destinations; Company and Library own their subpages. Routes contain IDs, never serialized workspace contents. An unknown or malformed hash falls back to Start. Invalid office IDs show an unavailable notice.
+`app/navigation.ts` owns destination labels, grouping, hash parsing, and pure search. `useWorkspaceRoute.ts` binds hashes to navigation. Primary navigation uses Home, Chat, Activity, and Library, with Settings and utility controls in the rail. Home owns the office map and workflow entry points. Routes contain IDs, never serialized workspace contents. An unknown or malformed hash falls back to Home. Invalid office IDs show an unavailable notice.
 
 `CompanyWorkspace` owns company persistence and dialogs; feature modules receive explicit data and callbacks. Global Find searches saved company records without discovering engine capabilities or reading files. It does not replace an open editor. Dedicated feature searches cover chat contents, memory, and discovered capabilities.
 
@@ -94,3 +95,7 @@ These are not encrypted secret stores. Keep credentials out. Preserve local data
 Generated `dist`, `dist-types`, `target`, `node_modules`, TypeScript caches, browser artifacts, and local stores are ignored. They are not source organization problems. If build caches need cleaning, stop relevant processes and remove only a validated generated directory, never a workspace root or user data directory.
 
 Visual workflows compile into validated native plans. Per-step context notes and selected task files are scoped by attachment edges. Discovered MCP/skill/connector records become explicit required-capability instructions only when their provider matches; local discovery still does not prove authentication or live availability. Restriction blocks remain non-executable and must fail closed until the host can enforce them. Cosmetic work must not imply stronger guarantees.
+
+## Public repository checks
+
+Run `pnpm check:repo` for publication-path checks and `pnpm check:secrets` with Gitleaks 8.30.1 installed for Git history and current publishable-file scans. GitHub CI runs these alongside types, source reachability, tests, formatting, web build, npm audit, and a macOS native build. See [Contributing](../CONTRIBUTING.md), [Security](../SECURITY.md), and [Releasing](RELEASING.md).
