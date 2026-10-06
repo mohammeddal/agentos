@@ -86,7 +86,7 @@ Complete the browser sign-in, then reopen AgentOS. Open **Settings** to check CL
 
 AgentOS reuses these CLI sessions and does not provide its own provider login form, bundle providers, or copy credentials into the repository. Account eligibility, network access, and provider usage limits still apply. See [provider setup and test status](docs/PROVIDER-SETUP.md) for verification and troubleshooting. Official references: [Codex authentication](https://learn.chatgpt.com/docs/auth), [Claude CLI authentication commands](https://code.claude.com/docs/en/cli-reference).
 
-**Latest live check (2026-10-05):** Codex passed real replies, conversation continuation, and persistence through AgentOS. Claude Code's adapter is implemented, but the live request failed with an invalid OAuth token (HTTP 401); successful Claude execution remains unverified pending reauthentication. [Full test scope](docs/PROVIDER-SETUP.md#verified-status--2026-10-05).
+**Latest live check (2026-10-05):** Both Codex and Claude Code passed real replies, conversation continuation, and persisted history through AgentOS. Claude's earlier OAuth 401 was resolved by renewing its CLI sign-in and rerunning the integration test. These checks cover read-only chat transport, not every workflow or tool. [Full test scope](docs/PROVIDER-SETUP.md#verified-status--2026-10-05).
 
 ### Build from source
 

@@ -34,16 +34,16 @@ For Claude HTTP 401 errors, run `claude auth login` again in Terminal, complete 
 
 These are results from the actual AgentOS Rust runtime integration test, not a mocked frontend or a direct CLI response alone. Each provider was tested separately in a temporary workspace using short read-only prompts with tools disabled. No personal project data was sent.
 
-| Provider    | Installed CLI tested | Login-status check       | AgentOS live integration result                                                                            |
-| ----------- | -------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| Codex       | `0.158.0-alpha.2.1`  | ChatGPT sign-in reported | **Passed:** selected model/effort, actual reply, continued conversation, and persisted history             |
-| Claude Code | `2.1.161`            | Signed in reported       | **Blocked by authentication:** HTTP 401, invalid OAuth token; no successful reply or continuation verified |
+| Provider    | Installed CLI tested | Login-status check             | AgentOS live integration result                                                                                       |
+| ----------- | -------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Codex       | `0.158.0-alpha.2.1`  | ChatGPT sign-in reported       | **Passed:** selected model/effort, actual reply, continued conversation, and persisted history                        |
+| Claude Code | `2.1.161`            | Renewed Claude account sign-in | **Passed after reauthentication:** selected model/effort, actual reply, continued conversation, and persisted history |
 
-The Claude adapter is implemented and has offline coverage, but **successful live Claude execution is not verified**. Authentication prevented this run from establishing whether anything else needs fixing. Reauthenticate and rerun the test before claiming Claude support is fully verified.
+Claude initially reported signed in but failed with HTTP 401 in both a direct CLI request and the AgentOS integration test. No credential or endpoint environment overrides were set in the tested process. Renewing the sign-in with the official `claude auth login --claudeai` flow resolved the failure. The same AgentOS integration test then passed real replies, model/effort selection, continuation, and persisted history without an adapter code change. Credentials stayed in the provider-managed store; none were copied into this repository.
 
 The 19 Copilot/editor unit tests also passed in this follow-up. Those tests cover plan/model behavior; they are not evidence of a successful live Copilot generation.
 
-The Codex result covers the read-only chat transport, model selection, continuation, and persistence. This pass does not certify every workflow, Copilot-generated graph, attachment type, external tool, or approval path for either provider. CI's offline tests and builds do not authenticate to user accounts.
+Both provider results cover the read-only chat transport, model selection, continuation, and persistence. This pass does not certify every workflow, Copilot-generated graph, attachment type, external tool, or approval path for either provider. CI's offline tests and builds do not authenticate to user accounts.
 
 ### Reproduce the live checks
 

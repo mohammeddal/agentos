@@ -4,6 +4,13 @@ Current audit branch: `codex/task-workflow-audit`.
 
 This log records product, workflow, and native-runtime verification passes, newest first. For the native runtime architecture and provider boundaries, see [Live execution](LIVE-EXECUTION.md).
 
+## Claude authentication recovery — 2026-10-05
+
+- Confirmed the authentication failure outside AgentOS with a bounded direct Claude CLI request; credential and endpoint environment override variables were absent in the tested process.
+- Renewed the sign-in through the official `claude auth login --claudeai` browser flow. Credentials remained provider-managed; none were inspected, copied to AgentOS, or published.
+- Reran `AGENTOS_TEST_ENGINES=claude cargo test --locked --offline --manifest-path apps/desktop/src-tauri/Cargo.toml live_provider_smoke -- --ignored --nocapture`: **passed** with Claude Code `2.1.161` in 6.12 seconds. The test verified actual response, model/effort selection, conversation continuation, and persisted history.
+- No adapter code change was required. This supersedes the earlier same-day Claude authentication blocker below. Scope remains text-only, read-only chat; full Copilot workflow generation, tool approvals, and Claude attachment delivery were not verified by this check.
+
 ## Provider onboarding verification — 2026-10-05
 
 - Verified the documented sign-in commands against official provider documentation and the installed CLI help. Sign-in happens in Terminal/browser, not an embedded AgentOS login form.

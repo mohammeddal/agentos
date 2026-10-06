@@ -42,7 +42,7 @@ The unreferenced earlier task form and its exclusive stylesheet were removed aft
 ## Remaining release limits
 
 - Public source readiness does not imply a security-audited production binary. Signing, notarization, native CSP hardening, and Rust dependency-advisory review remain outstanding.
-- Live provider generation was not part of the initial source-publication pass. A later same-day [provider verification](PROVIDER-SETUP.md) passed Codex replies/continuation and confirmed a Claude OAuth 401 blocker. Neither result proves every third-party integration works.
+- Live provider generation was not part of the initial source-publication pass. A later same-day [provider verification](PROVIDER-SETUP.md) passed replies, continuation, and persistence for both Codex and Claude. Claude first failed with OAuth 401, then passed after its official sign-in was renewed. These checks do not prove every third-party integration works.
 - Browser screenshots used alternate loopback port 4175 because 4173 was occupied. Engine discovery returned the expected 403 from fixed-origin checks on that port; screenshots show offline/demo state. Native generation and private provider configuration were not accessed.
 - Vite reports a large JavaScript chunk warning. The build passes, but further code splitting is still an optimization opportunity.
 - This release does not claim native Windows/Linux verification, automatic updates, closed-app scheduling, or encrypted local storage.

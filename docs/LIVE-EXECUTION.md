@@ -11,7 +11,7 @@ This guide supersedes draft-only statements in the earlier UX verification and u
 3. In **Chat**, choose Codex or Claude Code and send a short prompt. A real reply verifies more than a stored login or model catalog. Conversation history resumes the provider session on subsequent turns.
 4. For a workflow, open **Home → New workflow**. Use **Copilot** to build or edit by chatting, or add blocks manually; inspect the plan, save it, then choose **Run**.
 
-See [Provider setup and test status](PROVIDER-SETUP.md) for complete sign-in instructions and current evidence. On 2026-10-05, the native Codex integration test passed actual replies, continuation, and persisted history. The equivalent Claude test reached the provider but failed with HTTP 401 (invalid OAuth token), so live Claude execution remains unverified.
+See [Provider setup and test status](PROVIDER-SETUP.md) for complete sign-in instructions and current evidence. On 2026-10-05, the native integration test passed actual replies, model/effort selection, continuation, and persisted history separately for Codex and Claude. Claude initially failed with HTTP 401; renewing its official CLI sign-in resolved that failure, and the same test then passed.
 
 An expired/revoked login requires provider reauthentication; AgentOS cannot repair that token. Claude can report a locally stored sign-in while a real request returns HTTP 401. No successful Claude generation should be claimed until it passes a real request.
 
@@ -38,7 +38,7 @@ The native app stores immutable selected-file copies under its application-data 
 
 Images use Codex App Server image inputs and Claude Code stream-JSON base64 image blocks. UTF-8 files and locally extracted PDF text are additional text blocks on both engines. The app does not execute attached files, auto-fetch URLs, or grant filesystem write permission by attaching them. Codex user-input event logs omit attachment contents. Provider-side conversation history is governed by that provider.
 
-Codex transport follows the official [App Server input protocol](https://learn.chatgpt.com/docs/app-server). PDF text extraction uses the [pdf-extract API](https://docs.rs/pdf-extract/latest/pdf_extract/). A real Codex test with an image, text file, and generated text PDF passed. Claude payload-shape tests pass; successful Claude generation remains unverified until its CLI account is reauthenticated.
+Codex transport follows the official [App Server input protocol](https://learn.chatgpt.com/docs/app-server). PDF text extraction uses the [pdf-extract API](https://docs.rs/pdf-extract/latest/pdf_extract/). A real Codex test with an image, text file, and generated text PDF passed. Claude payload-shape tests pass, and its text-chat integration test passed after reauthentication. Live Claude attachment delivery has not been verified by that text-only test.
 
 ## Model and reasoning selection
 
